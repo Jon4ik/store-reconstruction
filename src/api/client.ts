@@ -119,6 +119,25 @@ class ApiClient {
     });
   }
 
+  // LDAP / Active Directory
+  async getLdapSettings() { return this.request<any>('/ldap/settings'); }
+
+  async saveLdapSettings(data: { url: string; baseDN: string; bindDN: string; bindPassword?: string; clearBindPassword?: boolean }) {
+    return this.request<any>('/ldap/settings', { method: 'PUT', body: JSON.stringify(data) });
+  }
+
+  async testLdapConnection(bindPassword?: string) {
+    return this.request<any>('/ldap/test', { method: 'POST', body: JSON.stringify({ bindPassword }) });
+  }
+
+  async getLdapStatus() {
+    return this.request<{ configured: boolean }>('/ldap/status');
+  }
+
+  async syncTUsFromAD() {
+    return this.request<{ success: boolean; found: number; created: number; updated: number; disabled: number; skipped: number }>('/ldap/sync-tus', { method: 'POST' });
+  }
+
   // Users
   async getUsers() {
     return this.request<any[]>('/users');
