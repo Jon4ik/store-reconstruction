@@ -10,8 +10,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:migrate:old": "prisma migration apply",
-    "prisma:seed": "ts-node prisma/seed.ts",
-    "test": "node --test -r ts-node/register test/*.spec.ts"
+    "prisma:seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",
