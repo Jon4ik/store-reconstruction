@@ -126,8 +126,8 @@ class ApiClient {
     return this.request<any>('/ldap/settings', { method: 'PUT', body: JSON.stringify(data) });
   }
 
-  async testLdapConnection(bindPassword?: string) {
-    return this.request<any>('/ldap/test', { method: 'POST', body: JSON.stringify({ bindPassword }) });
+  async testLdapConnection(data?: { url?: string; baseDN?: string; bindDN?: string; bindPassword?: string }) {
+    return this.request<any>('/ldap/test', { method: 'POST', body: JSON.stringify(data || {}) });
   }
 
   async getLdapStatus() {
