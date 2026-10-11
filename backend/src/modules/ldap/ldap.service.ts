@@ -143,14 +143,21 @@ export class LdapService {
         const existing = await this.prisma.tU.findFirst({
           where: { OR: [{ adObjectGuid: guid }, ...(email ? [{ email: { equals: email, mode: 'insensitive' as const } }] : [])] },
         });
+        const data = { adObjectGuid: guid, fullName, position: title, email, phone, isActive: enabled };
         if (!enabled) {
           if (existing) {
-            await this.prisma.tU.update({ where: { id: existing.id }, data: { adObjectGuid: guid, isActive: false } });
+            await this.prisma.tU.update({ where: { id: existing.id }, data });
             if (existing.isActive) disabled++;
+            else updated++;
+          } else {
+            // Keep disabled AD users in the directory as inactive records so
+            // subsequent syncs can track them and they cannot be accidentally re-added.
+            await this.prisma.tU.create({ data });
+            created++;
+            disabled++;
           }
           continue;
         }
-        const data = { adObjectGuid: guid, fullName, position: title, email, phone, isActive: true };
         if (existing) { await this.prisma.tU.update({ where: { id: existing.id }, data }); updated++; }
         else { await this.prisma.tU.create({ data }); created++; }
       }
