@@ -141,10 +141,22 @@ export class AuthService {
     if (newPassword.length < 12 || newPassword.length > 128) throw new BadRequestException('Новый пароль должен содержать от 12 до 128 символов');
 
     const password = await bcrypt.hash(newPassword, 12);
-    const updated = await this.prisma.user.update({
-      where: { id: userId },
-      data: { password, tokenVersion: { increment: 1 } },
-      select: { id: true, username: true, fullName: true, roleId: true, tokenVersion: true, chatId: true, telegramId: true, theme: true, role: { select: { permissions: true } } },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const saved = await tx.user.update({
+        where: { id: userId },
+        data: { password, tokenVersion: { increment: 1 } },
+        select: { id: true, username: true, fullName: true, roleId: true, tokenVersion: true, chatId: true, telegramId: true, theme: true, role: { select: { permissions: true } } },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId,
+          userName: user.username,
+          action: 'change_password',
+          field: 'password',
+          details: 'Пользователь изменил собственный пароль',
+        },
+      });
+      return saved;
     });
     const access_token = this.jwtService.sign({ sub: updated.id, username: updated.username, role: updated.roleId, ver: updated.tokenVersion });
     return {
