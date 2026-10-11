@@ -42,7 +42,7 @@ export default function UsersPage() {
 
   const startEdit = (user: any) => {
     setEditingId(user.id);
-    setEditData({ username: user.username, fullName: user.fullName, roleId: user.role, isActive: user.isActive });
+    setEditData({ username: user.username, fullName: user.fullName, roleId: user.role, isActive: user.isActive, password: '' });
   };
 
   const saveEdit = async () => {
@@ -61,7 +61,9 @@ export default function UsersPage() {
         return;
       }
       try {
-        await updateUser(editingId, { ...editData, role: editData.roleId });
+        const { password, ...profileData } = editData;
+        if (password && password.length < 12) { alert('Новый пароль должен содержать минимум 12 символов'); return; }
+        await updateUser(editingId, { ...profileData, role: editData.roleId, ...(password ? { password } : {}) });
         setEditingId(null);
         setEditData(null);
       } catch (error) {
@@ -163,9 +165,12 @@ export default function UsersPage() {
                         </select>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button onClick={saveEdit} className="text-green-600 hover:bg-green-50 p-1 rounded">Сохранить</button>
-                          <button onClick={() => { setEditingId(null); setEditData(null); }} className="text-gray-600 hover:bg-gray-100 p-1 rounded">Отмена</button>
+                        <div className="flex flex-col items-start gap-2 min-w-40">
+                          <input type="password" value={editData.password || ''} onChange={e => setEditData({ ...editData, password: e.target.value })} minLength={12} maxLength={128} autoComplete="new-password" placeholder="Новый пароль (необязательно)" className="px-2 py-1 border border-gray-200 rounded text-xs w-52" />
+                          <div className="flex items-center gap-2">
+                            <button onClick={saveEdit} className="text-green-600 hover:bg-green-50 p-1 rounded">Сохранить</button>
+                            <button onClick={() => { setEditingId(null); setEditData(null); }} className="text-gray-600 hover:bg-gray-100 p-1 rounded">Отмена</button>
+                          </div>
                         </div>
                       </td>
                     </>
