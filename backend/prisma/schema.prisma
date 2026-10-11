@@ -45,11 +45,22 @@ model TU {
   position  String   @default("Территориальный управляющий")
   phone     String?
   email     String?
+  adObjectGuid String? @unique
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   projects  StoreProject[]
   @@map("tus")
+}
+
+model LdapSettings {
+  id                    String   @id @default("default")
+  url                   String   @default("")
+  baseDN                String   @default("")
+  bindDN                String   @default("")
+  bindPasswordEncrypted String   @default("")
+  updatedAt             DateTime @updatedAt
+  @@map("ldap_settings")
 }
 
 model StoreProject {
