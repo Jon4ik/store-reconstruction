@@ -81,7 +81,7 @@ export class LdapService {
       bindPasswordEncrypted: stored?.bindPasswordEncrypted || '',
     };
     if (!config.url || !config.baseDN || !config.bindDN) throw new BadRequestException('Заполните URL, Base DN и Bind DN в настройках LDAP.');
-    if (!/^ldaps?:\\/\\//i.test(config.url)) throw new BadRequestException('URL должен начинаться с ldap:// или ldaps://');
+    if (!config.url.startsWith('ldap://') && !config.url.startsWith('ldaps://')) throw new BadRequestException('URL должен начинаться с ldap:// или ldaps://');
     const password = overrides?.bindPassword || (config.bindPasswordEncrypted ? this.decrypt(config.bindPasswordEncrypted) : '');
     if (!password) throw new BadRequestException('Укажите пароль сервисной учётной записи LDAP.');
     const client = new Client({ url: config.url, timeout: 10000, connectTimeout: 10000 });
