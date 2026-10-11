@@ -233,6 +233,7 @@ export default function UsersPage() {
             })}
           </tbody>
         </table>
+      </div>
       {passwordUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={e => { if (e.target === e.currentTarget && !savingPassword) setPasswordUser(null); }}>
           <div role="dialog" aria-modal="true" aria-labelledby="change-user-password-title" className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-xl">
@@ -256,7 +257,6 @@ export default function UsersPage() {
           </div>
         </div>
       )}
-      </div>
     </div>
   );
 }
