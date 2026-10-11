@@ -19,7 +19,7 @@ export class LdapController {
 
   @Post('test')
   @RequirePermissions('settings')
-  testConnection(@Body() body: { bindPassword?: string }) { return this.ldapService.testConnection(body?.bindPassword); }
+  testConnection(@Body() body: { url?: string; baseDN?: string; bindDN?: string; bindPassword?: string }) { return this.ldapService.testConnection(body); }
 
   @Get('status')
   @RequirePermissions('manage_tus')
