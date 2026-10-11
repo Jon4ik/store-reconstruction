@@ -54,8 +54,7 @@ export default function SettingsPage() {
     setTesting(true);
     setMessage('');
     try {
-      if (form.bindPassword) await apiClient.testLdapConnection(form.bindPassword);
-      else await apiClient.testLdapConnection();
+      await apiClient.testLdapConnection({ url: form.url, baseDN: form.baseDN, bindDN: form.bindDN, ...(form.bindPassword ? { bindPassword: form.bindPassword } : {}) });
       setMessage('Подключение к LDAP успешно.');
     } catch (error) {
       setMessage('Проверка подключения не пройдена: ' + (error as Error).message);
