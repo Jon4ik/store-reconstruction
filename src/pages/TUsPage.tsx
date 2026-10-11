@@ -1,17 +1,35 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useStore } from '../store/useStore';
-import { Plus, Edit2, Trash2, Phone, Mail, Check } from 'lucide-react';
+import { Plus, Edit2, Trash2, Phone, Mail, Check, RefreshCw } from 'lucide-react';
 import { validatePhone, validateEmail } from '../utils/validation';
 import PhoneInput from '../components/PhoneInput';
+import { apiClient } from '../api/client';
 
 export default function TUsPage() {
-  const { tus, projects, addTU, updateTU, deleteTU, hasPermission } = useStore();
+  const { tus, projects, addTU, updateTU, deleteTU, loadTUs, hasPermission } = useStore();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newTU, setNewTU] = useState({ fullName: '', position: 'Территориальный управляющий', phone: '', email: '', isActive: true });
   const [editData, setEditData] = useState<any>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [ldapConfigured, setLdapConfigured] = useState(false);
+  const [syncingAD, setSyncingAD] = useState(false);
+
+  useEffect(() => {
+    apiClient.getLdapStatus().then(status => setLdapConfigured(status.configured)).catch(() => setLdapConfigured(false));
+  }, []);
+
+  const handleSyncAD = async () => {
+    setSyncingAD(true);
+    try {
+      const result = await apiClient.syncTUsFromAD();
+      await loadTUs();
+      alert(`Синхронизация AD завершена. Найдено: ${result.found}, добавлено: ${result.created}, обновлено: ${result.updated}, отключено: ${result.disabled}, пропущено: ${result.skipped}.`);
+    } catch (error) {
+      alert('Не удалось синхронизировать AD: ' + (error as Error).message);
+    } finally { setSyncingAD(false); }
+  };
 
   if (!hasPermission('manage_tus')) {
     return <div className="text-center py-12 text-gray-500">Нет доступа к этой странице</div>;
@@ -81,9 +99,14 @@ export default function TUsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Справочник ТУ</h1>
           <p className="text-sm text-gray-500 mt-1">Территориальные управляющие, назначаемые на объекты</p>
         </div>
-        <button onClick={() => setShowAddForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
-          <Plus size={16} /> Добавить ТУ
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={handleSyncAD} disabled={!ldapConfigured || syncingAD} title={ldapConfigured ? 'Синхронизировать ТУ с Active Directory' : 'Сначала заполните настройки LDAP'} className="flex items-center gap-2 px-4 py-2 border border-blue-600 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed">
+            <RefreshCw size={16} className={syncingAD ? 'animate-spin' : ''} /> {syncingAD ? 'Синхронизация...' : 'Синхронизировать с AD'}
+          </button>
+          <button onClick={() => setShowAddForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+            <Plus size={16} /> Добавить ТУ
+          </button>
+        </div>
       </div>
 
       {/* Поиск */}
