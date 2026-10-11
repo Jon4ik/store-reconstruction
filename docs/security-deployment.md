@@ -30,6 +30,3 @@ The API accepts only `.xlsx`, limits uploads to 5 MiB and 5,000 data rows, and r
 
 Login throttling is currently in-process and per username. For a multi-instance deployment, move counters to a shared store such as Redis and consider combining username and source-IP limits. Application-level append-only audit prevents deletion through the API; database administrators can still alter database records, so use PostgreSQL permissions and external backups/WORM archival if tamper evidence is a hard requirement.
 
-## Dependency audit status
-
-The current backend dependency tree still contains known high/critical npm advisories. CI intentionally keeps `npm audit --audit-level=high` as a blocking check rather than hiding these findings. The latest completed CI run passed frontend typecheck/build and backend tests/build, but the dependency-audit step failed; do not treat the branch as production-ready until the NestJS/Multer/bcrypt dependency tree and lockfile are upgraded and the audit passes.
