@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { Plus, Edit2, Trash2, UserCheck, UserX, Shield } from 'lucide-react';
+import { Plus, Edit2, Trash2, KeyRound } from 'lucide-react';
 
 export default function UsersPage() {
   const { users, roles, addUser, updateUser, deleteUser, currentUser, hasPermission } = useStore();
@@ -9,6 +9,10 @@ export default function UsersPage() {
   const [newUser, setNewUser] = useState({ username: '', password: '', fullName: '', roleId: roles[0]?.id || '', isActive: true });
   const [editData, setEditData] = useState<any>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [passwordUser, setPasswordUser] = useState<any>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
 
   if (!hasPermission('manage_users')) {
     return <div className="text-center py-12 text-gray-500">Нет доступа к этой странице</div>;
@@ -42,7 +46,7 @@ export default function UsersPage() {
 
   const startEdit = (user: any) => {
     setEditingId(user.id);
-    setEditData({ username: user.username, fullName: user.fullName, roleId: user.role, isActive: user.isActive, password: '' });
+    setEditData({ username: user.username, fullName: user.fullName, roleId: user.role, isActive: user.isActive });
   };
 
   const saveEdit = async () => {
@@ -61,15 +65,38 @@ export default function UsersPage() {
         return;
       }
       try {
-        const { password, ...profileData } = editData;
-        if (password && password.length < 12) { alert('Новый пароль должен содержать минимум 12 символов'); return; }
-        await updateUser(editingId, { ...profileData, role: editData.roleId, ...(password ? { password } : {}) });
+        await updateUser(editingId, { ...editData, role: editData.roleId });
         setEditingId(null);
         setEditData(null);
       } catch (error) {
         console.error('Failed to update user:', error);
         alert('Ошибка при обновлении пользователя');
       }
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    if (!passwordUser) return;
+    if (newPassword.length < 12 || newPassword.length > 128) {
+      alert('Пароль должен содержать от 12 до 128 символов');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      alert('Пароли не совпадают');
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      await updateUser(passwordUser.id, { password: newPassword } as any);
+      setPasswordUser(null);
+      setNewPassword('');
+      setConfirmPassword('');
+      alert('Пароль пользователя изменён');
+    } catch (error: any) {
+      console.error('Failed to change user password:', error);
+      alert(error?.message || 'Ошибка при изменении пароля');
+    } finally {
+      setSavingPassword(false);
     }
   };
 
@@ -166,7 +193,6 @@ export default function UsersPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-col items-start gap-2 min-w-40">
-                          <input type="password" value={editData.password || ''} onChange={e => setEditData({ ...editData, password: e.target.value })} minLength={12} maxLength={128} autoComplete="new-password" placeholder="Новый пароль (необязательно)" className="px-2 py-1 border border-gray-200 rounded text-xs w-52" />
                           <div className="flex items-center gap-2">
                             <button onClick={saveEdit} className="text-green-600 hover:bg-green-50 p-1 rounded">Сохранить</button>
                             <button onClick={() => { setEditingId(null); setEditData(null); }} className="text-gray-600 hover:bg-gray-100 p-1 rounded">Отмена</button>
@@ -186,7 +212,8 @@ export default function UsersPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <button onClick={() => startEdit(user)} className="text-blue-600 hover:bg-blue-50 p-1.5 rounded"><Edit2 size={16} /></button>
+                          <button onClick={() => startEdit(user)} title="Редактировать пользователя" aria-label="Редактировать пользователя" className="text-blue-600 hover:bg-blue-50 p-1.5 rounded"><Edit2 size={16} /></button>
+                          <button onClick={() => { setPasswordUser(user); setNewPassword(''); setConfirmPassword(''); }} title="Изменить пароль" aria-label="Изменить пароль" className="text-amber-600 hover:bg-amber-50 p-1.5 rounded"><KeyRound size={16} /></button>
                           {deleteConfirm === user.id ? (
                             <div className="flex items-center gap-1">
                               <button onClick={() => handleDelete(user.id)} className="text-xs bg-red-600 text-white px-2 py-1 rounded">Да</button>
@@ -206,6 +233,29 @@ export default function UsersPage() {
             })}
           </tbody>
         </table>
+      {passwordUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={e => { if (e.target === e.currentTarget && !savingPassword) setPasswordUser(null); }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="change-user-password-title" className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-xl">
+            <h2 id="change-user-password-title" className="mb-1 text-lg font-semibold text-gray-900">Изменение пароля</h2>
+            <p className="mb-5 text-sm text-gray-500">Пользователь: <span className="font-medium text-gray-700">{passwordUser.username}</span></p>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Новый пароль *</label>
+                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={12} maxLength={128} autoComplete="new-password" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" autoFocus />
+                <p className="mt-1 text-xs text-gray-500">От 12 до 128 символов</p>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Повторите пароль *</label>
+                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} minLength={12} maxLength={128} autoComplete="new-password" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button onClick={() => setPasswordUser(null)} disabled={savingPassword} className="rounded-lg border border-gray-200 px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50">Отмена</button>
+              <button onClick={handlePasswordChange} disabled={savingPassword || !newPassword || !confirmPassword} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">{savingPassword ? 'Сохранение…' : 'Изменить пароль'}</button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );
