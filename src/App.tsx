@@ -13,6 +13,7 @@ import RolesPage from './pages/RolesPage';
 import TUsPage from './pages/TUsPage';
 import AuditPage from './pages/AuditPage';
 import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
 
 export default function App() {
   const { currentUser, restoreSession, loadProjects, loadTUs, loadUsers, loadRoles, loadAuditLog, defaultWorkType } = useStore();
@@ -50,6 +51,7 @@ export default function App() {
       tus: 'Справочник ТУ',
       audit: 'Аудит',
       profile: 'Профиль',
+      settings: 'Настройки LDAP',
     };
     
     document.title = `${titles[currentPage] || 'Главная'} - Реконструкция`;
@@ -67,6 +69,7 @@ export default function App() {
       case 'tus': return <TUsPage />;
       case 'audit': return <AuditPage />;
       case 'profile': return <ProfilePage />;
+      case 'settings': return <SettingsPage />;
       default: return <Dashboard />;
     }
   };
