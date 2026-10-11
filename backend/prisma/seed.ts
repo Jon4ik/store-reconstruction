@@ -49,21 +49,17 @@ async function main() {
   }
 
   else {
-    // Never disable accounts during routine seeding. Recover legacy demo accounts
-    // disabled by older versions of this seed script, but only when their hash
-    // still matches the known legacy password. Change these passwords immediately.
-    for (const [username, defaultPassword] of [
-      ['admin', 'admin123'],
-      ['manager', 'manager123'],
-      ['viewer', 'viewer123'],
-    ]) {
-      const existing = await prisma.user.findUnique({ where: { username }, select: { id: true, password: true, isActive: true } });
-      if (existing && !existing.isActive && await bcrypt.compare(defaultPassword, existing.password)) {
+    // Built-in accounts are protected system accounts. Older seed versions could
+    // disable them, which locked administrators out. Re-enable them without
+    // changing their existing password; disabling them is blocked by UsersService.
+    for (const username of ['admin', 'manager', 'viewer']) {
+      const existing = await prisma.user.findUnique({ where: { username }, select: { id: true, isActive: true } });
+      if (existing && !existing.isActive) {
         await prisma.user.update({
           where: { id: existing.id },
           data: { isActive: true, tokenVersion: { increment: 1 } },
         });
-        console.warn(`Re-enabled legacy account "${username}" so an administrator can sign in and rotate its password.`);
+        console.warn(`Re-enabled protected system account "${username}".`);
       }
     }
   }
