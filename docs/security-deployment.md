@@ -6,7 +6,7 @@
 - Set `DOMAIN` to the allowed browser origin, including scheme.
 - Set `LDAP_ENCRYPTION_KEY` to a randomly generated 32-byte key encoded as 64 hex characters. Generate one with `openssl rand -hex 32`. Keep it in the deployment secret store; do not commit it or store it in PostgreSQL.
 - The LDAP encryption key must remain stable while encrypted credentials are stored. If the key is lost or changed, re-enter the LDAP bind password in the settings page.
-- Keep `SEED_DEMO_USERS=false` in production. The seed process no longer disables accounts automatically. If it restores a legacy demo account still using its published default password, change that password immediately.
+- Keep `SEED_DEMO_USERS=false` in production. Routine seeding does not change system-account passwords; it re-enables the protected built-in accounts `admin`, `manager`, and `viewer` if older code disabled them. Change any weak or legacy password immediately after regaining access.
 
 ## LDAP / Active Directory
 
