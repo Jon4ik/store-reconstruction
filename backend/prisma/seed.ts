@@ -49,20 +49,21 @@ async function main() {
   }
 
   else {
-    // Disable legacy demo accounts only when their password still matches the published default.
-    // This preserves real accounts that have already rotated their passwords.
+    // Never disable accounts during routine seeding. Recover legacy demo accounts
+    // disabled by older versions of this seed script, but only when their hash
+    // still matches the known legacy password. Change these passwords immediately.
     for (const [username, defaultPassword] of [
       ['admin', 'admin123'],
       ['manager', 'manager123'],
       ['viewer', 'viewer123'],
     ]) {
       const existing = await prisma.user.findUnique({ where: { username }, select: { id: true, password: true, isActive: true } });
-      if (existing && existing.isActive && await bcrypt.compare(defaultPassword, existing.password)) {
+      if (existing && !existing.isActive && await bcrypt.compare(defaultPassword, existing.password)) {
         await prisma.user.update({
           where: { id: existing.id },
-          data: { isActive: false, tokenVersion: { increment: 1 } },
+          data: { isActive: true, tokenVersion: { increment: 1 } },
         });
-        console.warn(`Disabled legacy account "${username}" because it still used a published default password.`);
+        console.warn(`Re-enabled legacy account "${username}" so an administrator can sign in and rotate its password.`);
       }
     }
   }
