@@ -38,6 +38,7 @@ export default function StoreTable() {
   }, [tabProjects, sortDir, activeTab]);
 
   const getTUName = (id: string) => tus.find(t => t.id === id)?.fullName || '—';
+  const getTUPhone = (id: string) => tus.find(t => t.id === id)?.phone || '—';
 
   const handleExport = () => {
     console.log('Экспорт начат', { activeTab, projectsCount: sortedProjects.length });
@@ -53,13 +54,12 @@ export default function StoreTable() {
           return {
             '№ магазина': p.storeNumber,
             'Адрес': p.address,
-            'Город': p.city,
             'Тип работ': p.workType,
             'Закрытие': formatDate(p.closureDate),
             'Демонтаж': formatDate(p.demolitionDate),
             'Монтаж': formatDate(p.installationDate),
             'Тех. открытие': formatDate(p.techOpenDate),
-            'Номер ТУ / ID': p.tuId,
+            'Телефон ТУ': getTUPhone(p.tuId),
             'ТУ': getTUName(p.tuId),
             'Статус': calculateProjectStatus(p),
           };
@@ -67,10 +67,9 @@ export default function StoreTable() {
           return {
             '№ магазина': p.storeNumber,
             'Адрес': p.address,
-            'Город': p.city,
             'Монтаж': formatDate(p.installationDate),
             'Тех. открытие': formatDate(p.techOpenDate),
-            'Номер ТУ / ID': p.tuId,
+            'Телефон ТУ': getTUPhone(p.tuId),
             'ТУ': getTUName(p.tuId),
             'Статус': calculateProjectStatus(p),
           };
