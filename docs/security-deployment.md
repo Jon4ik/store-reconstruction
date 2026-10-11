@@ -1,32 +1,30 @@
-# Security rollout
+# Deployment and LDAP configuration
 
 ## Required environment
 
-- Set `JWT_SECRET` to a cryptographically random value of at least 32 characters. The API intentionally refuses to start without it.
-- Keep `JWT_EXPIRES_IN` at the default `15m` unless there is a reviewed reason to change it.
-- Keep `SEED_DEMO_USERS=false` in production. For initial setup, set `BOOTSTRAP_ADMIN_PASSWORD` to a unique password of 12–128 characters, run the migration service once, then remove the variable and run the migration service again. Demo users are opt-in only and require three explicit strong passwords.
-- `DOMAIN` must be the full allowed browser origin, including scheme, e.g. `https://reconstruction.example.com`.
+- Set `JWT_SECRET` to a cryptographically random value of at least 32 characters.
+- Set `DOMAIN` to the allowed browser origin, including scheme.
+- Set `LDAP_ENCRYPTION_KEY` to a randomly generated 32-byte key encoded as 64 hex characters. Generate one with `openssl rand -hex 32`. Keep it in the deployment secret store; do not commit it or store it in PostgreSQL.
+- The LDAP encryption key must remain stable while encrypted credentials are stored. If the key is lost or changed, re-enter the LDAP bind password in the settings page.
+- Keep `SEED_DEMO_USERS=false` in production. The seed process no longer disables accounts automatically. If it restores a legacy demo account still using its published default password, change that password immediately.
+
+## LDAP / Active Directory
+
+1. Configure `LDAP_ENCRYPTION_KEY` in the backend container environment and restart the backend.
+2. Open **Настройки LDAP** and fill in the LDAP URL, Base DN, Bind DN and password for a read-only service account. Prefer `ldaps://` with a valid certificate.
+3. Test the connection, then save the settings.
+4. Open **Справочник ТУ** and click **Синхронизировать с AD**. The action remains disabled until LDAP settings and the encryption key are configured.
+5. Synchronization searches users whose `title` attribute is exactly `Территориальный управляющий`. It creates or updates TUs, matches existing entries by AD object GUID or email, and deactivates a matched TU when the corresponding AD account has the disabled bit set in `userAccountControl`.
+
+The bind password is encrypted with AES-256-GCM before it is saved in PostgreSQL. The encryption key is never returned by the API. Grant the service account only the directory read permissions it needs.
 
 ## Deploy
 
-1. Back up PostgreSQL.
-2. Build and start with `docker compose up --build -d`. The one-shot `migrate` service applies Prisma migrations and seeds roles/TUs before the API starts.
-3. Confirm the `migrate` service completed successfully and the API health check is green.
-4. Verify a viewer receives HTTP 403 from `/api/users`, `/api/roles`, `/api/audit`, and `/api/import/excel`, while an administrator can access only the routes granted by the current role.
-5. Verify logout invalidates the previous bearer token, and that the audit-clear endpoint refuses destructive clearing.
-6. Rotate credentials for every existing account that may have used a published default password. The seed script automatically disables the legacy `admin`, `manager`, or `viewer` account only if its stored bcrypt hash still matches the old published default.
-7. Keep port 4000 private. Only the frontend/reverse proxy should be exposed publicly.
+Back up PostgreSQL, then run:
 
-## Import format
+```sh
+docker compose up --build -d
+docker compose logs -f backend frontend
+```
 
-The first worksheet uses row 1 as the header. Each data row must have:
-- Column A: store number
-- Column B: address
-- Column C: active TU ID or full name
-
-The API accepts only `.xlsx`, limits uploads to 5 MiB and 5,000 data rows, and reports success/error counts per row.
-
-## Important limitations
-
-Login throttling is currently in-process and per username. For a multi-instance deployment, move counters to a shared store such as Redis and consider combining username and source-IP limits. Application-level append-only audit prevents deletion through the API; database administrators can still alter database records, so use PostgreSQL permissions and external backups/WORM archival if tamper evidence is a hard requirement.
-
+The one-shot migration service applies Prisma migrations before the API starts. Do not delete database volumes when deploying these changes.
