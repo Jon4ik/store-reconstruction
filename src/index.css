@@ -240,3 +240,105 @@ html[data-theme="dark"] [class~="shadow-lg"] { --tw-shadow-color: rgb(0 0 0 / 35
   html[data-theme="system"] textarea::placeholder { color: #9ca3af; }
   html[data-theme="system"] table tr { border-color: #374151; }
 }
+
+
+/* Extend dark mode to status colors and white inline row colors used by older records. */
+html[data-theme="dark"] [class~="bg-orange-50"],
+html[data-theme="dark"] [class~="bg-orange-100"] { background-color: #431407 !important; }
+html[data-theme="dark"] [class~="bg-emerald-50"],
+html[data-theme="dark"] [class~="bg-emerald-100"] { background-color: #022c22 !important; }
+html[data-theme="dark"] [class~="bg-cyan-50"],
+html[data-theme="dark"] [class~="bg-cyan-100"] { background-color: #083344 !important; }
+html[data-theme="dark"] [class~="bg-sky-50"],
+html[data-theme="dark"] [class~="bg-sky-100"] { background-color: #082f49 !important; }
+html[data-theme="dark"] [class~="bg-teal-50"],
+html[data-theme="dark"] [class~="bg-teal-100"] { background-color: #042f2e !important; }
+html[data-theme="dark"] [class~="bg-pink-50"],
+html[data-theme="dark"] [class~="bg-pink-100"] { background-color: #500724 !important; }
+html[data-theme="dark"] [class~="bg-rose-50"],
+html[data-theme="dark"] [class~="bg-rose-100"] { background-color: #4c0519 !important; }
+html[data-theme="dark"] [class~="bg-lime-50"],
+html[data-theme="dark"] [class~="bg-lime-100"] { background-color: #1a2e05 !important; }
+html[data-theme="dark"] [class~="bg-fuchsia-50"],
+html[data-theme="dark"] [class~="bg-fuchsia-100"] { background-color: #4a044e !important; }
+html[data-theme="dark"] [class~="bg-slate-50"],
+html[data-theme="dark"] [class~="bg-slate-100"],
+html[data-theme="dark"] [class~="bg-zinc-50"],
+html[data-theme="dark"] [class~="bg-zinc-100"],
+html[data-theme="dark"] [class~="bg-neutral-50"],
+html[data-theme="dark"] [class~="bg-neutral-100"] { background-color: #273449 !important; }
+html[data-theme="dark"] [class~="text-orange-700"],
+html[data-theme="dark"] [class~="text-orange-600"] { color: #fdba74 !important; }
+html[data-theme="dark"] [class~="text-emerald-700"],
+html[data-theme="dark"] [class~="text-emerald-600"] { color: #6ee7b7 !important; }
+html[data-theme="dark"] [class~="text-cyan-700"],
+html[data-theme="dark"] [class~="text-cyan-600"] { color: #67e8f9 !important; }
+html[data-theme="dark"] [class~="text-sky-700"],
+html[data-theme="dark"] [class~="text-sky-600"] { color: #7dd3fc !important; }
+html[data-theme="dark"] [class~="text-teal-700"],
+html[data-theme="dark"] [class~="text-teal-600"] { color: #5eead4 !important; }
+html[data-theme="dark"] [class~="text-pink-700"],
+html[data-theme="dark"] [class~="text-pink-600"] { color: #f9a8d4 !important; }
+html[data-theme="dark"] [class~="text-rose-700"],
+html[data-theme="dark"] [class~="text-rose-600"] { color: #fda4af !important; }
+html[data-theme="dark"] [class~="text-lime-700"],
+html[data-theme="dark"] [class~="text-lime-600"] { color: #bef264 !important; }
+html[data-theme="dark"] [class~="text-fuchsia-700"],
+html[data-theme="dark"] [class~="text-fuchsia-600"] { color: #f0abfc !important; }
+html[data-theme="dark"] tr[style*="255, 255, 255"],
+html[data-theme="dark"] tr[style*="#fff"],
+html[data-theme="dark"] tr[style*="#FFF"] {
+  background-color: #1f2937 !important;
+  color: #e5e7eb;
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] [class~="bg-orange-50"],
+  html[data-theme="system"] [class~="bg-orange-100"] { background-color: #431407 !important; }
+  html[data-theme="system"] [class~="bg-emerald-50"],
+  html[data-theme="system"] [class~="bg-emerald-100"] { background-color: #022c22 !important; }
+  html[data-theme="system"] [class~="bg-cyan-50"],
+  html[data-theme="system"] [class~="bg-cyan-100"] { background-color: #083344 !important; }
+  html[data-theme="system"] [class~="bg-sky-50"],
+  html[data-theme="system"] [class~="bg-sky-100"] { background-color: #082f49 !important; }
+  html[data-theme="system"] [class~="bg-teal-50"],
+  html[data-theme="system"] [class~="bg-teal-100"] { background-color: #042f2e !important; }
+  html[data-theme="system"] [class~="bg-pink-50"],
+  html[data-theme="system"] [class~="bg-pink-100"] { background-color: #500724 !important; }
+  html[data-theme="system"] [class~="bg-rose-50"],
+  html[data-theme="system"] [class~="bg-rose-100"] { background-color: #4c0519 !important; }
+  html[data-theme="system"] [class~="bg-lime-50"],
+  html[data-theme="system"] [class~="bg-lime-100"] { background-color: #1a2e05 !important; }
+  html[data-theme="system"] [class~="bg-fuchsia-50"],
+  html[data-theme="system"] [class~="bg-fuchsia-100"] { background-color: #4a044e !important; }
+  html[data-theme="system"] [class~="bg-slate-50"],
+  html[data-theme="system"] [class~="bg-slate-100"],
+  html[data-theme="system"] [class~="bg-zinc-50"],
+  html[data-theme="system"] [class~="bg-zinc-100"],
+  html[data-theme="system"] [class~="bg-neutral-50"],
+  html[data-theme="system"] [class~="bg-neutral-100"] { background-color: #273449 !important; }
+  html[data-theme="system"] [class~="text-orange-700"],
+  html[data-theme="system"] [class~="text-orange-600"] { color: #fdba74 !important; }
+  html[data-theme="system"] [class~="text-emerald-700"],
+  html[data-theme="system"] [class~="text-emerald-600"] { color: #6ee7b7 !important; }
+  html[data-theme="system"] [class~="text-cyan-700"],
+  html[data-theme="system"] [class~="text-cyan-600"] { color: #67e8f9 !important; }
+  html[data-theme="system"] [class~="text-sky-700"],
+  html[data-theme="system"] [class~="text-sky-600"] { color: #7dd3fc !important; }
+  html[data-theme="system"] [class~="text-teal-700"],
+  html[data-theme="system"] [class~="text-teal-600"] { color: #5eead4 !important; }
+  html[data-theme="system"] [class~="text-pink-700"],
+  html[data-theme="system"] [class~="text-pink-600"] { color: #f9a8d4 !important; }
+  html[data-theme="system"] [class~="text-rose-700"],
+  html[data-theme="system"] [class~="text-rose-600"] { color: #fda4af !important; }
+  html[data-theme="system"] [class~="text-lime-700"],
+  html[data-theme="system"] [class~="text-lime-600"] { color: #bef264 !important; }
+  html[data-theme="system"] [class~="text-fuchsia-700"],
+  html[data-theme="system"] [class~="text-fuchsia-600"] { color: #f0abfc !important; }
+  html[data-theme="system"] tr[style*="255, 255, 255"],
+  html[data-theme="system"] tr[style*="#fff"],
+  html[data-theme="system"] tr[style*="#FFF"] {
+    background-color: #1f2937 !important;
+    color: #e5e7eb;
+  }
+}
