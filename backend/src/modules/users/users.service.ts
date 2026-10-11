@@ -2,6 +2,8 @@ import { Injectable, ConflictException, NotFoundException, BadRequestException }
 import { PrismaService } from '../../prisma.service';
 import * as bcrypt from 'bcrypt';
 
+const PROTECTED_SYSTEM_USERS = new Set(['admin', 'manager', 'viewer']);
+
 const publicUserSelect = {
   id: true,
   username: true,
@@ -83,6 +85,9 @@ export class UsersService {
     }
     if (data.isActive !== undefined) {
       if (typeof data.isActive !== 'boolean') throw new BadRequestException('isActive должен быть boolean');
+      if (data.isActive === false && PROTECTED_SYSTEM_USERS.has(existing.username.toLowerCase())) {
+        throw new BadRequestException('Нельзя отключить системную учётную запись');
+      }
       updateData.isActive = data.isActive;
       updateData.tokenVersion = { increment: 1 };
     }
@@ -129,6 +134,7 @@ export class UsersService {
   async remove(id: string, actorId?: string, actorName?: string) {
     const existing = await this.prisma.user.findUnique({ where: { id }, select: { id: true, username: true, fullName: true } });
     if (!existing) throw new NotFoundException('Пользователь не найден');
+    if (PROTECTED_SYSTEM_USERS.has(existing.username.toLowerCase())) throw new BadRequestException('Нельзя отключить системную учётную запись');
     if (actorId === id) throw new BadRequestException('Нельзя удалить собственную учётную запись');
 
     return this.prisma.$transaction(async (tx) => {
