@@ -72,10 +72,17 @@ export class LdapService {
     return this.getSettings();
   }
 
-  private async connect(passwordOverride?: string) {
-    const config = await this.getStored();
-    if (!config?.url || !config.baseDN || !config.bindDN) throw new BadRequestException('Заполните URL, Base DN и Bind DN в настройках LDAP.');
-    const password = passwordOverride || (config.bindPasswordEncrypted ? this.decrypt(config.bindPasswordEncrypted) : '');
+  private async connect(overrides?: { url?: string; baseDN?: string; bindDN?: string; bindPassword?: string }) {
+    const stored = await this.getStored();
+    const config = {
+      url: overrides?.url?.trim() || stored?.url || '',
+      baseDN: overrides?.baseDN?.trim() || stored?.baseDN || '',
+      bindDN: overrides?.bindDN?.trim() || stored?.bindDN || '',
+      bindPasswordEncrypted: stored?.bindPasswordEncrypted || '',
+    };
+    if (!config.url || !config.baseDN || !config.bindDN) throw new BadRequestException('Заполните URL, Base DN и Bind DN в настройках LDAP.');
+    if (!/^ldaps?:\\/\\//i.test(config.url)) throw new BadRequestException('URL должен начинаться с ldap:// или ldaps://');
+    const password = overrides?.bindPassword || (config.bindPasswordEncrypted ? this.decrypt(config.bindPasswordEncrypted) : '');
     if (!password) throw new BadRequestException('Укажите пароль сервисной учётной записи LDAP.');
     const client = new Client({ url: config.url, timeout: 10000, connectTimeout: 10000 });
     try {
@@ -87,8 +94,8 @@ export class LdapService {
     }
   }
 
-  async testConnection(passwordOverride?: string) {
-    const { client } = await this.connect(passwordOverride);
+  async testConnection(overrides?: { url?: string; baseDN?: string; bindDN?: string; bindPassword?: string }) {
+    const { client } = await this.connect(overrides);
     try { return { success: true, message: 'Подключение к LDAP успешно' }; }
     finally { try { await client.unbind(); } catch {} }
   }
