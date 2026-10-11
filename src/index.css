@@ -142,3 +142,101 @@ html[data-theme="dark"] .hover\\:bg-gray-100:hover {
     background-color: #4b5563 !important;
   }
 }
+
+
+/* Dark theme overrides for utility classes used throughout pages, tables and modals. */
+html[data-theme="dark"] [class~="bg-white"],
+html[data-theme="dark"] [class~="bg-gray-50"] { background-color: #111827 !important; }
+html[data-theme="dark"] [class~="bg-white"] { background-color: #1f2937 !important; }
+html[data-theme="dark"] [class~="bg-gray-100"] { background-color: #273449 !important; }
+html[data-theme="dark"] [class~="bg-gray-200"] { background-color: #374151 !important; }
+html[data-theme="dark"] [class~="bg-blue-50"] { background-color: #172554 !important; }
+html[data-theme="dark"] [class~="bg-blue-100"] { background-color: #1e3a8a !important; }
+html[data-theme="dark"] [class~="bg-green-50"] { background-color: #052e24 !important; }
+html[data-theme="dark"] [class~="bg-green-100"] { background-color: #064e3b !important; }
+html[data-theme="dark"] [class~="bg-red-50"] { background-color: #450a0a !important; }
+html[data-theme="dark"] [class~="bg-red-100"] { background-color: #7f1d1d !important; }
+html[data-theme="dark"] [class~="bg-yellow-50"] { background-color: #422006 !important; }
+html[data-theme="dark"] [class~="bg-yellow-100"] { background-color: #713f12 !important; }
+html[data-theme="dark"] [class~="bg-purple-50"] { background-color: #3b0764 !important; }
+html[data-theme="dark"] [class~="bg-purple-100"] { background-color: #581c87 !important; }
+html[data-theme="dark"] [class~="bg-indigo-50"] { background-color: #1e1b4b !important; }
+html[data-theme="dark"] [class~="bg-indigo-100"] { background-color: #312e81 !important; }
+html[data-theme="dark"] [class~="text-blue-700"],
+html[data-theme="dark"] [class~="text-blue-600"] { color: #93c5fd !important; }
+html[data-theme="dark"] [class~="text-green-700"],
+html[data-theme="dark"] [class~="text-green-600"] { color: #86efac !important; }
+html[data-theme="dark"] [class~="text-red-700"],
+html[data-theme="dark"] [class~="text-red-600"] { color: #fca5a5 !important; }
+html[data-theme="dark"] [class~="text-purple-700"],
+html[data-theme="dark"] [class~="text-purple-600"] { color: #d8b4fe !important; }
+html[data-theme="dark"] [class~="text-yellow-700"] { color: #fde68a !important; }
+html[data-theme="dark"] [class~="border-blue-100"],
+html[data-theme="dark"] [class~="border-blue-200"],
+html[data-theme="dark"] [class~="border-green-100"],
+html[data-theme="dark"] [class~="border-red-100"],
+html[data-theme="dark"] [class~="border-yellow-100"] { border-color: #4b5563 !important; }
+html[data-theme="dark"] [class~="hover:bg-gray-50"]:hover,
+html[data-theme="dark"] [class~="hover:bg-gray-100"]:hover { background-color: #374151 !important; }
+html[data-theme="dark"] [class~="hover:bg-blue-50"]:hover { background-color: #1e3a8a !important; }
+html[data-theme="dark"] [class~="hover:bg-green-50"]:hover { background-color: #064e3b !important; }
+html[data-theme="dark"] [class~="hover:bg-red-50"]:hover { background-color: #7f1d1d !important; }
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select,
+html[data-theme="dark"] option {
+  background-color: #111827;
+  color: #f9fafb;
+  border-color: #4b5563;
+}
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder { color: #9ca3af; }
+html[data-theme="dark"] table tr { border-color: #374151; }
+html[data-theme="dark"] [class~="shadow"],
+html[data-theme="dark"] [class~="shadow-lg"] { --tw-shadow-color: rgb(0 0 0 / 35%); }
+
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] [class~="bg-white"],
+  html[data-theme="system"] [class~="bg-gray-50"] { background-color: #111827 !important; }
+  html[data-theme="system"] [class~="bg-white"] { background-color: #1f2937 !important; }
+  html[data-theme="system"] [class~="bg-gray-100"] { background-color: #273449 !important; }
+  html[data-theme="system"] [class~="bg-gray-200"] { background-color: #374151 !important; }
+  html[data-theme="system"] [class~="bg-blue-50"] { background-color: #172554 !important; }
+  html[data-theme="system"] [class~="bg-blue-100"] { background-color: #1e3a8a !important; }
+  html[data-theme="system"] [class~="bg-green-50"] { background-color: #052e24 !important; }
+  html[data-theme="system"] [class~="bg-green-100"] { background-color: #064e3b !important; }
+  html[data-theme="system"] [class~="bg-red-50"] { background-color: #450a0a !important; }
+  html[data-theme="system"] [class~="bg-red-100"] { background-color: #7f1d1d !important; }
+  html[data-theme="system"] [class~="bg-yellow-50"] { background-color: #422006 !important; }
+  html[data-theme="system"] [class~="bg-yellow-100"] { background-color: #713f12 !important; }
+  html[data-theme="system"] [class~="bg-purple-50"] { background-color: #3b0764 !important; }
+  html[data-theme="system"] [class~="bg-purple-100"] { background-color: #581c87 !important; }
+  html[data-theme="system"] [class~="bg-indigo-50"] { background-color: #1e1b4b !important; }
+  html[data-theme="system"] [class~="bg-indigo-100"] { background-color: #312e81 !important; }
+  html[data-theme="system"] [class~="text-blue-700"],
+  html[data-theme="system"] [class~="text-blue-600"] { color: #93c5fd !important; }
+  html[data-theme="system"] [class~="text-green-700"],
+  html[data-theme="system"] [class~="text-green-600"] { color: #86efac !important; }
+  html[data-theme="system"] [class~="text-red-700"],
+  html[data-theme="system"] [class~="text-red-600"] { color: #fca5a5 !important; }
+  html[data-theme="system"] [class~="text-purple-700"],
+  html[data-theme="system"] [class~="text-purple-600"] { color: #d8b4fe !important; }
+  html[data-theme="system"] [class~="text-yellow-700"] { color: #fde68a !important; }
+  html[data-theme="system"] [class~="border-blue-100"],
+  html[data-theme="system"] [class~="border-blue-200"],
+  html[data-theme="system"] [class~="border-green-100"],
+  html[data-theme="system"] [class~="border-red-100"],
+  html[data-theme="system"] [class~="border-yellow-100"] { border-color: #4b5563 !important; }
+  html[data-theme="system"] [class~="hover:bg-gray-50"]:hover,
+  html[data-theme="system"] [class~="hover:bg-gray-100"]:hover { background-color: #374151 !important; }
+  html[data-theme="system"] [class~="hover:bg-blue-50"]:hover { background-color: #1e3a8a !important; }
+  html[data-theme="system"] [class~="hover:bg-green-50"]:hover { background-color: #064e3b !important; }
+  html[data-theme="system"] [class~="hover:bg-red-50"]:hover { background-color: #7f1d1d !important; }
+  html[data-theme="system"] input,
+  html[data-theme="system"] textarea,
+  html[data-theme="system"] select,
+  html[data-theme="system"] option { background-color: #111827; color: #f9fafb; border-color: #4b5563; }
+  html[data-theme="system"] input::placeholder,
+  html[data-theme="system"] textarea::placeholder { color: #9ca3af; }
+  html[data-theme="system"] table tr { border-color: #374151; }
+}
