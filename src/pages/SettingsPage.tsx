@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CheckCircle2, KeyRound, Save, Server, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, KeyRound, Save, Server, ShieldCheck } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { apiClient } from '../api/client';
 
@@ -108,7 +108,7 @@ export default function SettingsPage() {
                 <Save size={16} /> {saving ? 'Сохранение...' : 'Сохранить настройки'}
               </button>
               <button onClick={test} disabled={testing || !form.url.trim() || !form.baseDN.trim() || !form.bindDN.trim() || (!passwordConfigured && !form.bindPassword)} className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50">
-                <TestTube2 size={16} /> {testing ? 'Проверка...' : 'Проверить подключение'}
+                <CheckCircle2 size={16} /> {testing ? 'Проверка...' : 'Проверить подключение'}
               </button>
             </div>
           </>
