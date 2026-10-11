@@ -31,6 +31,7 @@ services:
       NODE_ENV: production
       PORT: 4000
       DOMAIN: ${DOMAIN:-http://localhost:5001}
+      LDAP_ENCRYPTION_KEY: ${LDAP_ENCRYPTION_KEY:-}
     depends_on:
       migrate:
         condition: service_completed_successfully
