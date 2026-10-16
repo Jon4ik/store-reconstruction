@@ -81,6 +81,7 @@ export interface SystemUser {
   password?: string;
   fullName: string;
   role: string;
+  roleName?: string;
   permissions?: string[];
   isActive: boolean;
   createdAt: string;
