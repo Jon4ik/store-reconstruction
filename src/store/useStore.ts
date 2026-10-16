@@ -396,17 +396,6 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  // Import
-  importProjects: async (file: File) => {
-    try {
-      await apiClient.importExcel(file);
-      await get().loadProjects();
-    } catch (error) {
-      console.error('Failed to import projects:', error);
-      throw error;
-    }
-  },
-
   // DB Config
   updateDbConfig: (config: Partial<DatabaseConfig>) => {
     set(state => ({ dbConfig: { ...state.dbConfig, ...config } }));
