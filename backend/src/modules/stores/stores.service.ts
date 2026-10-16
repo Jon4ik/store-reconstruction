@@ -151,7 +151,7 @@ export class StoresService {
     return this.prisma.$transaction(async (tx) => {
       const store = await tx.storeProject.create({ data: clean, include: { tu: true, shop: true } });
       await tx.auditLog.create({
-        data: { storeId: store.id, userId, userName, action: 'create', field: 'project', newValue: store.storeNumber, details: `Создан объект №${store.storeNumber}` },
+        data: { storeId: store.id, userId, userName, action: 'create', field: 'project', newValue: directoryShop.shopNumber, details: `Создан объект №${directoryShop.shopNumber}` },
       });
       return this.withShopFields(store);
     });
@@ -214,10 +214,11 @@ export class StoresService {
       }
       for (const [field, newValue] of Object.entries(clean)) {
         if (field === 'rowColor') continue;
-        const oldValue = (existing as any)[field];
+        const oldValue = field === 'storeNumber' ? existing.shop?.shopNumber : (existing as any)[field];
+        const auditNewValue = field === 'storeNumber' ? store.shop?.shopNumber : newValue;
         const isDateField = (DATE_FIELDS as readonly string[]).includes(field);
         const normalizedOld = isDateField ? this.auditDate(oldValue) : oldValue instanceof Date ? oldValue.toISOString() : String(oldValue ?? '');
-        const normalizedNew = isDateField ? this.auditDate(newValue) : newValue instanceof Date ? newValue.toISOString() : String(newValue ?? '');
+        const normalizedNew = isDateField ? this.auditDate(newValue) : auditNewValue instanceof Date ? auditNewValue.toISOString() : String(auditNewValue ?? '');
         if (normalizedOld === normalizedNew) continue;
         await tx.auditLog.create({
           data: {
