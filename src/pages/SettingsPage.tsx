@@ -77,7 +77,7 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
         <p className="text-sm text-gray-500 mt-1">Параметры подключения используются для синхронизации справочников из AD.</p>
       </div>
 
-      {(hasPermission('manage_ldap') || hasPermission('settings')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+      {mode === 'ldap' && (hasPermission('manage_ldap') || hasPermission('settings')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
         <div className="flex items-center gap-3">
           <Server size={22} className="text-blue-600" />
           <h2 className="text-lg font-semibold text-gray-900">Подключение к каталогу</h2>
@@ -128,7 +128,7 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
         <div className="flex items-center gap-3"><button disabled={integrationSaving} onClick={async()=>{setIntegrationSaving(true);setIntegrationMessage('');try{const result=await apiClient.saveIntraDeskSettings({enabled:integration.enabled,apiGateway:integration.apiGateway, ...(integration.apiKey?{apiKey:integration.apiKey}:{}), ...(integration.clearApiKey?{clearApiKey:true}:{})});setIntegration(current=>({...current,apiKey:'',clearApiKey:false,apiKeyConfigured:result.apiKeyConfigured}));setIntegrationMessage('Настройки IntraDesk сохранены.');}catch(e){setIntegrationMessage('Ошибка сохранения: '+(e as Error).message);}finally{setIntegrationSaving(false)}}} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{integrationSaving?'Сохранение…':'Сохранить интеграцию'}</button>{integrationMessage && <p role="status" aria-live="polite" className="text-sm font-semibold text-blue-800">{integrationMessage}</p>}</div>
       </section>}
 
-      {(hasPermission('manage_ldap') || hasPermission('settings')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
+      {mode === 'ldap' && (hasPermission('manage_ldap') || hasPermission('settings')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
         <div className="flex items-center gap-3">
           <ShieldCheck size={22} className="text-green-600" />
           <h2 className="text-lg font-semibold text-gray-900">Защита данных</h2>
