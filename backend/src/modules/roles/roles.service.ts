@@ -54,17 +54,33 @@ export class RolesService {
   async update(id: string, data: any, userId?: string, userName?: string) {
     const existing = await this.prisma.role.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Роль не найдена');
-    const clean = this.validate(data, true);
-    if (!Object.keys(clean).length) throw new BadRequestException('Нет допустимых полей для изменения');
+    const submitted = this.validate(data, true);
+    const normalizeValue = (field: string, value: unknown): unknown => {
+      if (field === 'permissions') {
+        return Array.isArray(value) ? [...new Set(value.map(String))].sort() : [];
+      }
+      if (field === 'name' || field === 'description') return String(value ?? '').trim();
+      return value;
+    };
+    const clean = Object.fromEntries(
+      Object.entries(submitted).filter(([field, value]) =>
+        JSON.stringify(normalizeValue(field, (existing as any)[field])) !== JSON.stringify(normalizeValue(field, value)),
+      ).map(([field, value]) => [field, normalizeValue(field, value)]),
+    );
+    // Re-saving an unchanged role is a no-op: don't touch updated data or create false audit events.
+    if (!Object.keys(clean).length) return existing;
+
     return this.prisma.$transaction(async (tx) => {
       const role = await tx.role.update({ where: { id }, data: clean });
       if (userId) {
         for (const field of Object.keys(clean)) {
+          const oldValue = normalizeValue(field, (existing as any)[field]);
+          const newValue = normalizeValue(field, (role as any)[field]);
           await tx.auditLog.create({
             data: {
               userId, userName: userName || 'Система', action: 'update_role', field,
-              oldValue: String((existing as any)[field] ?? ''),
-              newValue: Array.isArray((role as any)[field]) ? (role as any)[field].join(',') : String((role as any)[field] ?? ''),
+              oldValue: Array.isArray(oldValue) ? oldValue.join(', ') : String(oldValue ?? ''),
+              newValue: Array.isArray(newValue) ? newValue.join(', ') : String(newValue ?? ''),
               details: `Изменено поле "${field}" роли ${role.name}`,
             },
           });
