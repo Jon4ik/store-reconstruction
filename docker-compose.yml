@@ -43,6 +43,8 @@ services:
         GROUP BY p."storeNumber"
         ON CONFLICT ("shopNumber") DO NOTHING;
         UPDATE public.store_projects AS p SET "storeNumber" = s."id" FROM public.shop_directory AS s WHERE p."storeNumber" = s."shopNumber" OR lpad(p."storeNumber", 3, '0') = s."shopNumber";
+        ALTER TABLE public.store_projects DROP COLUMN IF EXISTS "address";
+        ALTER TABLE public.store_projects DROP COLUMN IF EXISTS "city";
         SQL
         npx prisma db push --skip-generate &&
         npm run prisma:seed
