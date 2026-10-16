@@ -40,6 +40,7 @@ function isHiddenEvent(log: AuditLogEntry): boolean {
 function getModule(log: AuditLogEntry): string {
   const action = String(log.action || '').toLowerCase();
   const route = getRequestPath(log).toLowerCase();
+  if (action.includes('audit') || route.includes('/audit')) return 'Аудит';
   if (action === 'login' || action === 'logout' || route.includes('/auth/logout')) return 'Авторизация';
   if (action === 'scheduler_run' || route.includes('/scheduler')) return 'Планировщик';
   if (route.includes('/ldap') || route.includes('/integrations') || route.includes('/notifications')) return 'Настройки';
@@ -54,6 +55,7 @@ function getModule(log: AuditLogEntry): string {
 const ACTION_LABELS: Record<string, string> = {
   login: 'Вход в систему',
   logout: 'Выход из системы',
+  clear_audit: 'Очистка журнала аудита',
   create: 'Создание',
   update: 'Изменение',
   delete: 'Удаление',
@@ -78,6 +80,7 @@ function getActionLabel(log: AuditLogEntry): string {
 const ACTION_COLORS: Record<string, string> = {
   login: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
   logout: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200',
+  clear_audit: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200',
   create: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
   update: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
   delete: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200',
@@ -89,6 +92,7 @@ const ACTION_COLORS: Record<string, string> = {
 
 const MODULE_COLORS: Record<string, string> = {
   'Авторизация': 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
+  'Аудит': 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200',
   'Объекты': 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
   'Комментарии': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200',
   'Справочник ТУ': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200',
