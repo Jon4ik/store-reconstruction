@@ -1,10 +1,22 @@
 -- Audit history is append-only: application roles may insert and read records,
--- but must not rewrite or remove existing evidence.
+-- but must not rewrite or remove existing evidence. The only permitted UPDATE is
+-- detaching nullable foreign keys when a referenced business/user row is deleted;
+-- the immutable actor name and audit payload remain intact.
 CREATE OR REPLACE FUNCTION public.reject_audit_log_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $audit_guard$
 BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    IF (to_jsonb(NEW) - 'userId' - 'storeId') IS DISTINCT FROM (to_jsonb(OLD) - 'userId' - 'storeId')
+       OR (NEW."userId" IS DISTINCT FROM OLD."userId" AND NEW."userId" IS NOT NULL)
+       OR (NEW."storeId" IS DISTINCT FROM OLD."storeId" AND NEW."storeId" IS NOT NULL) THEN
+      RAISE EXCEPTION 'audit_logs is append-only: UPDATE is forbidden'
+        USING ERRCODE = '55000';
+    END IF;
+    RETURN NEW;
+  END IF;
+
   RAISE EXCEPTION 'audit_logs is append-only: % is forbidden', TG_OP
     USING ERRCODE = '55000';
 END;
