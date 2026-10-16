@@ -26,6 +26,7 @@ export default function AddStoreModal() {
     if (!isAddModalOpen || !number) { setShopMatches([]); setShopSearchLoading(false); setForm(current => ({ ...current, address: '', city: '' })); return; }
     let active = true;
     setShopSearchLoading(true);
+    setForm(current => ({ ...current, address: '', city: '' }));
     apiClient.searchShopByNumber(number).then((items: any[]) => {
       if (!active) return;
       setShopMatches(items);
