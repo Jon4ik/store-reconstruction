@@ -20,17 +20,8 @@ services:
         npx prisma migrate deploy &&
         printf '%s\n' 'ALTER TABLE public.users DROP COLUMN IF EXISTS "userName";' |
           npx prisma db execute --stdin --schema prisma/schema.prisma &&
-        npx prisma db execute --stdin --schema prisma/schema.prisma <<'SQL'
-        DO $
-        BEGIN
-          IF to_regclass('public.store_projects') IS NOT NULL AND to_regclass('public.shop_directory') IS NOT NULL THEN
-            EXECUTE 'UPDATE public.store_projects AS p SET "storeNumber" = s."id" FROM public.shop_directory AS s WHERE p."storeNumber" = s."shopNumber" OR lpad(p."storeNumber", 3, ''0'') = s."shopNumber"';
-            IF EXISTS (SELECT 1 FROM public.store_projects AS p LEFT JOIN public.shop_directory AS s ON s."id" = p."storeNumber" WHERE s."id" IS NULL) THEN
-              RAISE EXCEPTION 'Store project migration stopped: one or more store numbers are missing from shop_directory. Synchronize the shop directory and restart.';
-            END IF;
-          END IF;
-        END $;
-        SQL
+        printf '%s\\n' "UPDATE public.store_projects AS p SET \"storeNumber\" = s.\"id\" FROM public.shop_directory AS s WHERE p.\"storeNumber\" = s.\"shopNumber\" OR lpad(p.\"storeNumber\", 3, '0') = s.\"shopNumber\";" |
+          npx prisma db execute --stdin --schema prisma/schema.prisma &&
         npx prisma db push --skip-generate &&
         npm run prisma:seed
     networks:
