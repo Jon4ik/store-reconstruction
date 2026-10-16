@@ -78,7 +78,7 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
         <p className="text-sm text-gray-500 mt-1">{mode === 'integrations' ? 'Параметры внешних сервисов и рекомендации по безопасному подключению.' : 'Параметры подключения используются для синхронизации справочников из AD.'}</p>
       </div>
 
-      {message && <div role="status" aria-live="polite" className={`rounded-xl border-2 p-4 text-base font-semibold shadow-lg ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не удалось') ? 'border-red-400 bg-red-50 text-red-900 dark-readable-error' : 'border-green-400 bg-green-50 text-green-900 dark-readable-success'}`}>{message}</div>}
+      {mode === 'ldap' && message && <div role="status" aria-live="polite" className={`rounded-xl border-2 p-4 text-base font-semibold shadow-lg ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не удалось') ? 'border-red-400 bg-red-50 text-red-900 dark-readable-error' : 'border-green-400 bg-green-50 text-green-900 dark-readable-success'}`}>{message}</div>}
 
       <div className={mode === 'ldap' || mode === 'integrations' ? 'grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-2 gap-4 lg:gap-6 items-start' : 'contents'}>
       {mode === 'ldap' && (hasPermission('manage_ldap') || hasPermission('settings')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
@@ -135,11 +135,11 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
       </section>}
 
       {mode === 'integrations' && <aside className="rounded-xl border border-blue-100 bg-blue-50 p-6 space-y-4 dark-readable-panel">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-blue-950"><ShieldCheck size={21}/>Описание настроек</h2>
-        <div><h3 className="text-sm font-semibold text-blue-950">Интеграция с IntraDesk</h3><p className="mt-1 text-sm text-blue-900">Включайте интеграцию только после получения URL API-шлюза и ключа от владельца сервиса. Пока интеграция выключена, приложение не должно выполнять обмен с IntraDesk.</p></div>
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-blue-950 dark-readable-heading"><ShieldCheck size={21}/>Описание настроек</h2>
+        <div><h3 className="text-sm font-semibold text-blue-950 dark-readable-heading">Интеграция с IntraDesk</h3><p className="mt-1 text-sm text-blue-900 dark-readable-copy">Включайте интеграцию только после получения URL API-шлюза и ключа от владельца сервиса. Пока интеграция выключена, приложение не должно выполнять обмен с IntraDesk.</p></div>
         <div><h3 className="text-sm font-semibold text-blue-950">API-шлюз</h3><p className="mt-1 text-sm text-blue-900">Укажите базовый HTTPS-адрес API, предоставленный администратором IntraDesk. Проверьте доступность адреса с сервера приложения и не указывайте адрес пользовательского интерфейса вместо API.</p></div>
         <div><h3 className="text-sm font-semibold text-blue-950">API-ключ</h3><p className="mt-1 text-sm text-blue-900">Секретный ключ вводится только для сохранения или замены и не отображается повторно. Он шифруется на сервере перед записью в PostgreSQL. Храните LDAP_ENCRYPTION_KEY в секретах окружения.</p></div>
-        <div className="border-t border-blue-200 pt-3 text-xs text-blue-900">Сохранение параметров настраивает соединение, но само по себе не запускает обмен данными. Для полноценного обмена необходим согласованный API-контракт IntraDesk.</div>
+        <div className="border-t border-blue-200 pt-3 text-xs text-blue-900 dark-readable-copy">Сохранение параметров настраивает соединение, но само по себе не запускает обмен данными. Для полноценного обмена необходим согласованный API-контракт IntraDesk.</div>
       </aside>}
 
       {mode === 'ldap' && (hasPermission('manage_ldap') || hasPermission('settings')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
