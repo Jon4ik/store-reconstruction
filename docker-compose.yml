@@ -36,12 +36,40 @@ services:
         );
         CREATE UNIQUE INDEX IF NOT EXISTS "shop_directory_shopNumber_key" ON public.shop_directory ("shopNumber");
         CREATE INDEX IF NOT EXISTS "shop_directory_city_idx" ON public.shop_directory ("city");
-        INSERT INTO public.shop_directory ("id", "shopNumber", "city", "address", "workHours", "areaManager", "areaManagerPhone", "tu", "directorate", "createdAt", "updatedAt")
-        SELECT gen_random_uuid()::text, lpad(p."storeNumber", 3, '0'), COALESCE(MAX(p."city"), ''), COALESCE(MAX(p."address"), 'Адрес не указан'), '', '', '', '', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-        FROM public.store_projects AS p
-        WHERE NOT EXISTS (SELECT 1 FROM public.shop_directory AS s WHERE s."shopNumber" = p."storeNumber" OR s."shopNumber" = lpad(p."storeNumber", 3, '0') OR s."id" = p."storeNumber")
-        GROUP BY p."storeNumber"
-        ON CONFLICT ("shopNumber") DO NOTHING;
+        DO $shop_directory_backfill$
+        BEGIN
+          -- Legacy installations may still have address/city on store_projects.
+          -- Reference those columns only when both are present; after the first
+          -- successful deployment they are dropped, so subsequent starts must not
+          -- parse or query p.city/p.address again.
+          IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'store_projects' AND column_name = 'city'
+          ) AND EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'store_projects' AND column_name = 'address'
+          ) THEN
+            EXECUTE $legacy_shop_fields$
+              INSERT INTO public.shop_directory ("id", "shopNumber", "city", "address", "workHours", "areaManager", "areaManagerPhone", "tu", "directorate", "createdAt", "updatedAt")
+              SELECT gen_random_uuid()::text, lpad(p."storeNumber", 3, '0'), COALESCE(MAX(p."city"), ''), COALESCE(MAX(p."address"), 'Адрес не указан'), '', '', '', '', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+              FROM public.store_projects AS p
+              WHERE NOT EXISTS (SELECT 1 FROM public.shop_directory AS s WHERE s."shopNumber" = p."storeNumber" OR s."shopNumber" = lpad(p."storeNumber", 3, '0') OR s."id" = p."storeNumber")
+              GROUP BY p."storeNumber"
+              ON CONFLICT ("shopNumber") DO NOTHING
+            $legacy_shop_fields$;
+          ELSE
+            -- The legacy columns are already gone. Keep shop metadata sourced
+            -- from shop_directory; create placeholders only for orphaned project
+            -- references so the FK can be established safely.
+            INSERT INTO public.shop_directory ("id", "shopNumber", "city", "address", "workHours", "areaManager", "areaManagerPhone", "tu", "directorate", "createdAt", "updatedAt")
+            SELECT gen_random_uuid()::text, lpad(p."storeNumber", 3, '0'), '', 'Адрес не указан', '', '', '', '', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            FROM public.store_projects AS p
+            WHERE NOT EXISTS (SELECT 1 FROM public.shop_directory AS s WHERE s."shopNumber" = p."storeNumber" OR s."shopNumber" = lpad(p."storeNumber", 3, '0') OR s."id" = p."storeNumber")
+            GROUP BY p."storeNumber"
+            ON CONFLICT ("shopNumber") DO NOTHING;
+          END IF;
+        END
+        $shop_directory_backfill$;
         UPDATE public.store_projects AS p SET "storeNumber" = s."id" FROM public.shop_directory AS s WHERE p."storeNumber" = s."shopNumber" OR lpad(p."storeNumber", 3, '0') = s."shopNumber";
         ALTER TABLE public.store_projects DROP COLUMN IF EXISTS "address";
         ALTER TABLE public.store_projects DROP COLUMN IF EXISTS "city";
