@@ -209,11 +209,8 @@ export default function StoreCard() {
                 <div className="space-y-4">
                   <div>
                     <label className="text-xs font-medium text-gray-500 mb-1 block">Адрес</label>
-                    {isEditing ? (
-                      <input type="text" value={editData?.address || project.address} onChange={e => setEditData({ ...editData, address: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-                    ) : (
-                      <p className="text-sm font-medium text-gray-900 bg-gray-50 px-3 py-2 rounded-lg">{project.address}</p>
-                    )}
+                    <p className="text-sm font-medium text-gray-900 bg-gray-50 px-3 py-2 rounded-lg">{project.address}</p>
+                    <p className="mt-1 text-xs text-gray-500">Адрес берётся из справочника магазинов и не редактируется в карточке объекта.</p>
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-500 mb-1 block">ТУ (Территориальный управляющий)</label>
