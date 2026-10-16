@@ -26,7 +26,7 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
     ]},
     { id: 'directory', label: 'Справочник', icon: UserCheck, items: [
       { id: 'tus', label: 'Справочник ТУ', permission: 'manage_tus' },
-      { id: 'shops', label: 'Магазины', permission: 'manage_shops' },
+      { id: 'shops', label: 'Магазины', permission: 'view_shops' },
     ]},
     { id: 'settings', label: 'Настройки', icon: Settings, items: [
       { id: 'settings', label: 'Синхронизация с LDAP', permission: 'manage_ldap' },
