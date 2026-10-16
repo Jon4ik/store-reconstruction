@@ -55,7 +55,7 @@ export interface StoreProject {
 export interface AuditLogEntry {
   id: string;
   storeId: string | null;
-  userId: string;
+  userId: string | null;
   userName: string;
   timestamp: string;
   action: string;
