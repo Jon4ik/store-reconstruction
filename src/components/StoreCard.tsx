@@ -198,7 +198,7 @@ export default function StoreCard() {
                   {nearestEvent && !overdueInfo && (
                     <div className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-lg">
                       <Clock size={16} />
-                      <span className="text-sm font-medium">{nearestEvent.daysUntil === 0 ? 'Сегодня' : `Через ${nearestEvent.daysUntil} дн.`}: {nearestEvent.name}</span>
+                      <span className="text-sm font-medium dark-readable-event">{nearestEvent.daysUntil === 0 ? 'Сегодня' : `Через ${nearestEvent.daysUntil} дн.`}: {nearestEvent.name}</span>
                     </div>
                   )}
                 </div>
