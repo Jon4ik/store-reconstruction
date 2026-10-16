@@ -4,7 +4,7 @@ import { PrismaService } from '../../prisma.service';
 const ALLOWED_PERMISSIONS = new Set([
   'view', 'edit', 'view_closures', 'create_closures', 'edit_closures', 'delete_closures',
   'view_openings', 'create_openings', 'edit_openings', 'delete_openings', 'view_calendar',
-  'view_dashboard', 'export', 'view_comments', 'add_comments', 'delete_comments',
+  'view_dashboard', 'import', 'export', 'view_comments', 'add_comments', 'delete_comments',
   'view_users', 'manage_users', 'view_roles', 'manage_roles', 'view_tus', 'manage_tus',
   'view_audit', 'settings', 'manage_ldap', 'manage_integrations', 'manage_notifications', 'delete_closures', 'delete_openings',
 ]);
