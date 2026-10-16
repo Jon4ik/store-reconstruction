@@ -29,7 +29,7 @@ export class RolesController {
   }
 
   @Delete(':id')
-  @RequirePermissions('manage_roles', 'settings')
+  @RequirePermissions('manage_roles')
   remove(@Param('id') id: string, @Request() req) {
     return this.rolesService.remove(id, req.user.sub, req.user.username);
   }
