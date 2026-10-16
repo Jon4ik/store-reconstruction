@@ -415,3 +415,18 @@ html[data-theme="dark"] .dark-readable-muted { color: #d1d5db !important; }
 
 html[data-theme="dark"] .dark-readable-event { color: #f9fafb !important; }
 @media (prefers-color-scheme: dark) { html[data-theme="system"] .dark-readable-event { color: #f9fafb !important; } }
+
+
+/* Calendar event chips: use dark surfaces with high-contrast text in dark/system themes. */
+html[data-theme="dark"] .dark-readable-event[class~="bg-purple-200"] { background-color: #581c87 !important; color: #f3e8ff !important; }
+html[data-theme="dark"] .dark-readable-event[class~="bg-green-200"] { background-color: #14532d !important; color: #dcfce7 !important; }
+html[data-theme="dark"] .dark-readable-event[class~="bg-gray-200"] { background-color: #374151 !important; color: #f3f4f6 !important; }
+html[data-theme="dark"] .dark-readable-event[class~="bg-orange-200"] { background-color: #7c2d12 !important; color: #ffedd5 !important; }
+html[data-theme="dark"] .dark-readable-event[class~="bg-yellow-200"] { background-color: #713f12 !important; color: #fef9c3 !important; }
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] .dark-readable-event[class~="bg-purple-200"] { background-color: #581c87 !important; color: #f3e8ff !important; }
+  html[data-theme="system"] .dark-readable-event[class~="bg-green-200"] { background-color: #14532d !important; color: #dcfce7 !important; }
+  html[data-theme="system"] .dark-readable-event[class~="bg-gray-200"] { background-color: #374151 !important; color: #f3f4f6 !important; }
+  html[data-theme="system"] .dark-readable-event[class~="bg-orange-200"] { background-color: #7c2d12 !important; color: #ffedd5 !important; }
+  html[data-theme="system"] .dark-readable-event[class~="bg-yellow-200"] { background-color: #713f12 !important; color: #fef9c3 !important; }
+}
