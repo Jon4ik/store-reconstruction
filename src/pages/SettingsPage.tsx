@@ -19,15 +19,16 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
   const [message, setMessage] = useState('');
 
   useEffect(() => {
+    if (mode !== 'ldap' || (!hasPermission('manage_ldap') && !hasPermission('settings'))) { setLoading(false); return; }
     apiClient.getLdapSettings().then(settings => {
       setForm(current => ({ ...current, url: settings.url || '', baseDN: settings.baseDN || '', bindDN: settings.bindDN || '' }));
       setPasswordConfigured(Boolean(settings.passwordConfigured));
       setEncryptionConfigured(Boolean(settings.encryptionConfigured));
     }).catch(error => setMessage('Не удалось загрузить настройки: ' + (error as Error).message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [mode, hasPermission]);
 
-  useEffect(() => { if (mode === 'integrations') apiClient.getIntraDeskSettings().then(data => setIntegration(current => ({...current, enabled: data.enabled, apiGateway: data.apiGateway, apiKeyConfigured: data.apiKeyConfigured}))).catch(() => {}); }, [mode]);
+  useEffect(() => { if (mode === 'integrations' && (hasPermission('manage_integrations') || hasPermission('settings'))) apiClient.getIntraDeskSettings().then(data => setIntegration(current => ({...current, enabled: data.enabled, apiGateway: data.apiGateway, apiKeyConfigured: data.apiKeyConfigured}))).catch(() => {}); }, [mode, hasPermission]);
 
   if (!hasPermission('manage_ldap') && !hasPermission('manage_integrations') && !hasPermission('settings')) {
     return <div className="text-center py-12 text-gray-500">Нет доступа к этой странице</div>;
