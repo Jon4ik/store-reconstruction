@@ -20,7 +20,7 @@ services:
         npx prisma migrate deploy &&
         printf '%s\n' 'ALTER TABLE public.users DROP COLUMN IF EXISTS "userName";' |
           npx prisma db execute --stdin --schema prisma/schema.prisma &&
-        printf '%s\\n' "UPDATE public.store_projects AS p SET \"storeNumber\" = s.\"id\" FROM public.shop_directory AS s WHERE p.\"storeNumber\" = s.\"shopNumber\" OR lpad(p.\"storeNumber\", 3, '0') = s.\"shopNumber\";" |
+        echo "UPDATE public.store_projects AS p SET \"storeNumber\" = s.\"id\" FROM public.shop_directory AS s WHERE p.\"storeNumber\" = s.\"shopNumber\" OR lpad(p.\"storeNumber\", 3, '0') = s.\"shopNumber\";" |
           npx prisma db execute --stdin --schema prisma/schema.prisma &&
         npx prisma db push --skip-generate &&
         npm run prisma:seed
