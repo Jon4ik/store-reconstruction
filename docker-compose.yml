@@ -13,7 +13,15 @@ services:
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
       SEED_MANAGER_PASSWORD: ${SEED_MANAGER_PASSWORD:-}
       SEED_VIEWER_PASSWORD: ${SEED_VIEWER_PASSWORD:-}
-    command: sh -c "npx prisma migrate deploy && npx prisma db push --skip-generate && npm run prisma:seed"
+    command:
+      - sh
+      - -c
+      - |
+        npx prisma migrate deploy &&
+        printf '%s\n' 'ALTER TABLE public.users DROP COLUMN IF EXISTS "userName";' |
+          npx prisma db execute --stdin --schema prisma/schema.prisma &&
+        npx prisma db push --skip-generate &&
+        npm run prisma:seed
     networks:
       - app-network
 
