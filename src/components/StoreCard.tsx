@@ -168,7 +168,7 @@ export default function StoreCard() {
             >
               Комментарии и история
             </button>
-            {hasPermission('delete_closures') && <button onClick={() => setActiveTab('delete')} className={`py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'delete' ? 'border-red-600 text-red-600' : 'border-transparent text-gray-500 hover:text-red-600'}`}>Удаление объекта</button>}
+            {(hasPermission('delete_closures') || hasPermission('delete_openings')) && <button onClick={() => setActiveTab('delete')} className={`py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'delete' ? 'border-red-600 text-red-600' : 'border-transparent text-gray-500 hover:text-red-600'}`}>Удаление объекта</button>}
           </div>
         </div>
 
