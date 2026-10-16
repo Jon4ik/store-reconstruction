@@ -55,7 +55,6 @@ export default function StoreCard() {
 
   const handleStartEdit = () => {
     setEditData({
-      address: project.address,
       closureDate: formatDate(project.closureDate),
       demolitionDate: formatDate(project.demolitionDate),
       installationDate: formatDate(project.installationDate),
@@ -84,7 +83,6 @@ export default function StoreCard() {
     }
     
     updateProject(project.id, {
-      address: editData.address,
       closureDate: editData.closureDate || null, demolitionDate: editData.demolitionDate || null,
       installationDate: editData.installationDate || null, techOpenDate: editData.techOpenDate || null,
       tuId: editData.tuId, comment: editData.comment, manualStatus: editData.manualStatus, rowColor: editData.rowColor,
@@ -122,7 +120,7 @@ export default function StoreCard() {
       <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-5xl mx-4 max-h-[90vh] flex flex-col">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 rounded-t-2xl flex items-center justify-between z-10 flex-shrink-0">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Объект №{project.storeNumber}</h2>
+            <h2 className="text-xl font-bold text-gray-900">Магазин №{project.storeNumber}</h2>
             <p className="text-sm text-gray-500 mt-0.5">{project.workType}</p>
           </div>
           <div className="flex items-center gap-2">
