@@ -15,10 +15,11 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly prisma: PrismaService, private readonly shops: ShopsService) {}
 
   async onModuleInit() {
-    await this.ensureTask();
     this.logger.log(`Scheduler started; timezone=${Intl.DateTimeFormat().resolvedOptions().timeZone || 'system'}; polling every ${SCHEDULER_INTERVAL_MS / 1000}s`);
+    // Start polling even if PostgreSQL is temporarily unavailable. Each tick retries
+    // task creation and the first run, rather than permanently disabling the scheduler.
     this.timer = setInterval(() => void this.tick(), SCHEDULER_INTERVAL_MS);
-    void this.tick();
+    void this.tick(true);
   }
 
   onModuleDestroy() {
@@ -91,20 +92,24 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async tick() {
+  private async tick(runOnStartup = false) {
     if (this.checking) return;
     this.checking = true;
     try {
       const task = await this.ensureTask();
       const now = new Date();
-      if (!task.enabled || !this.cronMatches(task.cronExpression, now)) return;
-      if (task.lastRunAt &&
+      if (!task.enabled) return;
+      // Run once after first registration (or retry a previously failed initial run).
+      // Otherwise a daily 00:00 schedule could appear broken until the next midnight.
+      const needsInitialRun = runOnStartup && (!task.lastRunAt || task.lastStatus === 'never' || task.lastStatus === 'error');
+      if (!needsInitialRun && !this.cronMatches(task.cronExpression, now)) return;
+      if (!needsInitialRun && task.lastRunAt &&
           task.lastRunAt.getFullYear() === now.getFullYear() &&
           task.lastRunAt.getMonth() === now.getMonth() &&
           task.lastRunAt.getDate() === now.getDate() &&
           task.lastRunAt.getHours() === now.getHours() &&
           task.lastRunAt.getMinutes() === now.getMinutes()) return;
-      this.logger.log(`Cron matched for task ${task.id} at ${now.toString()}`);
+      this.logger.log(`${needsInitialRun ? 'Initial startup run' : 'Cron matched'} for task ${task.id} at ${now.toString()}`);
       await this.runTask(task.id);
     } catch (error: any) {
       this.logger.error(`Scheduler poll failed: ${error?.message || error}`);
