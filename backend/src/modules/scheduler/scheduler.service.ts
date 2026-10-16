@@ -11,7 +11,6 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
   private running = false;
   private checking = false;
-  private lastCheckedMinute = '';
 
   constructor(private readonly prisma: PrismaService, private readonly shops: ShopsService) {}
 
@@ -98,11 +97,6 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
     try {
       const task = await this.ensureTask();
       const now = new Date();
-      const minuteKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}-${now.getMinutes()}`;
-      if (minuteKey === this.lastCheckedMinute) return;
-      // Mark this minute checked only after the database read succeeds, so transient
-      // database errors can be retried by the next poll in the same minute.
-      this.lastCheckedMinute = minuteKey;
       if (!task.enabled || !this.cronMatches(task.cronExpression, now)) return;
       if (task.lastRunAt &&
           task.lastRunAt.getFullYear() === now.getFullYear() &&
