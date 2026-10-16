@@ -63,9 +63,9 @@ export default function CalendarView() {
 
   const getStageColor = (stage: string, workType: string) => {
     if (workType === 'Открытие') {
-      switch (stage) { case 'Монтаж': return 'bg-purple-200 text-purple-800'; case 'Техническое открытие': return 'bg-green-200 text-green-800'; default: return 'bg-gray-200 text-gray-800'; }
+      switch (stage) { case 'Монтаж': return 'bg-purple-200 text-purple-800 dark-readable-event'; case 'Техническое открытие': return 'bg-green-200 text-green-800 dark-readable-event'; default: return 'bg-gray-200 text-gray-800 dark-readable-event'; }
     }
-    switch (stage) { case 'Закрыт для покупателей': return 'bg-orange-200 text-orange-800'; case 'Демонтаж': return 'bg-yellow-200 text-yellow-800'; case 'Монтаж': return 'bg-purple-200 text-purple-800'; case 'Техническое открытие': return 'bg-green-200 text-green-800'; default: return 'bg-gray-200 text-gray-800'; }
+    switch (stage) { case 'Закрыт для покупателей': return 'bg-orange-200 text-orange-800 dark-readable-event'; case 'Демонтаж': return 'bg-yellow-200 text-yellow-800 dark-readable-event'; case 'Монтаж': return 'bg-purple-200 text-purple-800 dark-readable-event'; case 'Техническое открытие': return 'bg-green-200 text-green-800 dark-readable-event'; default: return 'bg-gray-200 text-gray-800 dark-readable-event'; }
   };
 
   return (
