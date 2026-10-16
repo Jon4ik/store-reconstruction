@@ -26,6 +26,25 @@ export default function App() {
     document.documentElement.dataset.theme = currentUser?.theme || 'light';
   }, [currentUser?.theme]);
 
+  // Автоматически завершаем клиентскую сессию по exp текущего JWT.
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!currentUser || !token) return;
+    try {
+      const payloadPart = token.split('.')[1];
+      if (!payloadPart) throw new Error('Invalid JWT');
+      const normalized = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(atob(normalized));
+      if (typeof payload.exp !== 'number') throw new Error('JWT has no exp');
+      const remaining = payload.exp * 1000 - Date.now();
+      if (remaining <= 0) { void useStore.getState().logout(); return; }
+      const timeout = window.setTimeout(() => { void useStore.getState().logout(); }, Math.min(remaining, 2147483647));
+      return () => window.clearTimeout(timeout);
+    } catch {
+      void useStore.getState().logout();
+    }
+  }, [currentUser?.id]);
+
   // Восстанавливаем сессию при загрузке
   useEffect(() => {
     restoreSession();
