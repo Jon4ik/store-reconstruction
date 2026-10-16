@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { CheckCircle2, KeyRound, Save, Server, ShieldCheck } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { apiClient } from '../api/client';
+import SettingsNotice from '../components/SettingsNotice';
 
 type LdapForm = { url: string; baseDN: string; bindDN: string; bindPassword: string; clearBindPassword: boolean };
 
@@ -17,6 +18,8 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
   const [integrationSaving, setIntegrationSaving] = useState(false);
   const [integrationMessage, setIntegrationMessage] = useState('');
   const [message, setMessage] = useState('');
+  const noticeMessage = mode === 'integrations' ? integrationMessage : message;
+  const noticeVariant: 'success' | 'error' = /ошиб|не удалось|не пройдена/i.test(noticeMessage) ? 'error' : 'success';
 
   useEffect(() => {
     if (mode !== 'ldap' || (!hasPermission('manage_ldap') && !hasPermission('settings'))) { setLoading(false); return; }
@@ -28,7 +31,7 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
       .finally(() => setLoading(false));
   }, [mode, hasPermission]);
 
-  useEffect(() => { if (mode === 'integrations' && (hasPermission('manage_integrations') || hasPermission('settings'))) apiClient.getIntraDeskSettings().then(data => setIntegration(current => ({...current, enabled: data.enabled, apiGateway: data.apiGateway, apiKeyConfigured: data.apiKeyConfigured}))).catch(() => {}); }, [mode, hasPermission]);
+  useEffect(() => { if (mode === 'integrations' && (hasPermission('manage_integrations') || hasPermission('settings'))) apiClient.getIntraDeskSettings().then(data => setIntegration(current => ({...current, enabled: data.enabled, apiGateway: data.apiGateway, apiKeyConfigured: data.apiKeyConfigured}))).catch(error => setIntegrationMessage('Не удалось загрузить настройки интеграции: ' + (error as Error).message)); }, [mode, hasPermission]);
 
   if (!hasPermission('manage_ldap') && !hasPermission('manage_integrations') && !hasPermission('settings')) {
     return <div className="text-center py-12 text-gray-500">Нет доступа к этой странице</div>;
@@ -73,14 +76,14 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
 
   return (
     <div className="w-full space-y-6">
+      {noticeMessage && <SettingsNotice message={noticeMessage} variant={noticeVariant} onDismiss={() => mode === 'integrations' ? setIntegrationMessage('') : setMessage('')} />}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{mode === 'integrations' ? 'Интеграции' : 'Настройки LDAP / Active Directory'}</h1>
         <p className="text-sm text-gray-500 mt-1">{mode === 'integrations' ? 'Параметры внешних сервисов и рекомендации по безопасному подключению.' : 'Параметры подключения используются для синхронизации справочников из AD.'}</p>
       </div>
 
-      {mode === 'ldap' && message && <div role="status" aria-live="polite" className={`rounded-xl border-2 p-4 text-base font-semibold shadow-lg ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не удалось') ? 'border-red-400 bg-red-50 text-red-900 dark-readable-error' : 'border-green-400 bg-green-50 text-green-900 dark-readable-success'}`}>{message}</div>}
 
-      <div className={mode === 'ldap' || mode === 'integrations' ? 'grid w-full grid-cols-1 gap-4 lg:gap-6 items-start' : 'contents'}>
+      <div className={mode === 'ldap' || mode === 'integrations' ? 'grid w-full grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 items-start' : 'contents'}>
       {mode === 'ldap' && (hasPermission('manage_ldap') || hasPermission('settings')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
         <div className="flex items-center gap-3">
           <Server size={22} className="text-blue-600" />
@@ -131,7 +134,7 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
         <label className="flex items-center gap-3 rounded-lg border border-gray-200 p-3"><input type="checkbox" checked={integration.enabled} onChange={e=>setIntegration({...integration,enabled:e.target.checked})} className="h-4 w-4"/><span className="text-sm font-medium text-gray-800">Интеграция включена</span></label>
         <div><label className="block text-sm font-medium text-gray-700 mb-1">API-шлюз</label><input value={integration.apiGateway} onChange={e=>setIntegration({...integration,apiGateway:e.target.value})} placeholder="https://intradeck.company.local/api" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"/></div>
         <div><label className="block text-sm font-medium text-gray-700 mb-1">API-ключ</label><input type="password" value={integration.apiKey} onChange={e=>setIntegration({...integration,apiKey:e.target.value,clearApiKey:false})} autoComplete="new-password" placeholder={integration.apiKeyConfigured?'Ключ сохранён и скрыт; пустое поле сохранит текущий':'Введите API-ключ'} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"/><p className="mt-1 text-xs text-gray-500">Ключ шифруется AES-256-GCM перед записью в PostgreSQL.</p>{integration.apiKeyConfigured && <label className="mt-2 flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" checked={integration.clearApiKey} onChange={e=>setIntegration({...integration,clearApiKey:e.target.checked,apiKey:''})}/> Удалить сохранённый ключ</label>}</div>
-        <div className="flex items-center gap-3"><button disabled={integrationSaving} onClick={async()=>{setIntegrationSaving(true);setIntegrationMessage('');try{const result=await apiClient.saveIntraDeskSettings({enabled:integration.enabled,apiGateway:integration.apiGateway, ...(integration.apiKey?{apiKey:integration.apiKey}:{}), ...(integration.clearApiKey?{clearApiKey:true}:{})});setIntegration(current=>({...current,apiKey:'',clearApiKey:false,apiKeyConfigured:result.apiKeyConfigured}));setIntegrationMessage('Настройки IntraDesk сохранены.');}catch(e){setIntegrationMessage('Ошибка сохранения: '+(e as Error).message);}finally{setIntegrationSaving(false)}}} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{integrationSaving?'Сохранение…':'Сохранить интеграцию'}</button></div>{integrationMessage && <div role="status" aria-live="polite" className={`rounded-xl border-2 p-4 text-base font-semibold shadow-lg ${integrationMessage.toLowerCase().includes('ошиб') || integrationMessage.toLowerCase().includes('не удалось') ? 'border-red-400 bg-red-50 text-red-900 dark-readable-error' : 'border-green-400 bg-green-50 text-green-900 dark-readable-success'}`}>{integrationMessage}</div>}
+        <div className="flex items-center gap-3"><button disabled={integrationSaving} onClick={async()=>{setIntegrationSaving(true);setIntegrationMessage('');try{const result=await apiClient.saveIntraDeskSettings({enabled:integration.enabled,apiGateway:integration.apiGateway, ...(integration.apiKey?{apiKey:integration.apiKey}:{}), ...(integration.clearApiKey?{clearApiKey:true}:{})});setIntegration(current=>({...current,apiKey:'',clearApiKey:false,apiKeyConfigured:result.apiKeyConfigured}));setIntegrationMessage('Настройки IntraDesk сохранены.');}catch(e){setIntegrationMessage('Ошибка сохранения: '+(e as Error).message);}finally{setIntegrationSaving(false)}}} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{integrationSaving?'Сохранение…':'Сохранить интеграцию'}</button></div>
       </section>}
 
       {mode === 'integrations' && <aside className="rounded-xl border border-blue-100 bg-blue-50 p-6 space-y-4 dark-readable-panel">

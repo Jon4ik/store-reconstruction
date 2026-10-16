@@ -22,7 +22,19 @@ export default function AuditPage() {
   };
 
   // Определение подсистемы по действию
-  const getModule = (action: string): string => {
+  const getModule = (action: string, newValue = ''): string => {
+    if (action === 'scheduler_run') return 'Планировщик';
+    if (action === 'api_request') {
+      const path = newValue.toLowerCase();
+      if (path.includes('/scheduler')) return 'Планировщик';
+      if (path.includes('/ldap') || path.includes('/integrations')) return 'Настройки';
+      if (path.includes('/shops')) return 'Справочник магазинов';
+      if (path.includes('/users')) return 'Пользователи';
+      if (path.includes('/roles')) return 'Роли';
+      if (path.includes('/tus')) return 'Справочник ТУ';
+      if (path.includes('/stores')) return 'Объекты';
+      return 'Система';
+    }
     if (action.includes('tu')) return 'Справочник ТУ';
     if (action.includes('role')) return 'Роли';
     if (action.includes('comment')) return 'Комментарии';
@@ -35,10 +47,10 @@ export default function AuditPage() {
     // Legacy user/profile audit events are intentionally hidden.
     if (log.action === 'reset_password') return false;
     if (filter.action && log.action !== filter.action) return false;
-    if (filter.module && getModule(log.action) !== filter.module) return false;
+    if (filter.module && getModule(log.action, log.newValue) !== filter.module) return false;
     if (filter.search) {
       const search = filter.search.toLowerCase();
-      return String(log.details || '').toLowerCase().includes(search) || String(log.userName || '').toLowerCase().includes(search);
+      return String(log.details || '').toLowerCase().includes(search) || String(log.newValue || '').toLowerCase().includes(search) || String(log.userName || '').toLowerCase().includes(search);
     }
     return true;
   }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -49,7 +61,7 @@ export default function AuditPage() {
     update_user: 'Обновление пользователя', delete_user: 'Удаление пользователя',
     create_tu: 'Создание ТУ', update_tu: 'Обновление ТУ', delete_tu: 'Удаление ТУ',
     create_role: 'Создание роли', update_role: 'Обновление роли', delete_role: 'Удаление роли',
-    add_comment: 'Комментарий',
+    add_comment: 'Комментарий', api_request: 'Запрос API', scheduler_run: 'Запуск задачи',
   };
 
   const actionColors: Record<string, string> = {
@@ -60,7 +72,7 @@ export default function AuditPage() {
     delete_user: 'bg-red-100 text-red-700', create_tu: 'bg-blue-100 text-blue-700',
     update_tu: 'bg-yellow-100 text-yellow-700', delete_tu: 'bg-red-100 text-red-700',
     create_role: 'bg-blue-100 text-blue-700', update_role: 'bg-yellow-100 text-yellow-700',
-    delete_role: 'bg-red-100 text-red-700', add_comment: 'bg-indigo-100 text-indigo-700',
+    delete_role: 'bg-red-100 text-red-700', add_comment: 'bg-indigo-100 text-indigo-700', api_request: 'bg-slate-100 text-slate-700', scheduler_run: 'bg-orange-100 text-orange-700',
   };
 
   const moduleColors: Record<string, string> = {
@@ -70,11 +82,16 @@ export default function AuditPage() {
     'Авторизация': 'bg-green-100 text-green-700',
     'Объекты': 'bg-blue-100 text-blue-700',
     'Система': 'bg-gray-100 text-gray-700',
+    'Настройки': 'bg-cyan-100 text-cyan-700',
+    'Планировщик': 'bg-orange-100 text-orange-700',
+    'Справочник магазинов': 'bg-teal-100 text-teal-700',
+    'Пользователи': 'bg-indigo-100 text-indigo-700',
   };
 
   const uniqueActions = [...new Set(auditLog.map(l => l.action).filter(action => action !== 'reset_password'))];
 
-  const getUserName = (userId: string): string => {
+  const getUserName = (userId: string | null): string => {
+    if (!userId) return 'Система';
     const user = users.find(u => u.id === userId);
     return user?.fullName || userId;
   };
@@ -140,7 +157,7 @@ export default function AuditPage() {
                 const timestamp = new Date(log.timestamp);
                 const dateStr = `${String(timestamp.getDate()).padStart(2, '0')}.${String(timestamp.getMonth() + 1).padStart(2, '0')}.${timestamp.getFullYear()}`;
                 const timeStr = `${String(timestamp.getHours()).padStart(2, '0')}:${String(timestamp.getMinutes()).padStart(2, '0')}`;
-                const module = getModule(log.action);
+                const module = getModule(log.action, log.newValue);
                 const isExpanded = expandedRows.has(log.id);
                 
                 return (
@@ -166,7 +183,7 @@ export default function AuditPage() {
                           {actionLabels[log.action] || log.action}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-medium text-gray-900 text-xs">{getUserName(log.userId)}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900 text-xs">{log.userName || getUserName(log.userId)}</td>
                       <td className="px-4 py-3 text-gray-700 text-xs">{log.details}</td>
                     </tr>
                     {isExpanded && (

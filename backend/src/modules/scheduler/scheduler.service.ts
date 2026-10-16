@@ -4,6 +4,7 @@ import { ShopsService } from '../shops/shops.service';
 
 const SHOP_TASK_ID = 'shops-sync';
 const SCHEDULER_INTERVAL_MS = 10_000;
+const RETRY_INTERVAL_MS = 5 * 60_000;
 
 @Injectable()
 export class SchedulerService implements OnModuleInit, OnModuleDestroy {
@@ -15,10 +16,11 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly prisma: PrismaService, private readonly shops: ShopsService) {}
 
   async onModuleInit() {
-    await this.ensureTask();
     this.logger.log(`Scheduler started; timezone=${Intl.DateTimeFormat().resolvedOptions().timeZone || 'system'}; polling every ${SCHEDULER_INTERVAL_MS / 1000}s`);
+    // Start polling even if PostgreSQL is temporarily unavailable. Each tick retries
+    // task creation and the first run, rather than permanently disabling the scheduler.
     this.timer = setInterval(() => void this.tick(), SCHEDULER_INTERVAL_MS);
-    void this.tick();
+    void this.tick(true);
   }
 
   onModuleDestroy() {
@@ -72,6 +74,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
         where: { id },
         data: { lastStatus: 'success', lastMessage: message },
       });
+      await this.writeTaskAudit(actor, 'success', message);
       this.logger.log(`Scheduled task ${id} completed: ${message}`);
       return { ...result, taskId: id };
     } catch (error: any) {
@@ -85,26 +88,50 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
       } catch (statusError: any) {
         this.logger.error(`Could not persist failure status for ${id}: ${statusError?.message || statusError}`);
       }
+      await this.writeTaskAudit(actor, 'error', message);
       throw error;
     } finally {
       this.running = false;
     }
   }
 
-  private async tick() {
+  private async writeTaskAudit(actor: { id: string; name: string } | undefined, status: 'success' | 'error', message: string) {
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          userId: actor?.id ?? null,
+          userName: actor?.name ?? 'Система',
+          action: 'scheduler_run',
+          field: SHOP_TASK_ID,
+          oldValue: '',
+          newValue: status,
+          details: message.slice(0, 3000),
+        },
+      });
+    } catch (error: any) {
+      this.logger.error(`Could not write scheduler audit record: ${error?.message || error}`);
+    }
+  }
+
+  private async tick(runOnStartup = false) {
     if (this.checking) return;
     this.checking = true;
     try {
       const task = await this.ensureTask();
       const now = new Date();
-      if (!task.enabled || !this.cronMatches(task.cronExpression, now)) return;
-      if (task.lastRunAt &&
+      if (!task.enabled) return;
+      // Run once after first registration (or retry a previously failed initial run).
+      // Otherwise a daily 00:00 schedule could appear broken until the next midnight.
+      const needsInitialRun = runOnStartup && (!task.lastRunAt || task.lastStatus === 'never' || task.lastStatus === 'error');
+      const shouldRetry = task.lastStatus === 'error' && Boolean(task.lastRunAt) && now.getTime() - task.lastRunAt!.getTime() >= RETRY_INTERVAL_MS;
+      if (!needsInitialRun && !shouldRetry && !this.cronMatches(task.cronExpression, now)) return;
+      if (!needsInitialRun && !shouldRetry && task.lastRunAt &&
           task.lastRunAt.getFullYear() === now.getFullYear() &&
           task.lastRunAt.getMonth() === now.getMonth() &&
           task.lastRunAt.getDate() === now.getDate() &&
           task.lastRunAt.getHours() === now.getHours() &&
           task.lastRunAt.getMinutes() === now.getMinutes()) return;
-      this.logger.log(`Cron matched for task ${task.id} at ${now.toString()}`);
+      this.logger.log(`${needsInitialRun ? 'Initial startup run' : shouldRetry ? 'Retry after previous failure' : 'Cron matched'} for task ${task.id} at ${now.toString()}`);
       await this.runTask(task.id);
     } catch (error: any) {
       this.logger.error(`Scheduler poll failed: ${error?.message || error}`);
