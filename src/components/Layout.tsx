@@ -11,6 +11,7 @@ interface LayoutProps {
 export default function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const { currentUser, logout, hasPermission, roles } = useStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ users: currentPage === 'users' || currentPage === 'roles', directory: currentPage === 'tus', settings: ['settings','integrations','notifications'].includes(currentPage) });
 
   const mainNavItems = [
     { id: 'dashboard', label: 'Панель управления', icon: LayoutDashboard, permission: 'view_dashboard' },
@@ -18,12 +19,22 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
     { id: 'calendar', label: 'Календарь', icon: CalendarDays, permission: 'view_calendar' },
   ];
 
-  const adminNavItems = [
-    { id: 'users', label: 'Пользователи', icon: Users, permission: 'manage_users' },
-    { id: 'roles', label: 'Роли', icon: Shield, permission: 'manage_roles' },
-    { id: 'tus', label: 'Справочник ТУ', icon: UserCheck, permission: 'manage_tus' },
-    { id: 'audit', label: 'Аудит', icon: FileText, permission: 'view_audit' },
-    { id: 'settings', label: 'Настройки LDAP', icon: Settings, permission: 'settings' },
+  const adminGroups = [
+    { id: 'users', label: 'Пользователи', icon: Users, items: [
+      { id: 'users', label: 'Пользователи', permission: 'manage_users' },
+      { id: 'roles', label: 'Роли', permission: 'manage_roles' },
+    ]},
+    { id: 'directory', label: 'Справочник', icon: UserCheck, items: [
+      { id: 'tus', label: 'Справочник ТУ', permission: 'manage_tus' },
+    ]},
+    { id: 'settings', label: 'Настройки', icon: Settings, items: [
+      { id: 'settings', label: 'Синхронизация с LDAP', permission: 'manage_ldap' },
+      { id: 'integrations', label: 'Интеграции', permission: 'manage_integrations' },
+      { id: 'notifications', label: 'Уведомления', permission: 'manage_notifications' },
+    ]},
+    { id: 'audit', label: 'Аудит', icon: FileText, items: [
+      { id: 'audit', label: 'Аудит', permission: 'view_audit' },
+    ]},
   ];
 
   const currentRole = currentUser && roles.length > 0 ? roles.find(r => r.id === currentUser.role) : null;
@@ -45,19 +56,15 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
             </button>
           ))}
           
-          {adminNavItems.some(item => hasPermission(item.permission)) && (
-            <>
-              <div className="pt-4 mt-4 border-t border-gray-200">
-                <p className={`text-xs font-semibold text-gray-400 uppercase tracking-wide px-3 mb-2 `}>Администрирование</p>
-              </div>
-              {adminNavItems.filter(item => hasPermission(item.permission)).map(item => (
-                <button key={item.id} onClick={() => { onNavigate(item.id); setSidebarOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentPage === item.id ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>
-                  <item.icon size={18} /><span>{item.label}</span>
-                </button>
-              ))}
-            </>
-          )}
+          {adminGroups.some(group => group.items.some(item => hasPermission(item.permission))) && <>
+            <div className="pt-4 mt-4 border-t border-gray-200"><p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-3 mb-2">Администрирование</p></div>
+            {adminGroups.filter(group => group.items.some(item => hasPermission(item.permission))).map(group => <div key={group.id} className="space-y-1">
+              <button onClick={()=>setOpenGroups(current=>({...current,[group.id]:!current[group.id]}))} aria-expanded={Boolean(openGroups[group.id])} className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-100">
+                <span className="flex items-center gap-3"><group.icon size={18}/>{group.label}</span><span className="text-xs">{openGroups[group.id]?'−':'+'}</span>
+              </button>
+              {openGroups[group.id] && group.items.filter(item=>hasPermission(item.permission)).map(item=><button key={item.id} onClick={()=>{onNavigate(item.id);setSidebarOpen(false)}} className={`w-full pl-10 pr-3 py-2 rounded-lg text-left text-sm font-medium transition-colors ${currentPage===item.id?'bg-blue-50 text-blue-700':'text-gray-600 hover:bg-gray-100'}`}>{item.label}</button>)}
+            </div>)}
+          </>}
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-white">
