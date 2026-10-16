@@ -176,9 +176,9 @@ export default function RolesPage() {
     }
   };
 
-  const handleDelete = (id: string) => {
-    const success = deleteRole(id);
-    if (!success) alert('Нельзя удалить роль, которая используется пользователями');
+  const handleDelete = async (id: string) => {
+    const success = await deleteRole(id);
+    if (!success) alert('Нельзя удалить роль, которая используется пользователями или произошла ошибка');
     setDeleteConfirm(null);
   };
 
