@@ -194,6 +194,7 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       await apiClient.deleteProject(id);
       await get().loadProjects();
+      await get().loadAuditLog();
     } catch (error) {
       console.error('Failed to delete project:', error);
       throw error;
