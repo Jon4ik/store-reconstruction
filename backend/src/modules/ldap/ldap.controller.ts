@@ -10,7 +10,7 @@ export class LdapController {
   constructor(private readonly ldapService: LdapService) {}
 
   @Get('settings')
-  @RequirePermissions('settings')
+  @RequirePermissions('manage_ldap')
   getSettings() { return this.ldapService.getSettings(); }
 
   @Put('settings')
@@ -20,6 +20,14 @@ export class LdapController {
   @Post('test')
   @RequirePermissions('settings')
   testConnection(@Body() body: { url?: string; baseDN?: string; bindDN?: string; bindPassword?: string }) { return this.ldapService.testConnection(body); }
+
+  @Get('integrations/intradesk')
+  @RequirePermissions('manage_integrations')
+  getIntegrationSettings() { return this.ldapService.getIntegrationSettings(); }
+
+  @Put('integrations/intradesk')
+  @RequirePermissions('manage_integrations')
+  saveIntegrationSettings(@Body() body: any) { return this.ldapService.saveIntegrationSettings(body); }
 
   @Get('status')
   @RequirePermissions('manage_tus')
