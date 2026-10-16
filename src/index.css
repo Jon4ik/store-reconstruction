@@ -68,11 +68,11 @@ html[data-theme="dark"] option {
   border-color: #4b5563;
 }
 
-html[data-theme="dark"] .hover\\:bg-gray-50:hover {
+html[data-theme="dark"] [class~="hover:bg-gray-50"]:hover {
   background-color: #374151 !important;
 }
 
-html[data-theme="dark"] .hover\\:bg-gray-100:hover {
+html[data-theme="dark"] [class~="hover:bg-gray-100"]:hover {
   background-color: #4b5563 !important;
 }
 
@@ -134,11 +134,11 @@ html[data-theme="dark"] .hover\\:bg-gray-100:hover {
     border-color: #4b5563;
   }
 
-  html[data-theme="system"] .hover\\:bg-gray-50:hover {
+  html[data-theme="system"] [class~="hover:bg-gray-50"]:hover {
     background-color: #374151 !important;
   }
 
-  html[data-theme="system"] .hover\\:bg-gray-100:hover {
+  html[data-theme="system"] [class~="hover:bg-gray-100"]:hover {
     background-color: #4b5563 !important;
   }
 }
