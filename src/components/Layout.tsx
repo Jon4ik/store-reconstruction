@@ -11,7 +11,7 @@ interface LayoutProps {
 export default function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const { currentUser, logout, hasPermission, roles } = useStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ users: currentPage === 'users' || currentPage === 'roles', directory: currentPage === 'tus', settings: ['settings','integrations','notifications'].includes(currentPage) });
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ users: currentPage === 'users' || currentPage === 'roles', directory: currentPage === 'tus' || currentPage === 'shops', settings: ['settings','integrations','notifications','scheduler'].includes(currentPage) });
 
   const mainNavItems = [
     { id: 'dashboard', label: 'Панель управления', icon: LayoutDashboard, permission: 'view_dashboard' },
@@ -26,11 +26,13 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
     ]},
     { id: 'directory', label: 'Справочник', icon: UserCheck, items: [
       { id: 'tus', label: 'Справочник ТУ', permission: 'manage_tus' },
+      { id: 'shops', label: 'Магазины', permission: 'manage_shops' },
     ]},
     { id: 'settings', label: 'Настройки', icon: Settings, items: [
       { id: 'settings', label: 'Синхронизация с LDAP', permission: 'manage_ldap' },
       { id: 'integrations', label: 'Интеграции', permission: 'manage_integrations' },
       { id: 'notifications', label: 'Уведомления', permission: 'manage_notifications' },
+      { id: 'scheduler', label: 'Планировщик (crontab)', permission: 'manage_scheduler' },
     ]},
     { id: 'audit', label: 'Аудит', icon: FileText, items: [
       { id: 'audit', label: 'Аудит', permission: 'view_audit' },
@@ -38,6 +40,7 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
   ];
 
   const currentRole = currentUser && roles.length > 0 ? roles.find(r => r.id === currentUser.role) : null;
+  const displayedRole = currentUser?.roleName || currentRole?.name || (currentUser?.role ? (currentUser.role === 'viewer' ? 'Наблюдатель' : currentUser.role === 'manager' ? 'Менеджер' : currentUser.role === 'admin' ? 'Администратор' : '') : '');
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -74,7 +77,7 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
             </div>
             <div className={`flex-1 min-w-0 `}>
               <p className="text-sm font-medium text-gray-900 truncate">{currentUser?.fullName}</p>
-              <p className="text-xs text-gray-500">{currentRole?.name || '—'}</p>
+              <p className="text-xs text-gray-500">{displayedRole || '—'}</p>
             </div>
           </div>
           <button onClick={logout} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg font-medium">
