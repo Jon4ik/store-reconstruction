@@ -17,9 +17,46 @@ import ShopsPage from './pages/ShopsPage';
 import SchedulerPage from './pages/SchedulerPage';
 import { apiClient } from './api/client';
 
+const PAGE_PATHS: Record<string, string> = {
+  dashboard: '/dashboard',
+  table: '/objects',
+  calendar: '/calendar',
+  users: '/users',
+  roles: '/roles',
+  tus: '/directory/tu',
+  shops: '/directory/shops',
+  scheduler: '/settings/scheduler',
+  audit: '/audit',
+  profile: '/profile',
+  settings: '/settings/ldap',
+  integrations: '/settings/integrations',
+  notifications: '/notifications',
+};
+
+function getPageFromPath(): string {
+  return Object.entries(PAGE_PATHS).find(([, path]) => path === window.location.pathname)?.[0] || 'dashboard';
+}
+
 export default function App() {
   const { currentUser, restoreSession, loadProjects, loadTUs, loadUsers, loadRoles, loadAuditLog, defaultWorkType } = useStore();
-  const [currentPage, setCurrentPage] = useState('dashboard');
+  const [currentPage, setCurrentPage] = useState(getPageFromPath);
+
+  const navigateToPage = (page: string) => {
+    const nextPage = PAGE_PATHS[page] ? page : 'dashboard';
+    const nextPath = PAGE_PATHS[nextPage];
+    if (window.location.pathname !== nextPath) window.history.pushState({ page: nextPage }, '', nextPath);
+    setCurrentPage(nextPage);
+  };
+
+  // Поддерживаем ЧПУ-ссылки, прямое открытие разделов и кнопки «Назад/Вперёд».
+  useEffect(() => {
+    if (!Object.values(PAGE_PATHS).includes(window.location.pathname)) {
+      window.history.replaceState({ page: currentPage }, '', PAGE_PATHS[currentPage] || PAGE_PATHS.dashboard);
+    }
+    const handlePopState = () => setCurrentPage(getPageFromPath());
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Применяем тему пользователя ко всему приложению сразу после входа/восстановления сессии.
   useEffect(() => {
@@ -75,6 +112,32 @@ export default function App() {
     }
   }, [currentUser, loadProjects, loadTUs, loadUsers, loadRoles, loadAuditLog]);
 
+  // Обновляем данные в фоне и при возвращении во вкладку — без перезагрузки страницы.
+  useEffect(() => {
+    if (!currentUser) return;
+    let refreshInProgress = false;
+    const refreshData = async () => {
+      if (document.visibilityState === 'hidden' || refreshInProgress) return;
+      refreshInProgress = true;
+      try {
+        await Promise.all([loadProjects(), loadTUs(), loadUsers(), loadRoles(), loadAuditLog()]);
+      } finally {
+        refreshInProgress = false;
+      }
+    };
+    const intervalId = window.setInterval(() => { void refreshData(); }, 30_000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refreshData();
+    };
+    window.addEventListener('focus', refreshData);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshData);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [currentUser?.id, loadProjects, loadTUs, loadUsers, loadRoles, loadAuditLog]);
+
   // Динамический title
   useEffect(() => {
     const titles: Record<string, string> = {
@@ -119,7 +182,7 @@ export default function App() {
 
   return (
     <>
-      <Layout currentPage={currentPage} onNavigate={setCurrentPage}>
+      <Layout currentPage={currentPage} onNavigate={navigateToPage}>
         {renderPage()}
       </Layout>
       <StoreCard />
