@@ -33,6 +33,11 @@ export class AuditInterceptor implements NestInterceptor {
     const path = String(request.originalUrl || request.url || '').split('?')[0].slice(0, 500);
     if (path.endsWith('/auth/login') || path.includes('/audit')) return next.handle();
 
+    // Store mutations already create transactional, field-level audit events in
+    // StoresService. A generic api_request for the same mutation would duplicate
+    // events (most visibly when changing a row color).
+    if (/\/stores(?:\/|$)/i.test(path)) return next.handle();
+
     const actorId = request.user?.sub;
     if (!actorId) return next.handle();
 
