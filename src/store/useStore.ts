@@ -17,7 +17,6 @@ interface AppState {
   selectedProjectId: string | null;
   isCardOpen: boolean;
   isAddModalOpen: boolean;
-  isImportModalOpen: boolean;
   isEditing: boolean;
   dbConfig: DatabaseConfig;
   dataLoaded: boolean;
@@ -43,8 +42,6 @@ interface AppState {
   closeCard: () => void;
   openAddModal: (defaultWorkType?: 'Закрытие' | 'Реконструкция' | 'Открытие') => void;
   closeAddModal: () => void;
-  openImportModal: () => void;
-  closeImportModal: () => void;
   setEditing: (val: boolean) => void;
   defaultWorkType: 'Закрытие' | 'Реконструкция' | 'Открытие';
 
@@ -73,9 +70,6 @@ interface AppState {
 
   // Audit
   loadAuditLog: () => Promise<void>;
-
-  // Import
-  importProjects: (file: File) => Promise<void>;
 
   // DB Config
   updateDbConfig: (config: Partial<DatabaseConfig>) => void;
@@ -108,7 +102,6 @@ export const useStore = create<AppState>((set, get) => ({
   selectedProjectId: null,
   isCardOpen: false,
   isAddModalOpen: false,
-  isImportModalOpen: false,
   isEditing: false,
   defaultWorkType: 'Закрытие' as 'Закрытие' | 'Реконструкция' | 'Открытие',
   dbConfig: { host: 'localhost', port: 5432, database: 'store_reconstruction', username: 'postgres', password: '', ssl: false },
@@ -223,8 +216,6 @@ export const useStore = create<AppState>((set, get) => ({
   closeCard: () => set({ selectedProjectId: null, isCardOpen: false, isEditing: false }),
   openAddModal: (defaultWorkType?: 'Закрытие' | 'Реконструкция' | 'Открытие') => set({ isAddModalOpen: true, defaultWorkType: defaultWorkType || 'Закрытие' }),
   closeAddModal: () => set({ isAddModalOpen: false }),
-  openImportModal: () => set({ isImportModalOpen: true }),
-  closeImportModal: () => set({ isImportModalOpen: false }),
   setEditing: (val: boolean) => set({ isEditing: val }),
 
   // TUs
