@@ -75,12 +75,12 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
     <div className="space-y-6 max-w-6xl">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{mode === 'integrations' ? 'Интеграции' : 'Настройки LDAP / Active Directory'}</h1>
-        <p className="text-sm text-gray-500 mt-1">Параметры подключения используются для синхронизации справочников из AD.</p>
+        <p className="text-sm text-gray-500 mt-1">{mode === 'integrations' ? 'Параметры внешних сервисов и рекомендации по безопасному подключению.' : 'Параметры подключения используются для синхронизации справочников из AD.'}</p>
       </div>
 
       {message && <div role="status" aria-live="polite" className={`rounded-xl border-2 p-4 text-base font-semibold shadow-lg ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не удалось') ? 'border-red-400 bg-red-50 text-red-900' : 'border-green-400 bg-green-50 text-green-900'}`}>{message}</div>}
 
-      <div className={mode === 'ldap' ? 'grid grid-cols-1 xl:grid-cols-2 gap-6 items-start' : 'contents'}>
+      <div className={mode === 'ldap' || mode === 'integrations' ? 'grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-2 gap-4 lg:gap-6 items-start' : 'contents'}>
       {mode === 'ldap' && (hasPermission('manage_ldap') || hasPermission('settings')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
         <div className="flex items-center gap-3">
           <Server size={22} className="text-blue-600" />
@@ -91,15 +91,17 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">URL LDAP *</label>
               <input value={form.url} onChange={e => update('url', e.target.value)} placeholder="ldaps://ad.company.local:636" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-              <p className="text-xs text-gray-500 mt-1">Для production рекомендуется LDAPS (порт 636) с проверкой сертификата.</p>
+              <p className="text-xs text-gray-500 mt-1">Укажите имя DNS или адрес контроллера домена. Для production рекомендуется LDAPS (обычно порт 636) и проверка сертификата.</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Base DN *</label>
               <input value={form.baseDN} onChange={e => update('baseDN', e.target.value)} placeholder="DC=company,DC=local" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+              <p className="mt-1 text-xs text-gray-500">Корневой Distinguished Name каталога, в котором выполняется поиск пользователей и групп. Например: DC=company,DC=local.</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Bind DN / логин сервисной учётной записи *</label>
               <input value={form.bindDN} onChange={e => update('bindDN', e.target.value)} placeholder="CN=svc-ldap,OU=Service Accounts,DC=company,DC=local" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+              <p className="mt-1 text-xs text-gray-500">Укажите полный DN сервисной учётной записи с правами чтения нужных атрибутов. Не используйте личную учётную запись администратора.</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Пароль сервисной учётной записи</label>
@@ -131,6 +133,14 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
         <div><label className="block text-sm font-medium text-gray-700 mb-1">API-ключ</label><input type="password" value={integration.apiKey} onChange={e=>setIntegration({...integration,apiKey:e.target.value,clearApiKey:false})} autoComplete="new-password" placeholder={integration.apiKeyConfigured?'Ключ сохранён и скрыт; пустое поле сохранит текущий':'Введите API-ключ'} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"/><p className="mt-1 text-xs text-gray-500">Ключ шифруется AES-256-GCM перед записью в PostgreSQL.</p>{integration.apiKeyConfigured && <label className="mt-2 flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" checked={integration.clearApiKey} onChange={e=>setIntegration({...integration,clearApiKey:e.target.checked,apiKey:''})}/> Удалить сохранённый ключ</label>}</div>
         <div className="flex items-center gap-3"><button disabled={integrationSaving} onClick={async()=>{setIntegrationSaving(true);setIntegrationMessage('');try{const result=await apiClient.saveIntraDeskSettings({enabled:integration.enabled,apiGateway:integration.apiGateway, ...(integration.apiKey?{apiKey:integration.apiKey}:{}), ...(integration.clearApiKey?{clearApiKey:true}:{})});setIntegration(current=>({...current,apiKey:'',clearApiKey:false,apiKeyConfigured:result.apiKeyConfigured}));setIntegrationMessage('Настройки IntraDesk сохранены.');}catch(e){setIntegrationMessage('Ошибка сохранения: '+(e as Error).message);}finally{setIntegrationSaving(false)}}} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{integrationSaving?'Сохранение…':'Сохранить интеграцию'}</button>{integrationMessage && <p role="status" aria-live="polite" className="text-sm font-semibold text-blue-800">{integrationMessage}</p>}</div>
       </section>}
+
+      {mode === 'integrations' && <aside className="rounded-xl border border-blue-100 bg-blue-50 p-6 space-y-4">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-blue-950"><ShieldCheck size={21}/>Описание настроек</h2>
+        <div><h3 className="text-sm font-semibold text-blue-950">Интеграция с IntraDesk</h3><p className="mt-1 text-sm text-blue-900">Включайте интеграцию только после получения URL API-шлюза и ключа от владельца сервиса. Пока интеграция выключена, приложение не должно выполнять обмен с IntraDesk.</p></div>
+        <div><h3 className="text-sm font-semibold text-blue-950">API-шлюз</h3><p className="mt-1 text-sm text-blue-900">Укажите базовый HTTPS-адрес API, предоставленный администратором IntraDesk. Проверьте доступность адреса с сервера приложения и не указывайте адрес пользовательского интерфейса вместо API.</p></div>
+        <div><h3 className="text-sm font-semibold text-blue-950">API-ключ</h3><p className="mt-1 text-sm text-blue-900">Секретный ключ вводится только для сохранения или замены и не отображается повторно. Он шифруется на сервере перед записью в PostgreSQL. Храните LDAP_ENCRYPTION_KEY в секретах окружения.</p></div>
+        <div className="border-t border-blue-200 pt-3 text-xs text-blue-900">Сохранение параметров настраивает соединение, но само по себе не запускает обмен данными. Для полноценного обмена необходим согласованный API-контракт IntraDesk.</div>
+      </aside>}
 
       {mode === 'ldap' && (hasPermission('manage_ldap') || hasPermission('settings')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
         <div className="flex items-center gap-3">
