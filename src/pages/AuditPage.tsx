@@ -182,7 +182,7 @@ export default function AuditPage() {
                           {actionLabels[log.action] || log.action}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-medium text-gray-900 text-xs">{getUserName(log.userId)}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900 text-xs">{log.userName || getUserName(log.userId)}</td>
                       <td className="px-4 py-3 text-gray-700 text-xs">{log.details}</td>
                     </tr>
                     {isExpanded && (
