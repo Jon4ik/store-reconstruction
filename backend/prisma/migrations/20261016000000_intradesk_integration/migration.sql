@@ -1,0 +1,4 @@
+ALTER TABLE "ldap_settings"
+  ADD COLUMN IF NOT EXISTS "intraDeskEnabled" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "intraDeskApiGateway" TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS "intraDeskApiKeyEncrypted" TEXT NOT NULL DEFAULT '';
