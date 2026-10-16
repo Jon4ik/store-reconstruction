@@ -5,7 +5,7 @@ import { apiClient } from '../api/client';
 
 type LdapForm = { url: string; baseDN: string; bindDN: string; bindPassword: string; clearBindPassword: boolean };
 
-export default function SettingsPage() {
+export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integrations' }) {
   const { hasPermission } = useStore();
   const [form, setForm] = useState<LdapForm>({ url: '', baseDN: '', bindDN: '', bindPassword: '', clearBindPassword: false });
   const [passwordConfigured, setPasswordConfigured] = useState(false);
@@ -73,7 +73,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Настройки LDAP / Active Directory</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{mode === 'integrations' ? 'Интеграции' : 'Настройки LDAP / Active Directory'}</h1>
         <p className="text-sm text-gray-500 mt-1">Параметры подключения используются для синхронизации справочников из AD.</p>
       </div>
 
