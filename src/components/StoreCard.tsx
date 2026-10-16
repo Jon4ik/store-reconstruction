@@ -6,11 +6,11 @@ import { validateDate } from '../utils/validation';
 import { formatDate } from '../utils/format';
 
 export default function StoreCard() {
-  const { selectedProjectId, isCardOpen, closeCard, projects, tus, users, auditLog, updateProject, currentUser, isEditing, setEditing, hasPermission, addComment, getProjectComments, loadComments } = useStore();
+  const { selectedProjectId, isCardOpen, closeCard, projects, tus, users, auditLog, updateProject, deleteProject, currentUser, isEditing, setEditing, hasPermission, addComment, getProjectComments, loadComments } = useStore();
   const [editData, setEditData] = useState<any>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [newComment, setNewComment] = useState('');
-  const [activeTab, setActiveTab] = useState<'main' | 'stages' | 'comments'>('main');
+  const [activeTab, setActiveTab] = useState<'main' | 'stages' | 'comments' | 'delete'>('main');
 
   const project = projects.find(p => p.id === selectedProjectId);
   
@@ -168,10 +168,19 @@ export default function StoreCard() {
             >
               Комментарии и история
             </button>
+            {hasPermission('delete_closures') && <button onClick={() => setActiveTab('delete')} className={`py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'delete' ? 'border-red-600 text-red-600' : 'border-transparent text-gray-500 hover:text-red-600'}`}>Удаление объекта</button>}
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
+          {activeTab === 'delete' && (
+            <div className="max-w-2xl mx-auto rounded-xl border border-red-200 bg-red-50 p-6 space-y-4">
+              <div className="flex items-start gap-3"><AlertTriangle className="text-red-600 mt-1" size={24}/><div><h3 className="text-lg font-semibold text-red-900">Удаление объекта №{project.storeNumber}</h3><p className="text-sm text-red-800 mt-1">Объект будет скрыт из активных таблиц. Запись и история сохранятся, действие попадёт в аудит.</p></div></div>
+              <p className="text-sm text-gray-700">Адрес: <strong>{project.address}</strong></p>
+              <button onClick={async () => { if (!window.confirm(`Вы действительно хотите удалить объект №${project.storeNumber}?`)) return; try { await deleteProject(project.id); closeCard(); alert('Объект удалён. Событие записано в аудит.'); } catch (e) { alert('Не удалось удалить объект: ' + (e as Error).message); } }} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700">Подтвердить удаление</button>
+            </div>
+          )}
+
           {/* Tab: Main */}
           {activeTab === 'main' && (
             <div className="space-y-6">
