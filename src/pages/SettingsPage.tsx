@@ -77,6 +77,8 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
         <p className="text-sm text-gray-500 mt-1">Параметры подключения используются для синхронизации справочников из AD.</p>
       </div>
 
+      {message && <div role="status" aria-live="polite" className={`rounded-xl border-2 p-4 text-base font-semibold shadow-lg ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не удалось') ? 'border-red-400 bg-red-50 text-red-900' : 'border-green-400 bg-green-50 text-green-900'}`}>{message}</div>}
+
       {mode === 'ldap' && (hasPermission('manage_ldap') || hasPermission('settings')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
         <div className="flex items-center gap-3">
           <Server size={22} className="text-blue-600" />
@@ -141,7 +143,7 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
         </div>
       </section>}
 
-      {message && <div role="status" aria-live="polite" className={`sticky top-20 z-20 rounded-xl border-2 p-4 text-base font-semibold shadow-lg ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не удалось') ? 'border-red-400 bg-red-50 text-red-900' : 'border-green-400 bg-green-50 text-green-900'}`}>{message}</div>}
+
     </div>
   );
 }
