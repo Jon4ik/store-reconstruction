@@ -23,7 +23,7 @@ export class RolesController {
   }
 
   @Put(':id')
-  @RequirePermissions('manage_roles', 'settings')
+  @RequirePermissions('manage_roles')
   update(@Param('id') id: string, @Body() body: UpdateRoleDto, @Request() req) {
     return this.rolesService.update(id, body, req.user.sub, req.user.username);
   }
