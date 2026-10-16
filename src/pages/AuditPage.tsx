@@ -23,7 +23,6 @@ export default function AuditPage() {
 
   // Определение подсистемы по действию
   const getModule = (action: string): string => {
-    if (action.includes('user')) return 'Пользователи';
     if (action.includes('tu')) return 'Справочник ТУ';
     if (action.includes('role')) return 'Роли';
     if (action.includes('comment')) return 'Комментарии';
@@ -35,7 +34,7 @@ export default function AuditPage() {
 
   const filteredLog = auditLog.filter(log => {
     // Legacy user/profile audit events are intentionally hidden.
-    if (log.action.toLowerCase().includes('user') || log.action === 'reset_password') return false;
+    if (log.action === 'reset_password') return false;
     if (filter.action && log.action !== filter.action) return false;
     if (filter.module && getModule(log.action) !== filter.module) return false;
     if (filter.search) {
@@ -75,7 +74,7 @@ export default function AuditPage() {
     'Система': 'bg-gray-100 text-gray-700',
   };
 
-  const uniqueActions = [...new Set(auditLog.map(l => l.action).filter(action => !action.toLowerCase().includes('user') && action !== 'reset_password'))];
+  const uniqueActions = [...new Set(auditLog.map(l => l.action).filter(action => action !== 'reset_password'))];
 
   const getUserName = (userId: string): string => {
     const user = users.find(u => u.id === userId);
@@ -83,7 +82,7 @@ export default function AuditPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Аудит действий</h1>
@@ -123,7 +122,7 @@ export default function AuditPage() {
       </div>
 
       {/* Log Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden min-w-0">
         <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
