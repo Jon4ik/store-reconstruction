@@ -40,7 +40,7 @@ function isHiddenEvent(log: AuditLogEntry): boolean {
 function getModule(log: AuditLogEntry): string {
   const action = String(log.action || '').toLowerCase();
   const route = getRequestPath(log).toLowerCase();
-  if (action === 'login' || action === 'logout') return 'Авторизация';
+  if (action === 'login' || action === 'logout' || route.includes('/auth/logout')) return 'Авторизация';
   if (action === 'scheduler_run' || route.includes('/scheduler')) return 'Планировщик';
   if (route.includes('/ldap') || route.includes('/integrations') || route.includes('/notifications')) return 'Настройки';
   if (route.includes('/shops')) return 'Справочник магазинов';
@@ -69,6 +69,11 @@ const ACTION_LABELS: Record<string, string> = {
   api_request: 'Запрос к API',
   scheduler_run: 'Запуск задачи',
 };
+
+function getActionLabel(log: AuditLogEntry): string {
+  if (log.action === 'api_request' && getRequestPath(log).toLowerCase().includes('/auth/logout')) return 'Выход из системы';
+  return ACTION_LABELS[log.action] || log.action;
+}
 
 const ACTION_COLORS: Record<string, string> = {
   login: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
@@ -225,8 +230,8 @@ export default function AuditPage() {
                     <tr className={`border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/60 ${isExpanded ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`} onClick={() => toggleRow(log.id)}>
                       <td className="px-3 py-3 text-gray-400">{isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</td>
                       <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-200"><div>{date}</div><div className="text-gray-500 dark:text-gray-400">{time}</div></td>
-                      <td className="px-3 py-3"><span className={`inline-flex rounded px-2 py-1 text-xs whitespace-nowrap ${MODULE_COLORS[module] || MODULE_COLORS.Система}`}>{module}</span></td>
-                      <td className="px-3 py-3"><span className={`inline-flex rounded px-2 py-1 text-xs whitespace-nowrap ${ACTION_COLORS[log.action] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}`}>{ACTION_LABELS[log.action] || log.action}</span>{log.action === 'api_request' && statusCode > 0 && <span className={`ml-1 text-xs ${isError ? 'text-red-600 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>{statusCode}</span>}</td>
+                      <td className="px-3 py-3"><span className={`inline-flex rounded px-2 py-1 text-xs whitespace-nowrap ${MODULE_COLORS[module] || MODULE_COLORS['Система']}`}>{module}</span></td>
+                      <td className="px-3 py-3"><span className={`inline-flex rounded px-2 py-1 text-xs whitespace-nowrap ${ACTION_COLORS[log.action] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}`}>{getActionLabel(log)}</span>{log.action === 'api_request' && statusCode > 0 && <span className={`ml-1 text-xs ${isError ? 'text-red-600 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>{statusCode}</span>}</td>
                       <td className="px-3 py-3 text-xs font-medium text-gray-800 dark:text-gray-100 whitespace-nowrap">{log.userName || (log.userId ? log.userId : 'Система')}</td>
                       <td className="px-3 py-3 text-xs text-gray-700 dark:text-gray-200 break-words">{requestPath ? <><span className="font-mono">{requestPath}</span>{log.details && <p className="mt-1 text-gray-500 dark:text-gray-400 line-clamp-2">{details.outcome === 'error' ? 'Запрос завершился ошибкой' : 'Запрос к API'}</p>}</> : (log.details || log.field || '—')}</td>
                     </tr>
