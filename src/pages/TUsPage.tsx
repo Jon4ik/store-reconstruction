@@ -180,7 +180,7 @@ export default function TUsPage() {
                 </td>
               </tr>
             ) : filteredTUs.map(tu => {
-              const isEditing = editingId === tu.id;
+              const isEditing = false;
               const projectCount = getProjectCount(tu.id);
               return (
                 <tr key={tu.id} className="border-b border-gray-100 hover:bg-gray-50">
@@ -243,6 +243,21 @@ export default function TUsPage() {
           </tbody>
         </table>
       </div>
+      {editingId && editData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={e=>{if(e.target===e.currentTarget){setEditingId(null);setEditData(null)}}}>
+          <div role="dialog" aria-modal="true" aria-labelledby="edit-tu-title" className="w-full max-w-xl rounded-xl bg-white p-6 shadow-xl">
+            <h2 id="edit-tu-title" className="mb-5 text-lg font-semibold text-gray-900">Редактирование ТУ</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div><label className="mb-1 block text-xs font-medium text-gray-600">ФИО *</label><input value={editData.fullName} onChange={e=>setEditData({...editData,fullName:e.target.value})} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"/></div>
+              <div><label className="mb-1 block text-xs font-medium text-gray-600">Должность</label><input value={editData.position} onChange={e=>setEditData({...editData,position:e.target.value})} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"/></div>
+              <div><label className="mb-1 block text-xs font-medium text-gray-600">Телефон</label><PhoneInput value={editData.phone} onChange={value=>setEditData({...editData,phone:value})} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"/></div>
+              <div><label className="mb-1 block text-xs font-medium text-gray-600">Email</label><input type="email" value={editData.email} onChange={e=>setEditData({...editData,email:e.target.value})} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"/></div>
+              <div><label className="mb-1 block text-xs font-medium text-gray-600">Статус</label><select value={editData.isActive?'active':'inactive'} onChange={e=>setEditData({...editData,isActive:e.target.value==='active'})} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"><option value="active">Активен</option><option value="inactive">Отключён</option></select></div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2"><button onClick={()=>{setEditingId(null);setEditData(null)}} className="rounded-lg border border-gray-200 px-4 py-2 text-sm">Отмена</button><button onClick={saveEdit} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white">Сохранить</button></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
