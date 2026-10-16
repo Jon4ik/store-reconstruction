@@ -120,11 +120,11 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private validCron(expression: string) {
-    const fields = expression.split(/\\s+/);
+    const fields = expression.split(/\s+/);
     if (fields.length !== 5) return false;
     const ranges = [[0, 59], [0, 23], [1, 31], [1, 12], [0, 7]];
     return fields.every((field, index) => field.split(',').every(part => {
-      const match = part.match(/^(\\*|\\d+|\\d+-\\d+)(?:\\/(\\d+))?$/);
+      const match = part.match(/^(\*|\d+|\d+-\d+)(?:\/(\d+))?$/);
       if (!match || (match[2] && Number(match[2]) < 1)) return false;
       if (match[1] === '*') return true;
       const nums = match[1].split('-').map(Number);
@@ -148,7 +148,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
 
   private cronMatches(expression: string, date: Date) {
     if (!this.validCron(expression)) return false;
-    const fields = expression.split(/\\s+/);
+    const fields = expression.split(/\s+/);
     const minute = this.fieldMatches(fields[0], date.getMinutes(), 0, 59);
     const hour = this.fieldMatches(fields[1], date.getHours(), 0, 23);
     const dayOfMonth = this.fieldMatches(fields[2], date.getDate(), 1, 31);
