@@ -265,6 +265,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   // Users
   loadUsers: async () => {
+    if (!get().hasPermission('view_users')) { set({ users: [] }); return; }
     try {
       const users = await apiClient.getUsers();
       // Нормализуем данные: извлекаем roleId из объекта role
@@ -315,6 +316,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   // Roles
   loadRoles: async () => {
+    if (!get().hasPermission('view_roles')) { set({ roles: [] }); return; }
     try {
       const roles = await apiClient.getRoles();
       set({ roles });
@@ -389,6 +391,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   // Audit
   loadAuditLog: async () => {
+    if (!get().hasPermission('view_audit')) { set({ auditLog: [] }); return; }
     try {
       const response = await apiClient.getAuditLogs();
       set({ auditLog: response.data });
