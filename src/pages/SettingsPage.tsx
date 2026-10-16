@@ -135,11 +135,11 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
       </section>}
 
       {mode === 'integrations' && <aside className="rounded-xl border border-blue-100 bg-blue-50 p-6 space-y-4 dark-readable-panel">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-blue-950"><ShieldCheck size={21}/>Описание настроек</h2>
-        <div><h3 className="text-sm font-semibold text-blue-950">Интеграция с IntraDesk</h3><p className="mt-1 text-sm text-blue-900">Включайте интеграцию только после получения URL API-шлюза и ключа от владельца сервиса. Пока интеграция выключена, приложение не должно выполнять обмен с IntraDesk.</p></div>
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-blue-950 dark-readable-heading"><ShieldCheck size={21}/>Описание настроек</h2>
+        <div><h3 className="text-sm font-semibold text-blue-950 dark-readable-heading">Интеграция с IntraDesk</h3><p className="mt-1 text-sm text-blue-900 dark-readable-copy">Включайте интеграцию только после получения URL API-шлюза и ключа от владельца сервиса. Пока интеграция выключена, приложение не должно выполнять обмен с IntraDesk.</p></div>
         <div><h3 className="text-sm font-semibold text-blue-950">API-шлюз</h3><p className="mt-1 text-sm text-blue-900">Укажите базовый HTTPS-адрес API, предоставленный администратором IntraDesk. Проверьте доступность адреса с сервера приложения и не указывайте адрес пользовательского интерфейса вместо API.</p></div>
         <div><h3 className="text-sm font-semibold text-blue-950">API-ключ</h3><p className="mt-1 text-sm text-blue-900">Секретный ключ вводится только для сохранения или замены и не отображается повторно. Он шифруется на сервере перед записью в PostgreSQL. Храните LDAP_ENCRYPTION_KEY в секретах окружения.</p></div>
-        <div className="border-t border-blue-200 pt-3 text-xs text-blue-900">Сохранение параметров настраивает соединение, но само по себе не запускает обмен данными. Для полноценного обмена необходим согласованный API-контракт IntraDesk.</div>
+        <div className="border-t border-blue-200 pt-3 text-xs text-blue-900 dark-readable-copy">Сохранение параметров настраивает соединение, но само по себе не запускает обмен данными. Для полноценного обмена необходим согласованный API-контракт IntraDesk.</div>
       </aside>}
 
       {mode === 'ldap' && (hasPermission('manage_ldap') || hasPermission('settings')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
