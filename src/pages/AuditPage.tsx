@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { ChevronDown, ChevronUp, Search, RotateCcw } from 'lucide-react';
 import type { AuditLogEntry } from '../types';
@@ -103,8 +103,8 @@ export default function AuditPage() {
     return <div className="text-center py-12 text-gray-500">Нет доступа к этой странице</div>;
   }
 
-  const visibleLog = useMemo(() => auditLog.filter(log => !isHiddenEvent(log)), [auditLog]);
-  const filteredLog = useMemo(() => visibleLog.filter(log => {
+  const visibleLog = auditLog.filter(log => !isHiddenEvent(log));
+  const filteredLog = visibleLog.filter(log => {
     const details = parseDetails(log.details);
     const module = getModule(log);
     if (filter.action && log.action !== filter.action) return false;
@@ -123,7 +123,7 @@ export default function AuditPage() {
       if (!haystack.includes(needle)) return false;
     }
     return true;
-  }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()), [visibleLog, filter]);
+  }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   const uniqueActions = [...new Set(visibleLog.map(log => log.action))].sort();
   const toggleRow = (id: string) => setExpandedRows(previous => {
@@ -138,6 +138,7 @@ export default function AuditPage() {
       date: date.toLocaleDateString('ru-RU'),
       time: date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
     };
+  };
 
   return (
     <div className="space-y-5 min-w-0">
