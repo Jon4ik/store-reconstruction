@@ -69,7 +69,7 @@ export default function SettingsPage() {
     <div className="space-y-6 max-w-4xl">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Настройки LDAP / Active Directory</h1>
-        <p className="text-sm text-gray-500 mt-1">Параметры подключения используются для синхронизации справочника ТУ.</p>
+        <p className="text-sm text-gray-500 mt-1">Параметры подключения используются для синхронизации справочников из AD.</p>
       </div>
 
       <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
@@ -128,7 +128,7 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {message && <p role="status" className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">{message}</p>}
+      {message && <div role="status" aria-live="polite" className={`sticky top-20 z-20 rounded-xl border-2 p-4 text-base font-semibold shadow-lg ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не удалось') ? 'border-red-400 bg-red-50 text-red-900' : 'border-green-400 bg-green-50 text-green-900'}`}>{message}</div>}
     </div>
   );
 }
