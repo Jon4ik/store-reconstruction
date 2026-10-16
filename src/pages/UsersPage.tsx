@@ -173,7 +173,7 @@ export default function UsersPage() {
           </thead>
           <tbody>
             {users.map(user => {
-              const isEditing = editingId === user.id;
+              const isEditing = false;
               return (
                 <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
                   {isEditing ? (
@@ -234,6 +234,20 @@ export default function UsersPage() {
           </tbody>
         </table>
       </div>
+      {editingId && editData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={e => { if (e.target === e.currentTarget) { setEditingId(null); setEditData(null); } }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="edit-user-title" className="w-full max-w-xl rounded-xl border border-gray-200 bg-white p-6 shadow-xl">
+            <h2 id="edit-user-title" className="mb-5 text-lg font-semibold text-gray-900">Редактирование пользователя</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div><label className="mb-1 block text-xs font-medium text-gray-600">Логин *</label><input value={editData.username} onChange={e => setEditData({...editData, username:e.target.value})} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" /></div>
+              <div><label className="mb-1 block text-xs font-medium text-gray-600">ФИО *</label><input value={editData.fullName} onChange={e => setEditData({...editData, fullName:e.target.value})} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" /></div>
+              <div><label className="mb-1 block text-xs font-medium text-gray-600">Роль</label><select value={editData.roleId} onChange={e => setEditData({...editData, roleId:e.target.value})} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">{roles.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
+              <div><label className="mb-1 block text-xs font-medium text-gray-600">Статус</label><select value={editData.isActive?'active':'inactive'} onChange={e=>setEditData({...editData,isActive:e.target.value==='active'})} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"><option value="active">Активен</option><option value="inactive">Отключён</option></select></div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2"><button onClick={()=>{setEditingId(null);setEditData(null)}} className="rounded-lg border border-gray-200 px-4 py-2 text-sm">Отмена</button><button onClick={saveEdit} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white">Сохранить</button></div>
+          </div>
+        </div>
+      )}
       {passwordUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={e => { if (e.target === e.currentTarget && !savingPassword) setPasswordUser(null); }}>
           <div role="dialog" aria-modal="true" aria-labelledby="change-user-password-title" className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-xl">
