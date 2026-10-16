@@ -24,7 +24,7 @@ services:
           const prisma = new PrismaClient();
           try {
             const expected = ["users", "roles", "tus", "shop_directory", "scheduler_tasks", "store_projects", "comments", "audit_logs", "ldap_settings"];
-            const rows = await prisma.$queryRaw\`SELECT table_name FROM information_schema.tables WHERE table_schema = '\''public'\''\`;
+            const rows = await prisma.$queryRawUnsafe("SELECT table_name FROM information_schema.tables WHERE table_schema = '\''public'\''");
             const found = new Set(rows.map(row => row.table_name));
             const missing = expected.filter(name => !found.has(name));
             const roleCount = found.has("roles") ? await prisma.role.count() : 0;
