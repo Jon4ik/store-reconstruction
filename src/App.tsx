@@ -6,7 +6,6 @@ import StoreTable from './components/StoreTable';
 import StoreCard from './components/StoreCard';
 import CalendarView from './components/CalendarView';
 import AddStoreModal from './components/AddStoreModal';
-import ImportModal from './components/ImportModal';
 import LoginPage from './components/LoginPage';
 import UsersPage from './pages/UsersPage';
 import RolesPage from './pages/RolesPage';
@@ -81,7 +80,6 @@ export default function App() {
       </Layout>
       <StoreCard />
       <AddStoreModal />
-      <ImportModal />
     </>
   );
 }

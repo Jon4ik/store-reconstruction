@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { calculateProjectStatus, getNearestEvent, parseDate } from '../utils/statusCalculator';
-import { Search, Filter, Plus, Download, Upload } from 'lucide-react';
+import { Search, Filter, Plus, Download } from 'lucide-react';
 import Filters from './Filters';
 import { exportToExcel } from '../utils/exportUtils';
 import { formatDate, formatDateDisplay } from '../utils/format';
@@ -9,7 +9,7 @@ import { formatDate, formatDateDisplay } from '../utils/format';
 type TabType = 'closures' | 'openings';
 
 export default function StoreTable() {
-  const { getFilteredProjects, tus, filters, setFilters, openCard, openAddModal, openImportModal, hasPermission } = useStore();
+  const { getFilteredProjects, tus, filters, setFilters, openCard, openAddModal, hasPermission } = useStore();
   const [showFilters, setShowFilters] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('closures');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -140,14 +140,6 @@ export default function StoreTable() {
         >
           <Plus size={16} /> {activeTab === 'closures' ? 'Добавить объект' : 'Добавить открытие'}
         </button>
-        {hasPermission('import') && (
-          <button
-            onClick={openImportModal}
-            className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
-          >
-            <Upload size={16} /> Импорт
-          </button>
-        )}
         {hasPermission('export') && (
           <button
             onClick={handleExport}
@@ -195,6 +187,7 @@ export default function StoreTable() {
                   </>
                 )}
                 <th className="text-left px-4 py-3 font-medium text-gray-500 whitespace-nowrap">ТУ</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500 whitespace-nowrap">Телефон ТУ</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500 whitespace-nowrap">Статус</th>
               </tr>
             </thead>
@@ -235,6 +228,7 @@ export default function StoreTable() {
                       </>
                     )}
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{getTUName(project.tuId)}</td>
+                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{getTUPhone(project.tuId)}</td>
                     <td className="px-4 py-3"><StatusBadge status={status} /></td>
                   </tr>
                 );

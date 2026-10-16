@@ -1,7 +1,7 @@
 import React from 'react';
 import { useStore } from '../store/useStore';
 import { calculateProjectStatus, getNearestEvent, formatDate } from '../utils/statusCalculator';
-import { CheckCircle2, Clock, Package, TrendingUp, Store, Wrench, Ban, DoorOpen } from 'lucide-react';
+import { CheckCircle2, Clock, Package, Store, Wrench, Ban, DoorOpen } from 'lucide-react';
 
 export default function Dashboard() {
   const { getDashboardStats, getUpcomingEvents, projects, openCard, tus } = useStore();
@@ -15,7 +15,6 @@ export default function Dashboard() {
     { label: 'Закрытий', value: stats.closures, icon: Package, color: 'bg-orange-50 text-orange-700' },
     { label: 'Реконструкций', value: stats.reconstructions, icon: Wrench, color: 'bg-purple-50 text-purple-700' },
     { label: 'Открытий', value: stats.openings, icon: DoorOpen, color: 'bg-green-50 text-green-700' },
-    { label: 'В работе', value: stats.inProgress, icon: TrendingUp, color: 'bg-indigo-50 text-indigo-700' },
     { label: 'Завершено', value: stats.completed, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-700' },
     { label: 'Отменено', value: stats.cancelled, icon: Ban, color: 'bg-gray-100 text-gray-700' },
   ];
