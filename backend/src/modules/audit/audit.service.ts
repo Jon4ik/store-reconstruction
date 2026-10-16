@@ -17,15 +17,16 @@ export class AuditService {
     if (query.action) where.action = String(query.action).slice(0, 80);
 
     const [data, total] = await Promise.all([
-      this.prisma.auditLog.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { timestamp: 'desc' } }),
+      this.prisma.auditLog.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        // Stable ordering prevents rows with the same timestamp from moving
+        // unpredictably between pages.
+        orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
+      }),
       this.prisma.auditLog.count({ where }),
     ]);
     return { data, total, page, limit };
-  }
-
-  async clearAll() {
-    // Audit history is intentionally append-only. Retention should be handled by a
-    // separate privileged archival job, not an HTTP endpoint that destroys evidence.
-    throw new BadRequestException('Очистка журнала аудита через API запрещена');
   }
 }
