@@ -102,7 +102,7 @@ export default function Dashboard() {
                 const status = calculateProjectStatus(project);
                 const event = getNearestEvent(project);
                 return (
-                  <tr key={project.id} onClick={() => openCard(project.id)} className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer" style={{ backgroundColor: project.rowColor || undefined }}>
+                  <tr key={project.id} onClick={() => openCard(project.id)} className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer" style={{ backgroundColor: project.rowColor || undefined, color: getReadableTextColor(project.rowColor) }}>
                     <td className="px-4 py-3 font-medium">{project.storeNumber}</td>
                     <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate">{project.address}</td>
                     <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full ${
@@ -122,6 +122,13 @@ export default function Dashboard() {
       </div>
     </div>
   );
+}
+
+function getReadableTextColor(color?: string): string | undefined {
+  if (!color || !/^#[0-9a-f]{6}$/i.test(color)) return undefined;
+  const values = color.slice(1).match(/.{2}/g)!.map(part => parseInt(part, 16) / 255).map(value => value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4));
+  const luminance = 0.2126 * values[0] + 0.7152 * values[1] + 0.0722 * values[2];
+  return luminance > 0.45 ? '#111827' : '#f9fafb';
 }
 
 function StatusBadge({ status }: { status: string }) {
