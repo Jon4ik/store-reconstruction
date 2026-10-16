@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CalendarClock, Play, Save, CheckCircle2, AlertTriangle, Clock3 } from 'lucide-react';
+import { CalendarClock, Play, Save, Clock3 } from 'lucide-react';
+import SettingsNotice from '../components/SettingsNotice';
 import { apiClient } from '../api/client';
 import { useStore } from '../store/useStore';
 
@@ -47,8 +48,8 @@ export default function SchedulerPage() {
 
   return <div className="w-full space-y-6">
     <div><h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900"><CalendarClock size={24}/>Планировщик (crontab)</h1><p className="mt-1 text-sm text-gray-500 dark-readable-muted">Автоматический запуск фоновых задач по расписанию сервера.</p></div>
-    {message && <div role="status" aria-live="polite" className={'rounded-lg border p-3 text-sm ' + (error ? 'border-red-300 bg-red-50 text-red-800' : 'border-green-300 bg-green-50 text-green-800')}>{error ? <AlertTriangle size={16} className="mr-2 inline"/> : <CheckCircle2 size={16} className="mr-2 inline"/>}{message}</div>}
-    {loading ? <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500">Загрузка задач…</div> : task ? <div className="grid w-full grid-cols-1 items-start gap-6">
+    {message && <SettingsNotice message={message} variant={error ? 'error' : 'success'} onDismiss={() => setMessage('')} />}
+    {loading ? <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500">Загрузка задач…</div> : task ? <div className="grid w-full grid-cols-1 items-start gap-6 lg:grid-cols-2">
       <section className="rounded-xl border border-gray-200 bg-white p-6 space-y-5">
         <div><h2 className="text-lg font-semibold text-gray-900">{task.name}</h2><p className="mt-1 text-sm text-gray-500">Синхронизирует источник SQL Server с таблицей магазинов PostgreSQL. Новые записи добавляются, изменённые обновляются; отсутствующие в источнике не удаляются.</p></div>
         <label className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 p-4"><span><span className="block text-sm font-medium text-gray-900">Автоматическая синхронизация</span><span className="mt-1 block text-xs text-gray-500">Задача выполняется по расписанию, если переключатель включён.</span></span><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)} className="h-5 w-5"/></label>
