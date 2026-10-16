@@ -430,3 +430,12 @@ html[data-theme="dark"] .dark-readable-event[class~="bg-yellow-200"] { backgroun
   html[data-theme="system"] .dark-readable-event[class~="bg-orange-200"] { background-color: #7c2d12 !important; color: #ffedd5 !important; }
   html[data-theme="system"] .dark-readable-event[class~="bg-yellow-200"] { background-color: #713f12 !important; color: #fef9c3 !important; }
 }
+
+
+/* Keep every line in the Settings > Integrations description the same color in dark mode. */
+html[data-theme="dark"] .dark-readable-panel .dark-readable-heading,
+html[data-theme="dark"] .dark-readable-panel .dark-readable-copy { color: #bfdbfe !important; }
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] .dark-readable-panel .dark-readable-heading,
+  html[data-theme="system"] .dark-readable-panel .dark-readable-copy { color: #bfdbfe !important; }
+}
