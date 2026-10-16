@@ -393,3 +393,22 @@ html[data-theme="dark"] .dashboard-upcoming-event:hover p.text-gray-500 { color:
   html[data-theme="system"] .dashboard-upcoming-event:hover p.text-gray-900 { color: #f9fafb !important; }
   html[data-theme="system"] .dashboard-upcoming-event:hover p.text-gray-500 { color: #d1d5db !important; }
 }
+
+
+/* Accessible status and help text on dark themes. */
+html[data-theme="dark"] .dark-readable-success { background-color: #052e24 !important; color: #bbf7d0 !important; border-color: #15803d !important; }
+html[data-theme="dark"] .dark-readable-error { background-color: #450a0a !important; color: #fecaca !important; border-color: #b91c1c !important; }
+html[data-theme="dark"] .dark-readable-info { color: #bfdbfe !important; }
+html[data-theme="dark"] .dark-readable-panel { background-color: #172554 !important; border-color: #1d4ed8 !important; }
+html[data-theme="dark"] .dark-readable-panel .dark-readable-heading { color: #dbeafe !important; }
+html[data-theme="dark"] .dark-readable-panel .dark-readable-copy { color: #bfdbfe !important; }
+html[data-theme="dark"] .dark-readable-muted { color: #d1d5db !important; }
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] .dark-readable-success { background-color: #052e24 !important; color: #bbf7d0 !important; border-color: #15803d !important; }
+  html[data-theme="system"] .dark-readable-error { background-color: #450a0a !important; color: #fecaca !important; border-color: #b91c1c !important; }
+  html[data-theme="system"] .dark-readable-info { color: #bfdbfe !important; }
+  html[data-theme="system"] .dark-readable-panel { background-color: #172554 !important; border-color: #1d4ed8 !important; }
+  html[data-theme="system"] .dark-readable-panel .dark-readable-heading { color: #dbeafe !important; }
+  html[data-theme="system"] .dark-readable-panel .dark-readable-copy { color: #bfdbfe !important; }
+  html[data-theme="system"] .dark-readable-muted { color: #d1d5db !important; }
+}
