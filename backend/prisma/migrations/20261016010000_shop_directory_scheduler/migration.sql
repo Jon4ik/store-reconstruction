@@ -26,3 +26,16 @@ CREATE TABLE IF NOT EXISTS "scheduler_tasks" (
   "updatedAt" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "scheduler_tasks_pkey" PRIMARY KEY ("id")
 );
+
+-- Existing installations do not necessarily rerun prisma seed after deployment.
+UPDATE "roles"
+SET "permissions" = array_append("permissions", 'view_shops')
+WHERE NOT ('view_shops' = ANY("permissions"));
+
+UPDATE "roles"
+SET "permissions" = array_append("permissions", 'manage_shops')
+WHERE "name" = 'Администратор' AND NOT ('manage_shops' = ANY("permissions"));
+
+UPDATE "roles"
+SET "permissions" = array_append("permissions", 'manage_scheduler')
+WHERE "name" = 'Администратор' AND NOT ('manage_scheduler' = ANY("permissions"));
