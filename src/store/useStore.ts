@@ -70,6 +70,7 @@ interface AppState {
 
   // Audit
   loadAuditLog: () => Promise<void>;
+  clearAuditLog: () => Promise<number>;
 
   // DB Config
   updateDbConfig: (config: Partial<DatabaseConfig>) => void;
@@ -398,6 +399,13 @@ export const useStore = create<AppState>((set, get) => ({
     } catch (error) {
       console.error('Failed to load audit log:', error);
     }
+  },
+
+  clearAuditLog: async () => {
+    if (!get().hasPermission('clear_audit')) throw new Error('Недостаточно прав для очистки журнала аудита');
+    const result = await apiClient.clearAuditLogs();
+    await get().loadAuditLog();
+    return result.deletedCount;
   },
 
   // DB Config

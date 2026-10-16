@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { ChevronDown, ChevronUp, Search, RotateCcw } from 'lucide-react';
+import { ChevronDown, ChevronUp, Search, RotateCcw, Trash2 } from 'lucide-react';
 import type { AuditLogEntry } from '../types';
 
 type AuditDetails = {
@@ -40,6 +40,7 @@ function isHiddenEvent(log: AuditLogEntry): boolean {
 function getModule(log: AuditLogEntry): string {
   const action = String(log.action || '').toLowerCase();
   const route = getRequestPath(log).toLowerCase();
+  if (action.includes('audit') || route.includes('/audit')) return 'Аудит';
   if (action === 'login' || action === 'logout' || route.includes('/auth/logout')) return 'Авторизация';
   if (action === 'scheduler_run' || route.includes('/scheduler')) return 'Планировщик';
   if (route.includes('/ldap') || route.includes('/integrations') || route.includes('/notifications')) return 'Настройки';
@@ -54,6 +55,7 @@ function getModule(log: AuditLogEntry): string {
 const ACTION_LABELS: Record<string, string> = {
   login: 'Вход в систему',
   logout: 'Выход из системы',
+  clear_audit: 'Очистка журнала аудита',
   create: 'Создание',
   update: 'Изменение',
   delete: 'Удаление',
@@ -78,6 +80,7 @@ function getActionLabel(log: AuditLogEntry): string {
 const ACTION_COLORS: Record<string, string> = {
   login: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
   logout: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200',
+  clear_audit: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200',
   create: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
   update: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
   delete: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200',
@@ -89,6 +92,7 @@ const ACTION_COLORS: Record<string, string> = {
 
 const MODULE_COLORS: Record<string, string> = {
   'Авторизация': 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
+  'Аудит': 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200',
   'Объекты': 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
   'Комментарии': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200',
   'Справочник ТУ': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200',
@@ -100,8 +104,9 @@ const MODULE_COLORS: Record<string, string> = {
 };
 
 export default function AuditPage() {
-  const { auditLog, hasPermission, projects } = useStore();
+  const { auditLog, hasPermission, projects, clearAuditLog } = useStore();
   const [filter, setFilter] = useState({ action: '', search: '', module: '', outcome: '' });
+  const [clearingAudit, setClearingAudit] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   if (!hasPermission('view_audit')) {
@@ -137,6 +142,18 @@ export default function AuditPage() {
     return next;
   });
   const resetFilters = () => setFilter({ action: '', search: '', module: '', outcome: '' });
+  const handleClearAudit = async () => {
+    if (!window.confirm('Очистить журнал аудита? Старые записи будут удалены. Событие очистки останется в журнале.')) return;
+    setClearingAudit(true);
+    try {
+      const deletedCount = await clearAuditLog();
+      alert(`Журнал очищен. Удалено записей: ${deletedCount}.`);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Не удалось очистить журнал аудита');
+    } finally {
+      setClearingAudit(false);
+    }
+  };
   const formatDate = (value: string) => {
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? { date: '—', time: '—' } : {
@@ -156,9 +173,15 @@ export default function AuditPage() {
               : `Показано ${filteredLog.length} из ${visibleLog.length}`}
           </p>
         </div>
-        <span className="text-xs text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">
-          Журнал доступен только для чтения
-        </span>
+        {hasPermission('clear_audit') ? (
+          <button type="button" onClick={handleClearAudit} disabled={clearingAudit} className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60">
+            <Trash2 size={16} /> {clearingAudit ? 'Очистка…' : 'Очистить журнал'}
+          </button>
+        ) : (
+          <span className="text-xs text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">
+            Журнал доступен только для чтения
+          </span>
+        )}
       </div>
 
       <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">

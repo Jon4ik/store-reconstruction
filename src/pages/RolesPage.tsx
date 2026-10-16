@@ -106,6 +106,7 @@ export default function RolesPage() {
       key: 'audit',
       permissions: [
         { key: 'view_audit', label: 'Просмотр журнала' },
+        { key: 'clear_audit', label: 'Очистка журнала' },
       ]
     },
     {
