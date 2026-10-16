@@ -120,11 +120,6 @@ export default function ProfilePage() {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center gap-3 mb-4"><User size={22} className="text-blue-600"/><h2 className="text-lg font-semibold text-gray-900">Роль в системе</h2></div>
-        <p className="text-sm text-gray-500">Текущая роль</p><p className="mt-1 text-base font-semibold text-gray-900">{currentUser.roleName || (currentUser.role ? 'Роль назначена' : 'Не назначена')}</p>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="flex items-center gap-3 mb-6">
           <User size={24} className="text-blue-600" />
           <h2 className="text-lg font-semibold text-gray-900">Основная информация</h2>
