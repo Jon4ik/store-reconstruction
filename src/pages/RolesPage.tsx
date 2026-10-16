@@ -51,12 +51,9 @@ export default function RolesPage() {
       ]
     },
     {
-      name: 'Импорт/Экспорт',
-      key: 'import_export',
-      permissions: [
-        { key: 'import', label: 'Импорт из Excel' },
-        { key: 'export', label: 'Экспорт в Excel/CSV' },
-      ]
+      name: 'Экспорт',
+      key: 'export',
+      permissions: [ { key: 'export', label: 'Экспорт в Excel/CSV' } ]
     },
     {
       name: 'Комментарии',
