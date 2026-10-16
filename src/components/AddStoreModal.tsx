@@ -13,13 +13,17 @@ export default function AddStoreModal() {
     tuId: tus[0]?.id || '', comment: '', rowColor: '',
   });
 
+  const [errors, setErrors] = useState<string[]>([]);
+  const [shopMatches, setShopMatches] = useState<any[]>([]);
+  const [shopSearchLoading, setShopSearchLoading] = useState(false);
+
   useEffect(() => {
     if (isAddModalOpen) setForm(current => ({ ...current, workType: defaultWorkType }));
   }, [isAddModalOpen, defaultWorkType]);
 
   useEffect(() => {
     const number = form.storeNumber.trim();
-    if (!isAddModalOpen || !number) { setShopMatches([]); return; }
+    if (!isAddModalOpen || !number) { setShopMatches([]); setShopSearchLoading(false); setForm(current => ({ ...current, address: '', city: '' })); return; }
     let active = true;
     setShopSearchLoading(true);
     apiClient.searchShopByNumber(number).then((items: any[]) => {
@@ -33,9 +37,6 @@ export default function AddStoreModal() {
       .finally(() => { if (active) setShopSearchLoading(false); });
     return () => { active = false; };
   }, [form.storeNumber, isAddModalOpen]);
-  const [errors, setErrors] = useState<string[]>([]);
-  const [shopMatches, setShopMatches] = useState<any[]>([]);
-  const [shopSearchLoading, setShopSearchLoading] = useState(false);
 
   if (!isAddModalOpen) return null;
 
