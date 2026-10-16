@@ -4,6 +4,7 @@ import { ShopsService } from '../shops/shops.service';
 
 const SHOP_TASK_ID = 'shops-sync';
 const SCHEDULER_INTERVAL_MS = 10_000;
+const RETRY_INTERVAL_MS = 5 * 60_000;
 
 @Injectable()
 export class SchedulerService implements OnModuleInit, OnModuleDestroy {
@@ -122,14 +123,15 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
       // Run once after first registration (or retry a previously failed initial run).
       // Otherwise a daily 00:00 schedule could appear broken until the next midnight.
       const needsInitialRun = runOnStartup && (!task.lastRunAt || task.lastStatus === 'never' || task.lastStatus === 'error');
-      if (!needsInitialRun && !this.cronMatches(task.cronExpression, now)) return;
-      if (!needsInitialRun && task.lastRunAt &&
+      const shouldRetry = task.lastStatus === 'error' && Boolean(task.lastRunAt) && now.getTime() - task.lastRunAt!.getTime() >= RETRY_INTERVAL_MS;
+      if (!needsInitialRun && !shouldRetry && !this.cronMatches(task.cronExpression, now)) return;
+      if (!needsInitialRun && !shouldRetry && task.lastRunAt &&
           task.lastRunAt.getFullYear() === now.getFullYear() &&
           task.lastRunAt.getMonth() === now.getMonth() &&
           task.lastRunAt.getDate() === now.getDate() &&
           task.lastRunAt.getHours() === now.getHours() &&
           task.lastRunAt.getMinutes() === now.getMinutes()) return;
-      this.logger.log(`${needsInitialRun ? 'Initial startup run' : 'Cron matched'} for task ${task.id} at ${now.toString()}`);
+      this.logger.log(`${needsInitialRun ? 'Initial startup run' : shouldRetry ? 'Retry after previous failure' : 'Cron matched'} for task ${task.id} at ${now.toString()}`);
       await this.runTask(task.id);
     } catch (error: any) {
       this.logger.error(`Scheduler poll failed: ${error?.message || error}`);
