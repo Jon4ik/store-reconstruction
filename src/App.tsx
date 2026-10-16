@@ -33,9 +33,9 @@ export default function App() {
     if (currentUser) {
       loadProjects();
       loadTUs();
-      loadUsers();
-      loadRoles();
-      loadAuditLog();
+      if (currentUser.permissions?.includes('view_users')) loadUsers();
+      if (currentUser.permissions?.includes('view_roles')) loadRoles();
+      if (currentUser.permissions?.includes('view_audit')) loadAuditLog();
     }
   }, [currentUser, loadProjects, loadTUs, loadUsers, loadRoles, loadAuditLog]);
 
