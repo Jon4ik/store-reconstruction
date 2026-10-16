@@ -61,6 +61,8 @@ def main():
             number = str(item.get("НомерМагазина") or "").strip()
             if number.endswith(".0") and number[:-2].isdigit():
                 number = number[:-2]
+            if not number:
+                continue
             rows.append({
                 "shopNumber": number.zfill(3),
                 "city": str(item.get("Город") or "").strip(),
