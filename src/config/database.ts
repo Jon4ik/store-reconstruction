@@ -123,7 +123,8 @@ model AuditLog {
   id        String   @id @default(uuid())
   storeId   String?
   store     StoreProject? @relation(fields: [storeId], references: [id])
-  userId    String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
   userName  String
   timestamp DateTime @default(now())
   action    String
