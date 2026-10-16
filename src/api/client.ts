@@ -229,6 +229,10 @@ class ApiClient {
     return this.request<any>(`/audit${queryString}`);
   }
 
+  async clearAuditLogs() {
+    return this.request<{ deletedCount: number }>('/audit/clear', { method: 'DELETE' });
+  }
+
   // Dashboard
   async getDashboard() {
     return this.request<any>('/stores/dashboard');
