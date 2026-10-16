@@ -6,8 +6,6 @@ const STATUSES = ['Запланирован', 'В работе', 'Заверше
 
 export class CreateStoreDto {
   @IsString() @Length(1, 100) storeNumber!: string;
-  @IsString() @Length(1, 300) address!: string;
-  @IsOptional() @IsString() @Length(1, 150) city?: string;
   @IsIn(WORK_TYPES) workType!: string;
   @IsString() @Length(1, 100) tuId!: string;
   @IsOptional() @IsString() @MaxLength(32) rowColor?: string;
@@ -22,8 +20,6 @@ export class CreateStoreDto {
 
 export class UpdateStoreDto {
   @IsOptional() @IsString() @Length(1, 100) storeNumber?: string;
-  @IsOptional() @IsString() @Length(1, 300) address?: string;
-  @IsOptional() @IsString() @Length(1, 150) city?: string;
   @IsOptional() @IsIn(WORK_TYPES) workType?: string;
   @IsOptional() @IsString() @Length(1, 100) tuId?: string;
   @IsOptional() @IsString() @MaxLength(32) rowColor?: string;

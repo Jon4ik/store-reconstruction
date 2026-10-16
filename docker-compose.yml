@@ -20,6 +20,32 @@ services:
         npx prisma migrate deploy &&
         printf '%s\n' 'ALTER TABLE public.users DROP COLUMN IF EXISTS "userName";' |
           npx prisma db execute --stdin --schema prisma/schema.prisma &&
+        npx prisma db execute --stdin --schema prisma/schema.prisma <<'SQL' || exit 1
+        CREATE TABLE IF NOT EXISTS public.shop_directory (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "shopNumber" TEXT NOT NULL,
+          "city" TEXT NOT NULL DEFAULT '',
+          "address" TEXT NOT NULL,
+          "workHours" TEXT NOT NULL DEFAULT '',
+          "areaManager" TEXT NOT NULL DEFAULT '',
+          "areaManagerPhone" TEXT NOT NULL DEFAULT '',
+          "tu" TEXT NOT NULL DEFAULT '',
+          "directorate" TEXT NOT NULL DEFAULT '',
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP(3) NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS "shop_directory_shopNumber_key" ON public.shop_directory ("shopNumber");
+        CREATE INDEX IF NOT EXISTS "shop_directory_city_idx" ON public.shop_directory ("city");
+        INSERT INTO public.shop_directory ("id", "shopNumber", "city", "address", "workHours", "areaManager", "areaManagerPhone", "tu", "directorate", "createdAt", "updatedAt")
+        SELECT gen_random_uuid()::text, lpad(p."storeNumber", 3, '0'), COALESCE(MAX(p."city"), ''), COALESCE(MAX(p."address"), 'Адрес не указан'), '', '', '', '', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        FROM public.store_projects AS p
+        WHERE NOT EXISTS (SELECT 1 FROM public.shop_directory AS s WHERE s."shopNumber" = p."storeNumber" OR s."shopNumber" = lpad(p."storeNumber", 3, '0') OR s."id" = p."storeNumber")
+        GROUP BY p."storeNumber"
+        ON CONFLICT ("shopNumber") DO NOTHING;
+        UPDATE public.store_projects AS p SET "storeNumber" = s."id" FROM public.shop_directory AS s WHERE p."storeNumber" = s."shopNumber" OR lpad(p."storeNumber", 3, '0') = s."shopNumber";
+        ALTER TABLE public.store_projects DROP COLUMN IF EXISTS "address";
+        ALTER TABLE public.store_projects DROP COLUMN IF EXISTS "city";
+        SQL
         npx prisma db push --skip-generate &&
         npm run prisma:seed
     networks:

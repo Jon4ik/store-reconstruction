@@ -439,3 +439,10 @@ html[data-theme="dark"] .dark-readable-panel .dark-readable-copy { color: #bfdbf
   html[data-theme="system"] .dark-readable-panel .dark-readable-heading,
   html[data-theme="system"] .dark-readable-panel .dark-readable-copy { color: #bfdbfe !important; }
 }
+
+
+/* Center text consistently in all application tables. */
+table th, table td, table th[class*="text-"], table td[class*="text-"] {
+  text-align: center !important;
+  vertical-align: middle;
+}
