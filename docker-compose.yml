@@ -18,9 +18,31 @@ services:
       - -c
       - |
         npx prisma migrate deploy &&
-        printf '%s\n' 'ALTER TABLE public.users DROP COLUMN IF EXISTS "userName";' |
-          npx prisma db execute --stdin --schema prisma/schema.prisma &&
-        npx prisma db execute --stdin --schema prisma/schema.prisma <<'SQL' || exit 1
+        NEEDS_BOOTSTRAP=$(node -e '
+        const { PrismaClient } = require("@prisma/client");
+        (async () => {
+          const prisma = new PrismaClient();
+          try {
+            const expected = ["users", "roles", "tus", "shop_directory", "scheduler_tasks", "store_projects", "comments", "audit_logs", "ldap_settings"];
+            const rows = await prisma.$queryRawUnsafe("SELECT table_name FROM information_schema.tables WHERE table_schema = '\''public'\''");
+            const found = new Set(rows.map(row => row.table_name));
+            const missing = expected.filter(name => !found.has(name));
+            const roleCount = found.has("roles") ? await prisma.role.count() : 0;
+            const userCount = found.has("users") ? await prisma.user.count() : 0;
+            console.log(missing.length > 0 || roleCount === 0 || userCount === 0 ? "yes" : "no");
+          } catch (error) {
+            console.error(error);
+            process.exitCode = 2;
+          } finally {
+            await prisma.$disconnect();
+          }
+        })();
+        ') &&
+        if [ "$NEEDS_BOOTSTRAP" = "yes" ]; then
+          echo "Database bootstrap required: tables or initial records are missing."
+          printf '%s\n' 'ALTER TABLE public.users DROP COLUMN IF EXISTS "userName";' |
+            npx prisma db execute --stdin --schema prisma/schema.prisma &&
+          npx prisma db execute --stdin --schema prisma/schema.prisma <<'SQL' &&
         CREATE TABLE IF NOT EXISTS public.shop_directory (
           "id" TEXT NOT NULL PRIMARY KEY,
           "shopNumber" TEXT NOT NULL,
@@ -36,8 +58,6 @@ services:
         );
         CREATE UNIQUE INDEX IF NOT EXISTS "shop_directory_shopNumber_key" ON public.shop_directory ("shopNumber");
         CREATE INDEX IF NOT EXISTS "shop_directory_city_idx" ON public.shop_directory ("city");
-        -- Ensure legacy columns exist so this bootstrap SQL is repeatable on
-        -- databases where a previous run already removed them.
         ALTER TABLE public.store_projects ADD COLUMN IF NOT EXISTS "city" TEXT;
         ALTER TABLE public.store_projects ADD COLUMN IF NOT EXISTS "address" TEXT;
         INSERT INTO public.shop_directory ("id", "shopNumber", "city", "address", "workHours", "areaManager", "areaManagerPhone", "tu", "directorate", "createdAt", "updatedAt")
@@ -50,8 +70,11 @@ services:
         ALTER TABLE public.store_projects DROP COLUMN IF EXISTS "address";
         ALTER TABLE public.store_projects DROP COLUMN IF EXISTS "city";
         SQL
-        npx prisma db push --skip-generate &&
-        npm run prisma:seed
+          npx prisma db push --skip-generate &&
+          npm run prisma:seed
+        else
+          echo "Database schema and initial records are present; skipping bootstrap and seed."
+        fi
     networks:
       - app-network
 
