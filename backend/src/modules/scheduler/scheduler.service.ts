@@ -73,6 +73,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
         where: { id },
         data: { lastStatus: 'success', lastMessage: message },
       });
+      await this.writeTaskAudit(actor, 'success', message);
       this.logger.log(`Scheduled task ${id} completed: ${message}`);
       return { ...result, taskId: id };
     } catch (error: any) {
@@ -86,9 +87,28 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
       } catch (statusError: any) {
         this.logger.error(`Could not persist failure status for ${id}: ${statusError?.message || statusError}`);
       }
+      await this.writeTaskAudit(actor, 'error', message);
       throw error;
     } finally {
       this.running = false;
+    }
+  }
+
+  private async writeTaskAudit(actor: { id: string; name: string } | undefined, status: 'success' | 'error', message: string) {
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          userId: actor?.id ?? null,
+          userName: actor?.name ?? 'Система',
+          action: 'scheduler_run',
+          field: SHOP_TASK_ID,
+          oldValue: '',
+          newValue: status,
+          details: message.slice(0, 3000),
+        },
+      });
+    } catch (error: any) {
+      this.logger.error(`Could not write scheduler audit record: ${error?.message || error}`);
     }
   }
 
