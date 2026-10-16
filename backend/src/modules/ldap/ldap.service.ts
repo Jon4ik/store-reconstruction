@@ -126,7 +126,7 @@ export class LdapService {
       const response = await client.search(config.baseDN, {
         scope: 'sub',
         filter: '(&(objectCategory=person)(objectClass=user)(title=Территориальный управляющий))',
-        attributes: ['objectGUID', 'displayName', 'cn', 'title', 'mail', 'telephoneNumber', 'userAccountControl'],
+        attributes: ['objectGUID', 'displayName', 'cn', 'title', 'mail', 'mobile', 'telephoneNumber', 'userAccountControl'],
         paged: { pageSize: 500 },
       });
       const entries: any[] = response.searchEntries || [];
@@ -137,7 +137,7 @@ export class LdapService {
         const fullName = this.textValue(entry, 'displayName') || this.textValue(entry, 'cn');
         if (!guid || fullName.length < 2) { skipped++; continue; }
         const email = this.textValue(entry, 'mail') || null;
-        const phone = this.textValue(entry, 'telephoneNumber') || null;
+        const phone = this.textValue(entry, 'mobile') || this.textValue(entry, 'telephoneNumber') || null;
         const control = Number.parseInt(this.textValue(entry, 'userAccountControl') || '0', 10);
         const enabled = Number.isFinite(control) && (control & 2) === 0;
         const existing = await this.prisma.tU.findFirst({
