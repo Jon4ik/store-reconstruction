@@ -205,27 +205,7 @@ class ApiClient {
   }
 
   // Import
-  async importExcel(file: File) {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    const headers: HeadersInit = {};
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
 
-    const response = await fetch(`${API_BASE_URL}/import/excel`, {
-      method: 'POST',
-      headers,
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error('Import failed');
-    }
-
-    return response.json();
-  }
 
   // Comments
   async getComments(storeId: string) {
