@@ -412,3 +412,6 @@ html[data-theme="dark"] .dark-readable-muted { color: #d1d5db !important; }
   html[data-theme="system"] .dark-readable-panel .dark-readable-copy { color: #bfdbfe !important; }
   html[data-theme="system"] .dark-readable-muted { color: #d1d5db !important; }
 }
+
+html[data-theme="dark"] .dark-readable-event { color: #f9fafb !important; }
+@media (prefers-color-scheme: dark) { html[data-theme="system"] .dark-readable-event { color: #f9fafb !important; } }
