@@ -18,7 +18,7 @@ export class LdapController {
   saveSettings(@Body() body: any) { return this.ldapService.saveSettings(body); }
 
   @Post('test')
-  @RequirePermissions('settings')
+  @RequirePermissions('manage_ldap')
   testConnection(@Body() body: { url?: string; baseDN?: string; bindDN?: string; bindPassword?: string }) { return this.ldapService.testConnection(body); }
 
   @Get('integrations/intradesk')
