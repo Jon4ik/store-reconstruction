@@ -382,3 +382,14 @@ html[data-theme="dark"] [class~="border-red-400"] { border-color: #b91c1c !impor
   html[data-theme="system"] [class~="border-green-400"] { border-color: #15803d !important; }
   html[data-theme="system"] [class~="border-red-400"] { border-color: #b91c1c !important; }
 }
+
+
+/* Dashboard upcoming-event hover contrast in dark and system themes. */
+html[data-theme="dark"] .dashboard-upcoming-event:hover { background-color: #1f2937 !important; color: #f9fafb !important; }
+html[data-theme="dark"] .dashboard-upcoming-event:hover p.text-gray-900 { color: #f9fafb !important; }
+html[data-theme="dark"] .dashboard-upcoming-event:hover p.text-gray-500 { color: #d1d5db !important; }
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] .dashboard-upcoming-event:hover { background-color: #1f2937 !important; color: #f9fafb !important; }
+  html[data-theme="system"] .dashboard-upcoming-event:hover p.text-gray-900 { color: #f9fafb !important; }
+  html[data-theme="system"] .dashboard-upcoming-event:hover p.text-gray-500 { color: #d1d5db !important; }
+}

@@ -59,7 +59,7 @@ export default function Dashboard() {
                     {events.map((event, idx) => {
                       const project = projects.find(p => p.id === event.projectId);
                       return (
-                        <button key={idx} onClick={() => openCard(event.projectId)} className="w-full flex items-center justify-between p-2 rounded hover:bg-white text-left transition-colors">
+                        <button key={idx} onClick={() => openCard(event.projectId)} className="dashboard-upcoming-event w-full flex items-center justify-between p-2 rounded hover:bg-white text-left transition-colors">
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-gray-900 truncate">№{event.storeNumber}</p>
                             <p className="text-xs text-gray-500 truncate">{event.stage}</p>
@@ -82,44 +82,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* All projects quick view */}
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="p-4 border-b border-gray-100"><h3 className="font-semibold text-gray-900">Все активные объекты</h3></div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100">
-                <th className="text-left px-4 py-3 font-medium text-gray-500">№</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Адрес</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Тип</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Статус</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">ТУ</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Ближайшее событие</th>
-              </tr>
-            </thead>
-            <tbody>
-              {projects.filter(p => !p.isDeleted).slice(0, 10).map(project => {
-                const status = calculateProjectStatus(project);
-                const event = getNearestEvent(project);
-                return (
-                  <tr key={project.id} onClick={() => openCard(project.id)} className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer" style={{ backgroundColor: project.rowColor || undefined, color: getReadableTextColor(project.rowColor) }}>
-                    <td className="px-4 py-3 font-medium">{project.storeNumber}</td>
-                    <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate">{project.address}</td>
-                    <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full ${
-                      project.workType === 'Закрытие' ? 'bg-orange-100 text-orange-700' :
-                      project.workType === 'Открытие' ? 'bg-green-100 text-green-700' :
-                      'bg-purple-100 text-purple-700'
-                    }`}>{project.workType}</span></td>
-                    <td className="px-4 py-3"><StatusBadge status={status} /></td>
-                    <td className="px-4 py-3 text-gray-600">{getTUName(project.tuId)}</td>
-                    <td className="px-4 py-3 text-gray-600">{event ? `${event.name} — ${formatDate(event.date)}` : '—'}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+
     </div>
   );
 }

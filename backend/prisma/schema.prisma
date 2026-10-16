@@ -66,6 +66,35 @@ model LdapSettings {
   @@map("ldap_settings")
 }
 
+model ShopDirectory {
+  id              String   @id @default(uuid())
+  shopNumber      String   @unique
+  city            String   @default("")
+  address         String
+  workHours       String   @default("")
+  areaManager     String   @default("")
+  areaManagerPhone String  @default("")
+  tu              String   @default("")
+  directorate     String   @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([city])
+  @@map("shop_directory")
+}
+
+model SchedulerTask {
+  id             String   @id
+  name           String
+  cronExpression String   @default("0 0 * * *")
+  enabled        Boolean  @default(true)
+  lastRunAt      DateTime?
+  lastStatus     String   @default("never")
+  lastMessage    String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@map("scheduler_tasks")
+}
+
 model StoreProject {
   id               String    @id @default(uuid())
   storeNumber      String

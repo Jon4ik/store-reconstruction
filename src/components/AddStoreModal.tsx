@@ -3,6 +3,7 @@ import { useStore } from '../store/useStore';
 import { X, AlertCircle, Palette } from 'lucide-react';
 import { parseDateInput } from '../utils/statusCalculator';
 import { validateDate } from '../utils/validation';
+import { apiClient } from '../api/client';
 
 export default function AddStoreModal() {
   const { isAddModalOpen, closeAddModal, addProject, tus, projects, defaultWorkType } = useStore();
@@ -12,10 +13,31 @@ export default function AddStoreModal() {
     tuId: tus[0]?.id || '', comment: '', rowColor: '',
   });
 
+  const [errors, setErrors] = useState<string[]>([]);
+  const [shopMatches, setShopMatches] = useState<any[]>([]);
+  const [shopSearchLoading, setShopSearchLoading] = useState(false);
+
   useEffect(() => {
     if (isAddModalOpen) setForm(current => ({ ...current, workType: defaultWorkType }));
   }, [isAddModalOpen, defaultWorkType]);
-  const [errors, setErrors] = useState<string[]>([]);
+
+  useEffect(() => {
+    const number = form.storeNumber.trim();
+    if (!isAddModalOpen || !number) { setShopMatches([]); setShopSearchLoading(false); setForm(current => ({ ...current, address: '', city: '' })); return; }
+    let active = true;
+    setShopSearchLoading(true);
+    setForm(current => ({ ...current, address: '', city: '' }));
+    apiClient.searchShopByNumber(number).then((items: any[]) => {
+      if (!active) return;
+      setShopMatches(items);
+      const normalized = number.padStart(3, '0');
+      const match = items.find(item => String(item.shopNumber) === normalized || String(item.shopNumber) === number);
+      if (match) setForm(current => ({ ...current, address: match.address || '', city: match.city || '' }));
+      else setForm(current => ({ ...current, address: '', city: '' }));
+    }).catch(() => { if (active) { setShopMatches([]); setForm(current => ({ ...current, address: '', city: '' })); } })
+      .finally(() => { if (active) setShopSearchLoading(false); });
+    return () => { active = false; };
+  }, [form.storeNumber, isAddModalOpen]);
 
   if (!isAddModalOpen) return null;
 
@@ -28,7 +50,7 @@ export default function AddStoreModal() {
     } else if (!/^\d{1,4}$/.test(form.storeNumber.trim())) {
       errs.push('Номер магазина должен содержать от 1 до 4 цифр');
     }
-    if (!form.address.trim()) errs.push('Укажите адрес');
+    if (!form.address.trim()) errs.push('Магазин не найден в справочнике. Проверьте номер и синхронизацию справочника.');
     
     return errs;
   };
@@ -97,8 +119,10 @@ export default function AddStoreModal() {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Адрес <span className="text-red-500">*</span></label>
-            <input type="text" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Ульяновск, ул. Рябикова, д. 60А" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <label className="block text-xs font-medium text-gray-600 mb-1">Адрес магазина <span className="text-red-500">*</span></label>
+            <input type="text" value={form.address} readOnly aria-readonly="true" placeholder={shopSearchLoading ? "Поиск магазина…" : "Адрес заполнится по номеру из справочника"} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-700 cursor-not-allowed" />
+            <p className="text-xs text-gray-500 mt-1">{shopSearchLoading ? 'Ищем магазин в справочнике…' : form.address ? 'Город: ' + (form.city || 'не указан') : 'Введите номер магазина, чтобы найти адрес в справочнике.'}</p>
+            {shopMatches.length > 1 && <div className="mt-2 rounded-lg border border-gray-200 divide-y divide-gray-100">{shopMatches.map((shop, index) => <button type="button" key={String(shop.shopNumber) + '-' + index} onClick={() => setForm(current => ({ ...current, storeNumber: String(shop.shopNumber), address: shop.address || '', city: shop.city || '' }))} className="w-full p-2 text-left text-sm hover:bg-gray-50"><span className="font-medium">№{shop.shopNumber}</span> — {shop.city}, {shop.address}</button>)}</div>}
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">ТУ</label>

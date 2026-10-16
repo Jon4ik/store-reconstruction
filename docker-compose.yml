@@ -32,6 +32,13 @@ services:
       PORT: 4000
       DOMAIN: ${DOMAIN:-http://localhost:5001}
       LDAP_ENCRYPTION_KEY: ${LDAP_ENCRYPTION_KEY:-}
+      UKM_SQL_SERVER: ${UKM_SQL_SERVER:-}
+      UKM_SQL_PORT: ${UKM_SQL_PORT:-1433}
+      UKM_SQL_DATABASE: ${UKM_SQL_DATABASE:-Ukm_Data}
+      UKM_SQL_USER: ${UKM_SQL_USER:-}
+      UKM_SQL_PASSWORD: ${UKM_SQL_PASSWORD:-}
+      UKM_SQL_VIEW: ${UKM_SQL_VIEW:-[Ukm_Data].[dbo].[v_1C_Shops_Info]}
+      PYTHON_EXECUTABLE: python3
     depends_on:
       migrate:
         condition: service_completed_successfully

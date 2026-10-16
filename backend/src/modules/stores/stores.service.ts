@@ -116,9 +116,11 @@ export class StoresService {
   }
 
   async create(data: any, userId: string, userName: string) {
-    const storeNumber = this.validateText(data.storeNumber, 'storeNumber', 100);
-    const address = this.validateText(data.address, 'address', 300);
-    const city = this.validateText(data.city || address.split(',')[0], 'city', 150);
+    const storeNumber = this.validateText(data.storeNumber, 'storeNumber', 100).padStart(3, '0');
+    const directoryShop = await this.prisma.shopDirectory.findFirst({ where: { OR: [{ shopNumber: storeNumber }, { shopNumber: data.storeNumber }] } });
+    if (!directoryShop) throw new BadRequestException('Магазин не найден в справочнике. Сначала синхронизируйте справочник магазинов.');
+    const address = directoryShop.address;
+    const city = directoryShop.city || address.split(',')[0];
     if (!WORK_TYPES.includes(data.workType)) throw new BadRequestException('Некорректный тип работ');
     if (typeof data.tuId !== 'string' || !data.tuId) throw new BadRequestException('Необходимо указать ТУ');
     const tu = await this.prisma.tU.findFirst({ where: { id: data.tuId, isActive: true }, select: { id: true } });

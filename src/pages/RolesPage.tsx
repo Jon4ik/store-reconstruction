@@ -89,6 +89,19 @@ export default function RolesPage() {
       ]
     },
     {
+      name: 'Справочник магазинов',
+      key: 'shops',
+      permissions: [
+        { key: 'view_shops', label: 'Просмотр и поиск магазинов' },
+        { key: 'manage_shops', label: 'Управление и ручная синхронизация' },
+      ]
+    },
+    {
+      name: 'Планировщик',
+      key: 'scheduler',
+      permissions: [ { key: 'manage_scheduler', label: 'Настройка и запуск задач' } ]
+    },
+    {
       name: 'Аудит',
       key: 'audit',
       permissions: [
