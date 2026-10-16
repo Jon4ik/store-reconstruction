@@ -87,19 +87,72 @@ export default function App() {
     restoreSession();
   }, [restoreSession]);
 
-  // Обновляем профиль после восстановления старой сессии, чтобы роль была известна даже без права просмотра списка ролей.
+  // Синхронизируем роль и разрешения с сервером без повторного входа.
+  // Это также подхватывает изменения роли пользователя, выполненные администратором.
   useEffect(() => {
-    if (currentUser && !currentUser.roleName) {
-      let active = true;
-      apiClient.getProfile().then((profile: any) => {
-        if (!active) return;
-        const merged = { ...(useStore.getState().currentUser || currentUser), ...profile };
-        useStore.setState({ currentUser: merged });
-        localStorage.setItem('currentUser', JSON.stringify(merged));
-      }).catch(() => {});
-      return () => { active = false; };
-    }
-  }, [currentUser?.id, currentUser?.roleName]);
+    if (!currentUser) return;
+    let active = true;
+    let refreshInProgress = false;
+
+    const refreshCurrentUser = async () => {
+      if (!active || refreshInProgress || document.visibilityState === 'hidden') return;
+      refreshInProgress = true;
+      try {
+        const profile = await apiClient.getProfile();
+        if (!active || !profile?.id || profile.id !== useStore.getState().currentUser?.id) return;
+
+        const latestUser = useStore.getState().currentUser;
+        if (!latestUser) return;
+        const merged = { ...latestUser, ...profile };
+        const normalize = (user: any) => JSON.stringify({
+          id: user.id,
+          username: user.username,
+          fullName: user.fullName,
+          role: user.role,
+          roleName: user.roleName,
+          permissions: [...(user.permissions || [])].sort(),
+          chatId: user.chatId ?? null,
+          telegramId: user.telegramId ?? null,
+          theme: user.theme,
+        });
+
+        if (normalize(latestUser) !== normalize(merged)) {
+          useStore.setState({ currentUser: merged });
+          localStorage.setItem('currentUser', JSON.stringify(merged));
+          document.documentElement.dataset.theme = merged.theme || 'light';
+
+          // Reload protected lists according to the new permissions. Store loaders clear
+          // data when the corresponding view permission has been revoked.
+          await Promise.all([
+            merged.permissions?.includes('view_users') ? useStore.getState().loadUsers() : Promise.resolve(),
+            merged.permissions?.includes('view_roles') ? useStore.getState().loadRoles() : Promise.resolve(),
+            merged.permissions?.includes('view_audit') ? useStore.getState().loadAuditLog() : Promise.resolve(),
+          ]);
+        }
+      } catch (error) {
+        // Keep the current session intact on transient network errors; retry on the next poll/focus.
+        console.warn('Не удалось обновить роль и разрешения пользователя:', error);
+      } finally {
+        refreshInProgress = false;
+      }
+    };
+
+    void refreshCurrentUser();
+    const intervalId = window.setInterval(() => { void refreshCurrentUser(); }, 15_000);
+    const handleFocus = () => { void refreshCurrentUser(); };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refreshCurrentUser();
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [currentUser?.id]);
 
   // Загружаем данные из API при входе
   useEffect(() => {
