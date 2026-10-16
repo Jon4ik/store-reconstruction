@@ -59,10 +59,9 @@ export default function AddStoreModal() {
     const errs = validate();
     if (errs.length > 0) { setErrors(errs); return; }
     setErrors([]);
-    const city = form.city || form.address.split(',')[0].trim();
     try {
       await addProject({
-        storeNumber: form.storeNumber.trim(), address: form.address.trim(), city, workType: form.workType,
+        storeNumber: form.storeNumber.trim(), workType: form.workType,
         closureDate: form.closureDate ? parseDateInput(form.closureDate) : null,
         demolitionDate: form.demolitionDate ? parseDateInput(form.demolitionDate) : null,
         installationDate: form.installationDate ? parseDateInput(form.installationDate) : null,
