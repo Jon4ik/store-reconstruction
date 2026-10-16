@@ -198,7 +198,7 @@ export default function StoreTable() {
                   <tr
                     key={project.id}
                     className="border-b border-gray-50 hover:bg-blue-50/50 cursor-pointer transition-colors"
-                    style={{ backgroundColor: project.rowColor || undefined }}
+                    style={{ backgroundColor: project.rowColor || undefined, color: getReadableTextColor(project.rowColor) }}
                     onClick={() => openCard(project.id)}
                   >
                     <td className="px-4 py-3 font-semibold text-blue-700">{project.storeNumber}</td>
@@ -257,4 +257,11 @@ function StatusBadge({ status }: { status: string }) {
       {status}
     </span>
   );
+}
+
+function getReadableTextColor(color?: string): string | undefined {
+  if (!color || !/^#[0-9a-f]{6}$/i.test(color)) return undefined;
+  const values = color.slice(1).match(/.{2}/g)!.map(part => parseInt(part, 16) / 255).map(value => value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4));
+  const luminance = 0.2126 * values[0] + 0.7152 * values[1] + 0.0722 * values[2];
+  return luminance > 0.45 ? '#111827' : '#f9fafb';
 }
