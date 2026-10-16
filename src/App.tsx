@@ -39,7 +39,24 @@ function getPageFromPath(): string {
 
 export default function App() {
   const { currentUser, restoreSession, loadProjects, loadTUs, loadUsers, loadRoles, loadAuditLog, defaultWorkType } = useStore();
-  const [currentPage, setCurrentPage] = useState(getPageFromPath);\n\n  const navigateToPage = (page: string) => {\n    const nextPage = PAGE_PATHS[page] ? page : 'dashboard';\n    const nextPath = PAGE_PATHS[nextPage];\n    if (window.location.pathname !== nextPath) window.history.pushState({ page: nextPage }, '', nextPath);\n    setCurrentPage(nextPage);\n  };\n\n  // Поддерживаем ЧПУ-ссылки, прямое открытие разделов и кнопки «Назад/Вперёд».\n  useEffect(() => {\n    if (!Object.values(PAGE_PATHS).includes(window.location.pathname)) {\n      window.history.replaceState({ page: currentPage }, '', PAGE_PATHS[currentPage] || PAGE_PATHS.dashboard);\n    }\n    const handlePopState = () => setCurrentPage(getPageFromPath());\n    window.addEventListener('popstate', handlePopState);\n    return () => window.removeEventListener('popstate', handlePopState);\n  }, []);
+  const [currentPage, setCurrentPage] = useState(getPageFromPath);
+
+  const navigateToPage = (page: string) => {
+    const nextPage = PAGE_PATHS[page] ? page : 'dashboard';
+    const nextPath = PAGE_PATHS[nextPage];
+    if (window.location.pathname !== nextPath) window.history.pushState({ page: nextPage }, '', nextPath);
+    setCurrentPage(nextPage);
+  };
+
+  // Поддерживаем ЧПУ-ссылки, прямое открытие разделов и кнопки «Назад/Вперёд».
+  useEffect(() => {
+    if (!Object.values(PAGE_PATHS).includes(window.location.pathname)) {
+      window.history.replaceState({ page: currentPage }, '', PAGE_PATHS[currentPage] || PAGE_PATHS.dashboard);
+    }
+    const handlePopState = () => setCurrentPage(getPageFromPath());
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Применяем тему пользователя ко всему приложению сразу после входа/восстановления сессии.
   useEffect(() => {
