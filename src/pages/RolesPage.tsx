@@ -124,7 +124,7 @@ export default function RolesPage() {
   const permLabels: Record<string, string> = {};
   modules.forEach(m => m.permissions.forEach(p => { permLabels[p.key] = p.label; }));
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newRole.name.trim()) {
       alert('Укажите название роли');
       return;
@@ -137,9 +137,13 @@ export default function RolesPage() {
       alert('Выберите хотя бы одно разрешение');
       return;
     }
-    addRole(newRole);
-    setNewRole({ name: '', description: '', permissions: [], isSystem: false });
-    setShowAddForm(false);
+    try {
+      await addRole(newRole);
+      setNewRole({ name: '', description: '', permissions: [], isSystem: false });
+      setShowAddForm(false);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Не удалось создать роль');
+    }
   };
 
   const startEdit = (role: any) => {
@@ -147,7 +151,7 @@ export default function RolesPage() {
     setEditData({ name: role.name, description: role.description, permissions: [...role.permissions] });
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (editingId && editData) {
       if (!editData.name.trim()) {
         alert('Укажите название роли');
@@ -162,9 +166,13 @@ export default function RolesPage() {
         alert('Выберите хотя бы одно разрешение');
         return;
       }
-      updateRole(editingId, editData);
-      setEditingId(null);
-      setEditData(null);
+      try {
+        await updateRole(editingId, editData);
+        setEditingId(null);
+        setEditData(null);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Не удалось сохранить роль');
+      }
     }
   };
 
