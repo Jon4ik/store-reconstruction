@@ -23,6 +23,7 @@ export default function AuditPage() {
 
   // Определение подсистемы по действию
   const getModule = (action: string, newValue = ''): string => {
+    if (action === 'scheduler_run') return 'Планировщик';
     if (action === 'api_request') {
       const path = newValue.toLowerCase();
       if (path.includes('/scheduler')) return 'Планировщик';
@@ -60,7 +61,7 @@ export default function AuditPage() {
     update_user: 'Обновление пользователя', delete_user: 'Удаление пользователя',
     create_tu: 'Создание ТУ', update_tu: 'Обновление ТУ', delete_tu: 'Удаление ТУ',
     create_role: 'Создание роли', update_role: 'Обновление роли', delete_role: 'Удаление роли',
-    add_comment: 'Комментарий', api_request: 'Запрос API',
+    add_comment: 'Комментарий', api_request: 'Запрос API', scheduler_run: 'Запуск задачи',
   };
 
   const actionColors: Record<string, string> = {
@@ -71,7 +72,7 @@ export default function AuditPage() {
     delete_user: 'bg-red-100 text-red-700', create_tu: 'bg-blue-100 text-blue-700',
     update_tu: 'bg-yellow-100 text-yellow-700', delete_tu: 'bg-red-100 text-red-700',
     create_role: 'bg-blue-100 text-blue-700', update_role: 'bg-yellow-100 text-yellow-700',
-    delete_role: 'bg-red-100 text-red-700', add_comment: 'bg-indigo-100 text-indigo-700', api_request: 'bg-slate-100 text-slate-700',
+    delete_role: 'bg-red-100 text-red-700', add_comment: 'bg-indigo-100 text-indigo-700', api_request: 'bg-slate-100 text-slate-700', scheduler_run: 'bg-orange-100 text-orange-700',
   };
 
   const moduleColors: Record<string, string> = {
