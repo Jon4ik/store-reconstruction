@@ -8,6 +8,8 @@ import { RolesModule } from './modules/roles/roles.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { LdapModule } from './modules/ldap/ldap.module';
 import { HealthController } from './health.controller';
+import { ShopsModule } from './modules/shops/shops.module';
+import { SchedulerModule } from './modules/scheduler/scheduler.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { HealthController } from './health.controller';
     RolesModule,
     AuditModule,
     LdapModule,
+    ShopsModule,
+    SchedulerModule,
   ],
   controllers: [HealthController],
   providers: [PrismaService],
