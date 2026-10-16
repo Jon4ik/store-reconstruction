@@ -102,7 +102,8 @@ export default function RolesPage() {
       name: 'Настройки',
       key: 'settings',
       permissions: [
-        { key: 'settings', label: 'Доступ к настройкам системы' },
+        { key: 'manage_ldap', label: 'Настройки LDAP / Active Directory' },
+        { key: 'manage_integrations', label: 'Настройки интеграций' },
       ]
     },
   ];
