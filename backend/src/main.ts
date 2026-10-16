@@ -5,6 +5,8 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  // Trust the single reverse proxy (frontend Nginx) so request.ip resolves to the client IP.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
   app.setGlobalPrefix('api');
   app.enableCors({
     origin: process.env.DOMAIN || 'http://localhost',

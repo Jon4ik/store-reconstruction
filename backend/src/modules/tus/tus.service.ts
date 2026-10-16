@@ -21,7 +21,7 @@ export class TUsService {
     const phone = typeof data.phone === 'string' ? data.phone.trim() : '';
     const email = typeof data.email === 'string' ? data.email.trim() : '';
     if (phone.length > 40 || (phone && !/^[+0-9() .-]{5,40}$/.test(phone))) throw new BadRequestException('Некорректный телефон');
-    if (email.length > 254 || (email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))) throw new BadRequestException('Некорректный email');
+    if (email.length > 254 || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw new BadRequestException('Некорректный email');
     if (data.isActive !== undefined && typeof data.isActive !== 'boolean') throw new BadRequestException('isActive должен быть boolean');
     const clean = {
       fullName,

@@ -6,8 +6,9 @@ import PhoneInput from '../components/PhoneInput';
 import { apiClient } from '../api/client';
 
 export default function TUsPage() {
-  const { tus, projects, addTU, updateTU, deleteTU, loadTUs, hasPermission } = useStore();
+  const { tus, projects, addTU, updateTU, deleteTU, loadTUs, loadAuditLog, hasPermission } = useStore();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [addMessage, setAddMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newTU, setNewTU] = useState({ fullName: '', position: 'Территориальный управляющий', phone: '', email: '', isActive: true });
   const [editData, setEditData] = useState<any>(null);
@@ -44,18 +45,33 @@ export default function TUsPage() {
 
   const getProjectCount = (tuId: string) => projects.filter(p => p.tuId === tuId && !p.isDeleted).length;
 
-  const handleAdd = () => {
-    if (!newTU.fullName) {
-      alert('Укажите ФИО');
+  const handleAdd = async () => {
+    if (!newTU.fullName.trim()) {
+      setAddMessage({ type: 'error', text: 'Укажите ФИО ТУ.' });
       return;
     }
     if (!validateEmail(newTU.email)) {
-      alert('Некорректный формат email. Пример: zotov@company.ru');
+      setAddMessage({ type: 'error', text: 'Некорректный формат email. Пример: zotov@company.ru' });
       return;
     }
-    addTU(newTU);
-    setNewTU({ fullName: '', position: 'Территориальный управляющий', phone: '', email: '', isActive: true });
-    setShowAddForm(false);
+
+    setAddMessage(null);
+    try {
+      await addTU({
+        ...newTU,
+        fullName: newTU.fullName.trim(),
+        position: newTU.position.trim(),
+        phone: newTU.phone.trim(),
+        email: newTU.email.trim(),
+      });
+      await Promise.all([loadTUs(), loadAuditLog()]);
+      setNewTU({ fullName: '', position: 'Территориальный управляющий', phone: '', email: '', isActive: true });
+      setShowAddForm(false);
+      setAddMessage({ type: 'success', text: `ТУ «${newTU.fullName.trim()}» успешно добавлен.` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Неизвестная ошибка';
+      setAddMessage({ type: 'error', text: `Не удалось добавить ТУ: ${message}` });
+    }
   };
 
   const startEdit = (tu: any) => {
@@ -103,7 +119,7 @@ export default function TUsPage() {
           <button onClick={handleSyncAD} disabled={!ldapConfigured || syncingAD} title={ldapConfigured ? 'Синхронизировать ТУ с Active Directory' : 'Сначала заполните настройки LDAP'} className="flex items-center gap-2 px-4 py-2 border border-blue-600 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed">
             <RefreshCw size={16} className={syncingAD ? 'animate-spin' : ''} /> {syncingAD ? 'Синхронизация...' : 'Синхронизировать с AD'}
           </button>
-          <button onClick={() => setShowAddForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+          <button onClick={() => { setAddMessage(null); setShowAddForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
             <Plus size={16} /> Добавить ТУ
           </button>
         </div>
@@ -119,6 +135,12 @@ export default function TUsPage() {
           className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
+
+      {addMessage && (
+        <div role={addMessage.type === 'error' ? 'alert' : 'status'} className={`rounded-lg border px-4 py-3 text-sm ${addMessage.type === 'success' ? 'border-green-200 bg-green-50 text-green-800' : 'border-red-200 bg-red-50 text-red-800'}`}>
+          {addMessage.text}
+        </div>
+      )}
 
       {showAddForm && (
         <div className="bg-white rounded-xl border border-gray-200 p-6">
