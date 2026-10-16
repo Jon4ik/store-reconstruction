@@ -27,7 +27,7 @@ export default function AuditPage() {
     if (action.includes('role')) return 'Роли';
     if (action.includes('comment')) return 'Комментарии';
     if (action === 'login' || action === 'logout') return 'Авторизация';
-    if (action === 'create' || action === 'update' || action === 'delete') return 'Объекты';
+    if (action === 'create' || action === 'update' || action === 'delete' || action === 'change_color') return 'Объекты';
     return 'Система';
   };
 
@@ -120,7 +120,7 @@ export default function AuditPage() {
 
       {/* Log Table */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden min-w-0">
-        <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+        <div className="overflow-x-auto max-h-[calc(100vh-330px)] overflow-y-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
               <tr>
