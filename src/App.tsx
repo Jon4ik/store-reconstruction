@@ -13,6 +13,9 @@ import TUsPage from './pages/TUsPage';
 import AuditPage from './pages/AuditPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
+import ShopsPage from './pages/ShopsPage';
+import SchedulerPage from './pages/SchedulerPage';
+import { apiClient } from './api/client';
 
 export default function App() {
   const { currentUser, restoreSession, loadProjects, loadTUs, loadUsers, loadRoles, loadAuditLog, defaultWorkType } = useStore();
@@ -27,6 +30,20 @@ export default function App() {
   useEffect(() => {
     restoreSession();
   }, [restoreSession]);
+
+  // Обновляем профиль после восстановления старой сессии, чтобы роль была известна даже без права просмотра списка ролей.
+  useEffect(() => {
+    if (currentUser && !currentUser.roleName) {
+      let active = true;
+      apiClient.getProfile().then((profile: any) => {
+        if (!active) return;
+        const merged = { ...(useStore.getState().currentUser || currentUser), ...profile };
+        useStore.setState({ currentUser: merged });
+        localStorage.setItem('currentUser', JSON.stringify(merged));
+      }).catch(() => {});
+      return () => { active = false; };
+    }
+  }, [currentUser?.id, currentUser?.roleName]);
 
   // Загружаем данные из API при входе
   useEffect(() => {
@@ -53,6 +70,8 @@ export default function App() {
       settings: 'Синхронизация с LDAP',
       integrations: 'Интеграции',
       notifications: 'Уведомления',
+      shops: 'Справочник магазинов',
+      scheduler: 'Планировщик (crontab)',
     };
     
     document.title = `${titles[currentPage] || 'Главная'} - Реконструкция`;
@@ -68,6 +87,8 @@ export default function App() {
       case 'users': return <UsersPage />;
       case 'roles': return <RolesPage />;
       case 'tus': return <TUsPage />;
+      case 'shops': return <ShopsPage />;
+      case 'scheduler': return <SchedulerPage />;
       case 'audit': return <AuditPage />;
       case 'profile': return <ProfilePage />;
       case 'settings': return <SettingsPage />;
