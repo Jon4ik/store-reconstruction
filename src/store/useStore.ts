@@ -406,6 +406,7 @@ export const useStore = create<AppState>((set, get) => ({
   hasPermission: (permission: string) => {
     const user = get().currentUser;
     if (!user) return false;
+    if (permission === 'manage_ldap' && user.permissions?.includes('settings')) return true; // legacy role compatibility
     return user.permissions?.includes(permission) || false;
   },
 
