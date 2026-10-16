@@ -90,7 +90,8 @@ export default function AuditPage() {
 
   const uniqueActions = [...new Set(auditLog.map(l => l.action).filter(action => action !== 'reset_password'))];
 
-  const getUserName = (userId: string): string => {
+  const getUserName = (userId: string | null): string => {
+    if (!userId) return 'Система';
     const user = users.find(u => u.id === userId);
     return user?.fullName || userId;
   };
