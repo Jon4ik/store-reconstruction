@@ -20,7 +20,7 @@ services:
         npx prisma migrate deploy &&
         printf '%s\n' 'ALTER TABLE public.users DROP COLUMN IF EXISTS "userName";' |
           npx prisma db execute --stdin --schema prisma/schema.prisma &&
-        npx prisma db execute --stdin --schema prisma/schema.prisma <<'SQL'
+        npx prisma db execute --stdin --schema prisma/schema.prisma <<'SQL' || exit 1
         CREATE TABLE IF NOT EXISTS public.shop_directory (
           "id" TEXT NOT NULL PRIMARY KEY,
           "shopNumber" TEXT NOT NULL,
