@@ -14,7 +14,7 @@ export class LdapController {
   getSettings() { return this.ldapService.getSettings(); }
 
   @Put('settings')
-  @RequirePermissions('settings')
+  @RequirePermissions('manage_ldap')
   saveSettings(@Body() body: any) { return this.ldapService.saveSettings(body); }
 
   @Post('test')
