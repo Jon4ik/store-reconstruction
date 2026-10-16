@@ -329,7 +329,7 @@ export const useStore = create<AppState>((set, get) => ({
   addRole: async (roleData) => {
     try {
       await apiClient.createRole(roleData);
-      await get().loadRoles();
+      await Promise.all([get().loadRoles(), get().loadAuditLog()]);
     } catch (error) {
       console.error('Failed to add role:', error);
       throw error;
@@ -339,7 +339,7 @@ export const useStore = create<AppState>((set, get) => ({
   updateRole: async (id: string, updates: Partial<Role>) => {
     try {
       await apiClient.updateRole(id, updates);
-      await get().loadRoles();
+      await Promise.all([get().loadRoles(), get().loadAuditLog()]);
     } catch (error) {
       console.error('Failed to update role:', error);
       throw error;
@@ -350,9 +350,9 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const usedByUsers = get().users.filter(u => u.role === id);
       if (usedByUsers.length > 0) return false;
-      
+
       await apiClient.deleteRole(id);
-      await get().loadRoles();
+      await Promise.all([get().loadRoles(), get().loadAuditLog()]);
       return true;
     } catch (error) {
       console.error('Failed to delete role:', error);
