@@ -19,9 +19,12 @@ export class PermissionsGuard implements CanActivate {
     const { user } = context.switchToHttp().getRequest();
     if (!user || !Array.isArray(user.permissions)) throw new ForbiddenException('Нет доступа');
 
+    const has = (permission: string) => permission === 'manage_ldap'
+      ? user.permissions.includes('manage_ldap') || user.permissions.includes('settings') // legacy settings permission grants LDAP only, never role management
+      : user.permissions.includes(permission);
     const hasPermission = requiredPermissions.includes('delete_closures') && requiredPermissions.includes('delete_openings')
-      ? requiredPermissions.some((permission) => user.permissions.includes(permission))
-      : requiredPermissions.every((permission) => user.permissions.includes(permission));
+      ? requiredPermissions.some(has)
+      : requiredPermissions.every(has);
     if (!hasPermission) throw new ForbiddenException('Недостаточно прав');
     return true;
   }
