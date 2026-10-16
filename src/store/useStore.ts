@@ -422,9 +422,9 @@ export const useStore = create<AppState>((set, get) => ({
     if (filters.search) {
       const search = filters.search.toLowerCase();
       projects = projects.filter(p =>
-        p.storeNumber.toLowerCase().includes(search) ||
-        p.address.toLowerCase().includes(search) ||
-        p.city.toLowerCase().includes(search)
+        String(p.storeNumber ?? '').toLowerCase().includes(search) ||
+        String(p.address ?? '').toLowerCase().includes(search) ||
+        String(p.city ?? '').toLowerCase().includes(search)
       );
     }
     if (filters.workType) projects = projects.filter(p => p.workType === filters.workType);
