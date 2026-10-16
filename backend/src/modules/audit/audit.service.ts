@@ -29,4 +29,24 @@ export class AuditService {
     ]);
     return { data, total, page, limit };
   }
+
+  async clear(userId: string, userName?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      // The database trigger allows DELETE only inside this explicitly authorized transaction.
+      await tx.$queryRaw`SELECT set_config('app.audit_log_clear', 'on', true)`;
+      const { count } = await tx.auditLog.deleteMany({});
+      // Keep a trace of the destructive action in the newly cleared journal.
+      await tx.auditLog.create({
+        data: {
+          userId,
+          userName: userName || 'Система',
+          action: 'clear_audit',
+          field: 'audit',
+          oldValue: String(count),
+          details: `Журнал аудита очищен. Удалено записей: ${count}`,
+        },
+      });
+      return { deletedCount: count };
+    });
+  }
 }
