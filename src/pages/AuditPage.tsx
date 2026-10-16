@@ -49,7 +49,7 @@ export default function AuditPage() {
     if (filter.module && getModule(log.action, log.newValue) !== filter.module) return false;
     if (filter.search) {
       const search = filter.search.toLowerCase();
-      return String(log.details || '').toLowerCase().includes(search) || String(log.userName || '').toLowerCase().includes(search);
+      return String(log.details || '').toLowerCase().includes(search) || String(log.newValue || '').toLowerCase().includes(search) || String(log.userName || '').toLowerCase().includes(search);
     }
     return true;
   }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -81,6 +81,10 @@ export default function AuditPage() {
     'Авторизация': 'bg-green-100 text-green-700',
     'Объекты': 'bg-blue-100 text-blue-700',
     'Система': 'bg-gray-100 text-gray-700',
+    'Настройки': 'bg-cyan-100 text-cyan-700',
+    'Планировщик': 'bg-orange-100 text-orange-700',
+    'Справочник магазинов': 'bg-teal-100 text-teal-700',
+    'Пользователи': 'bg-indigo-100 text-indigo-700',
   };
 
   const uniqueActions = [...new Set(auditLog.map(l => l.action).filter(action => action !== 'reset_password'))];
