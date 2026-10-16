@@ -76,12 +76,12 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
 
   return (
     <div className="w-full space-y-6">
+      {noticeMessage && <SettingsNotice message={noticeMessage} variant={noticeVariant} onDismiss={() => mode === 'integrations' ? setIntegrationMessage('') : setMessage('')} />}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{mode === 'integrations' ? 'Интеграции' : 'Настройки LDAP / Active Directory'}</h1>
         <p className="text-sm text-gray-500 mt-1">{mode === 'integrations' ? 'Параметры внешних сервисов и рекомендации по безопасному подключению.' : 'Параметры подключения используются для синхронизации справочников из AD.'}</p>
       </div>
 
-      {noticeMessage && <SettingsNotice message={noticeMessage} variant={noticeVariant} onDismiss={() => mode === 'integrations' ? setIntegrationMessage('') : setMessage('')} />}
 
       <div className={mode === 'ldap' || mode === 'integrations' ? 'grid w-full grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 items-start' : 'contents'}>
       {mode === 'ldap' && (hasPermission('manage_ldap') || hasPermission('settings')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
