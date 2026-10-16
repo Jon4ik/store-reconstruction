@@ -123,10 +123,12 @@ export default function App() {
 
           // Reload protected lists according to the new permissions. Store loaders clear
           // data when the corresponding view permission has been revoked.
+          // Each loader checks the latest permissions itself and clears cached data
+          // when access has been revoked.
           await Promise.all([
-            merged.permissions?.includes('view_users') ? useStore.getState().loadUsers() : Promise.resolve(),
-            merged.permissions?.includes('view_roles') ? useStore.getState().loadRoles() : Promise.resolve(),
-            merged.permissions?.includes('view_audit') ? useStore.getState().loadAuditLog() : Promise.resolve(),
+            useStore.getState().loadUsers(),
+            useStore.getState().loadRoles(),
+            useStore.getState().loadAuditLog(),
           ]);
         }
       } catch (error) {
