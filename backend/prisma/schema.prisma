@@ -79,6 +79,7 @@ model ShopDirectory {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   @@index([city])
+  projects        StoreProject[]
   @@map("shop_directory")
 }
 
@@ -98,8 +99,7 @@ model SchedulerTask {
 model StoreProject {
   id               String    @id @default(uuid())
   storeNumber      String
-  address          String
-  city             String
+  shop             ShopDirectory @relation(fields: [storeNumber], references: [id])
   workType         String
   closureDate      DateTime?
   demolitionDate   DateTime?
