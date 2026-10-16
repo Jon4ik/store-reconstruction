@@ -59,6 +59,9 @@ model LdapSettings {
   baseDN                String   @default("")
   bindDN                String   @default("")
   bindPasswordEncrypted String   @default("")
+  intraDeskEnabled       Boolean  @default(false)
+  intraDeskApiGateway    String   @default("")
+  intraDeskApiKeyEncrypted String @default("")
   updatedAt             DateTime @updatedAt
   @@map("ldap_settings")
 }

@@ -6,7 +6,7 @@ const ALLOWED_PERMISSIONS = new Set([
   'view_openings', 'create_openings', 'edit_openings', 'delete_openings', 'view_calendar',
   'view_dashboard', 'import', 'export', 'view_comments', 'add_comments', 'delete_comments',
   'view_users', 'manage_users', 'view_roles', 'manage_roles', 'view_tus', 'manage_tus',
-  'view_audit', 'settings',
+  'view_audit', 'settings', 'manage_ldap', 'manage_integrations', 'manage_notifications', 'delete_closures', 'delete_openings',
 ]);
 
 @Injectable()

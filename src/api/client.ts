@@ -130,6 +130,11 @@ class ApiClient {
     return this.request<any>('/ldap/test', { method: 'POST', body: JSON.stringify(data || {}) });
   }
 
+  async getIntraDeskSettings() { return this.request<any>('/ldap/integrations/intradesk'); }
+  async saveIntraDeskSettings(data: { enabled: boolean; apiGateway: string; apiKey?: string; clearApiKey?: boolean }) {
+    return this.request<any>('/ldap/integrations/intradesk', { method: 'PUT', body: JSON.stringify(data) });
+  }
+
   async getLdapStatus() {
     return this.request<{ configured: boolean }>('/ldap/status');
   }
@@ -200,27 +205,7 @@ class ApiClient {
   }
 
   // Import
-  async importExcel(file: File) {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    const headers: HeadersInit = {};
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
 
-    const response = await fetch(`${API_BASE_URL}/import/excel`, {
-      method: 'POST',
-      headers,
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error('Import failed');
-    }
-
-    return response.json();
-  }
 
   // Comments
   async getComments(storeId: string) {

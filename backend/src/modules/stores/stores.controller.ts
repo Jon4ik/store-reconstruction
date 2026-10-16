@@ -41,13 +41,13 @@ export class StoresController {
   }
 
   @Delete(':id')
-  @RequirePermissions('delete_closures')
+  @RequirePermissions('delete_closures', 'delete_openings')
   remove(@Param('id') id: string, @Request() req) {
     return this.storesService.remove(id, req.user.sub, req.user.username);
   }
 
   @Post(':id/restore')
-  @RequirePermissions('delete_closures')
+  @RequirePermissions('delete_closures', 'delete_openings')
   restore(@Param('id') id: string, @Request() req) {
     return this.storesService.restore(id, req.user.sub, req.user.username);
   }

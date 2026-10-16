@@ -17,7 +17,7 @@ export class RolesController {
   }
 
   @Post()
-  @RequirePermissions('manage_roles', 'settings')
+  @RequirePermissions('manage_roles')
   create(@Body() body: CreateRoleDto, @Request() req) {
     return this.rolesService.create(body, req.user.sub, req.user.username);
   }

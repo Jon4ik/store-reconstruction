@@ -5,8 +5,8 @@ const prisma = new PrismaClient();
 
 async function main() {
   console.log('Seeding roles and TUs...');
-  const adminPermissions = ['view', 'edit', 'view_closures', 'create_closures', 'edit_closures', 'delete_closures', 'view_openings', 'create_openings', 'edit_openings', 'delete_openings', 'view_calendar', 'view_dashboard', 'import', 'export', 'view_comments', 'add_comments', 'delete_comments', 'view_users', 'manage_users', 'view_roles', 'manage_roles', 'view_tus', 'manage_tus', 'view_audit', 'settings'];
-  const managerPermissions = ['view', 'edit', 'view_closures', 'create_closures', 'edit_closures', 'view_openings', 'create_openings', 'edit_openings', 'view_calendar', 'view_dashboard', 'import', 'export', 'view_comments', 'add_comments', 'view_tus'];
+  const adminPermissions = ['view', 'edit', 'view_closures', 'create_closures', 'edit_closures', 'delete_closures', 'view_openings', 'create_openings', 'edit_openings', 'delete_openings', 'view_calendar', 'view_dashboard', 'export', 'view_comments', 'add_comments', 'delete_comments', 'view_users', 'manage_users', 'view_roles', 'manage_roles', 'view_tus', 'manage_tus', 'view_audit', 'manage_ldap', 'manage_integrations', 'manage_notifications'];
+  const managerPermissions = ['view', 'edit', 'view_closures', 'create_closures', 'edit_closures', 'view_openings', 'create_openings', 'edit_openings', 'view_calendar', 'view_dashboard', 'export', 'view_comments', 'add_comments', 'view_tus'];
   const viewerPermissions = ['view', 'view_closures', 'view_openings', 'view_calendar', 'view_dashboard', 'view_comments', 'view_tus'];
 
   const adminRole = await prisma.role.upsert({
@@ -17,7 +17,7 @@ async function main() {
   await prisma.role.upsert({
     where: { name: 'Менеджер' },
     update: { permissions: managerPermissions },
-    create: { name: 'Менеджер', description: 'Управление объектами и импорт/экспорт', permissions: managerPermissions, isSystem: true },
+    create: { name: 'Менеджер', description: 'Управление объектами и экспорт', permissions: managerPermissions, isSystem: true },
   });
   await prisma.role.upsert({
     where: { name: 'Наблюдатель' },

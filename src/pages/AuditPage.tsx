@@ -23,19 +23,17 @@ export default function AuditPage() {
 
   // Определение подсистемы по действию
   const getModule = (action: string): string => {
-    if (action.includes('user')) return 'Пользователи';
     if (action.includes('tu')) return 'Справочник ТУ';
     if (action.includes('role')) return 'Роли';
     if (action.includes('comment')) return 'Комментарии';
     if (action === 'login' || action === 'logout') return 'Авторизация';
-    if (action === 'import') return 'Импорт';
-    if (action === 'create' || action === 'update' || action === 'delete') return 'Объекты';
+    if (action === 'create' || action === 'update' || action === 'delete' || action === 'change_color') return 'Объекты';
     return 'Система';
   };
 
   const filteredLog = auditLog.filter(log => {
     // Legacy user/profile audit events are intentionally hidden.
-    if (log.action.toLowerCase().includes('user') || log.action === 'reset_password') return false;
+    if (log.action === 'reset_password') return false;
     if (filter.action && log.action !== filter.action) return false;
     if (filter.module && getModule(log.action) !== filter.module) return false;
     if (filter.search) {
@@ -47,7 +45,7 @@ export default function AuditPage() {
 
   const actionLabels: Record<string, string> = {
     login: 'Вход', logout: 'Выход', create: 'Создание', update: 'Обновление',
-    delete: 'Удаление', import: 'Импорт', create_user: 'Создание пользователя',
+    delete: 'Удаление', change_color: 'Изменение цвета строки', create_user: 'Создание пользователя',
     update_user: 'Обновление пользователя', delete_user: 'Удаление пользователя',
     create_tu: 'Создание ТУ', update_tu: 'Обновление ТУ', delete_tu: 'Удаление ТУ',
     create_role: 'Создание роли', update_role: 'Обновление роли', delete_role: 'Удаление роли',
@@ -57,7 +55,7 @@ export default function AuditPage() {
   const actionColors: Record<string, string> = {
     login: 'bg-green-100 text-green-700', logout: 'bg-gray-100 text-gray-700',
     create: 'bg-blue-100 text-blue-700', update: 'bg-yellow-100 text-yellow-700',
-    delete: 'bg-red-100 text-red-700', import: 'bg-purple-100 text-purple-700',
+    delete: 'bg-red-100 text-red-700', change_color: 'bg-fuchsia-100 text-fuchsia-700',
     create_user: 'bg-blue-100 text-blue-700', update_user: 'bg-yellow-100 text-yellow-700',
     delete_user: 'bg-red-100 text-red-700', create_tu: 'bg-blue-100 text-blue-700',
     update_tu: 'bg-yellow-100 text-yellow-700', delete_tu: 'bg-red-100 text-red-700',
@@ -70,12 +68,11 @@ export default function AuditPage() {
     'Роли': 'bg-purple-100 text-purple-700',
     'Комментарии': 'bg-indigo-100 text-indigo-700',
     'Авторизация': 'bg-green-100 text-green-700',
-    'Импорт': 'bg-orange-100 text-orange-700',
     'Объекты': 'bg-blue-100 text-blue-700',
     'Система': 'bg-gray-100 text-gray-700',
   };
 
-  const uniqueActions = [...new Set(auditLog.map(l => l.action).filter(action => !action.toLowerCase().includes('user') && action !== 'reset_password'))];
+  const uniqueActions = [...new Set(auditLog.map(l => l.action).filter(action => action !== 'reset_password'))];
 
   const getUserName = (userId: string): string => {
     const user = users.find(u => u.id === userId);
@@ -83,7 +80,7 @@ export default function AuditPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Аудит действий</h1>
@@ -103,8 +100,7 @@ export default function AuditPage() {
               <option value="Роли">Роли</option>
               <option value="Комментарии">Комментарии</option>
               <option value="Авторизация">Авторизация</option>
-              <option value="Импорт">Импорт</option>
-              <option value="Объекты">Объекты</option>
+                      <option value="Объекты">Объекты</option>
               <option value="Система">Система</option>
             </select>
           </div>
@@ -123,8 +119,8 @@ export default function AuditPage() {
       </div>
 
       {/* Log Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden min-w-0">
+        <div className="overflow-x-auto max-h-[calc(100vh-330px)] overflow-y-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
               <tr>

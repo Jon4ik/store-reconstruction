@@ -17,7 +17,6 @@ interface AppState {
   selectedProjectId: string | null;
   isCardOpen: boolean;
   isAddModalOpen: boolean;
-  isImportModalOpen: boolean;
   isEditing: boolean;
   dbConfig: DatabaseConfig;
   dataLoaded: boolean;
@@ -43,8 +42,6 @@ interface AppState {
   closeCard: () => void;
   openAddModal: (defaultWorkType?: 'Закрытие' | 'Реконструкция' | 'Открытие') => void;
   closeAddModal: () => void;
-  openImportModal: () => void;
-  closeImportModal: () => void;
   setEditing: (val: boolean) => void;
   defaultWorkType: 'Закрытие' | 'Реконструкция' | 'Открытие';
 
@@ -73,9 +70,6 @@ interface AppState {
 
   // Audit
   loadAuditLog: () => Promise<void>;
-
-  // Import
-  importProjects: (file: File) => Promise<void>;
 
   // DB Config
   updateDbConfig: (config: Partial<DatabaseConfig>) => void;
@@ -108,7 +102,6 @@ export const useStore = create<AppState>((set, get) => ({
   selectedProjectId: null,
   isCardOpen: false,
   isAddModalOpen: false,
-  isImportModalOpen: false,
   isEditing: false,
   defaultWorkType: 'Закрытие' as 'Закрытие' | 'Реконструкция' | 'Открытие',
   dbConfig: { host: 'localhost', port: 5432, database: 'store_reconstruction', username: 'postgres', password: '', ssl: false },
@@ -201,6 +194,7 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       await apiClient.deleteProject(id);
       await get().loadProjects();
+      await get().loadAuditLog();
     } catch (error) {
       console.error('Failed to delete project:', error);
       throw error;
@@ -223,8 +217,6 @@ export const useStore = create<AppState>((set, get) => ({
   closeCard: () => set({ selectedProjectId: null, isCardOpen: false, isEditing: false }),
   openAddModal: (defaultWorkType?: 'Закрытие' | 'Реконструкция' | 'Открытие') => set({ isAddModalOpen: true, defaultWorkType: defaultWorkType || 'Закрытие' }),
   closeAddModal: () => set({ isAddModalOpen: false }),
-  openImportModal: () => set({ isImportModalOpen: true }),
-  closeImportModal: () => set({ isImportModalOpen: false }),
   setEditing: (val: boolean) => set({ isEditing: val }),
 
   // TUs
@@ -405,17 +397,6 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  // Import
-  importProjects: async (file: File) => {
-    try {
-      await apiClient.importExcel(file);
-      await get().loadProjects();
-    } catch (error) {
-      console.error('Failed to import projects:', error);
-      throw error;
-    }
-  },
-
   // DB Config
   updateDbConfig: (config: Partial<DatabaseConfig>) => {
     set(state => ({ dbConfig: { ...state.dbConfig, ...config } }));
@@ -425,6 +406,7 @@ export const useStore = create<AppState>((set, get) => ({
   hasPermission: (permission: string) => {
     const user = get().currentUser;
     if (!user) return false;
+    if ((permission === 'manage_ldap' || permission === 'manage_integrations' || permission === 'manage_notifications') && user.permissions?.includes('settings')) return true; // legacy settings role compatibility
     return user.permissions?.includes(permission) || false;
   },
 

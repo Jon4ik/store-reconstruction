@@ -342,3 +342,12 @@ html[data-theme="dark"] tr[style*="#FFF"] {
     color: #e5e7eb;
   }
 }
+
+
+/* Keep row text readable when custom row colors are applied in dark mode. */
+html[data-theme="dark"] tr[style*="background-color"] td,
+html[data-theme="dark"] tr[style*="background-color"] th { color: inherit !important; }
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] tr[style*="background-color"] td,
+  html[data-theme="system"] tr[style*="background-color"] th { color: inherit !important; }
+}

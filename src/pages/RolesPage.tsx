@@ -51,12 +51,9 @@ export default function RolesPage() {
       ]
     },
     {
-      name: 'Импорт/Экспорт',
-      key: 'import_export',
-      permissions: [
-        { key: 'import', label: 'Импорт из Excel' },
-        { key: 'export', label: 'Экспорт в Excel/CSV' },
-      ]
+      name: 'Экспорт',
+      key: 'export',
+      permissions: [ { key: 'export', label: 'Экспорт в Excel/CSV' } ]
     },
     {
       name: 'Комментарии',
@@ -102,7 +99,9 @@ export default function RolesPage() {
       name: 'Настройки',
       key: 'settings',
       permissions: [
-        { key: 'settings', label: 'Доступ к настройкам системы' },
+        { key: 'manage_ldap', label: 'Настройки LDAP / Active Directory' },
+        { key: 'manage_integrations', label: 'Настройки интеграций' },
+        { key: 'manage_notifications', label: 'Настройки уведомлений' },
       ]
     },
   ];

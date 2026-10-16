@@ -6,7 +6,6 @@ import { TUsModule } from './modules/tus/tus.module';
 import { UsersModule } from './modules/users/users.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { AuditModule } from './modules/audit/audit.module';
-import { ImportModule } from './modules/import/import.module';
 import { LdapModule } from './modules/ldap/ldap.module';
 import { HealthController } from './health.controller';
 
@@ -18,7 +17,6 @@ import { HealthController } from './health.controller';
     UsersModule,
     RolesModule,
     AuditModule,
-    ImportModule,
     LdapModule,
   ],
   controllers: [HealthController],

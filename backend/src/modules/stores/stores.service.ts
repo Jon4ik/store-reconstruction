@@ -199,7 +199,12 @@ export class StoresService {
 
     return this.prisma.$transaction(async (tx) => {
       const store = await tx.storeProject.update({ where: { id }, data: clean, include: { tu: true } });
+      // Цвет строки — отдельное событие аудита. Не дублируем его как обычное изменение поля.
+      if (clean.rowColor !== undefined && existing.rowColor !== clean.rowColor) {
+        await tx.auditLog.create({ data: { storeId: id, userId, userName, action: 'change_color', field: 'rowColor', oldValue: existing.rowColor || '', newValue: clean.rowColor, details: 'Изменён цвет строки объекта' } });
+      }
       for (const [field, newValue] of Object.entries(clean)) {
+        if (field === 'rowColor') continue;
         const oldValue = (existing as any)[field];
         const isDateField = (DATE_FIELDS as readonly string[]).includes(field);
         const normalizedOld = isDateField ? this.auditDate(oldValue) : oldValue instanceof Date ? oldValue.toISOString() : String(oldValue ?? '');
