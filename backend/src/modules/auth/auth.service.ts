@@ -61,6 +61,18 @@ export class AuthService {
     }
     this.failedLogins.delete(key);
 
+    // Записываем успешный вход в журнал аудита; событие создаётся только после проверки пароля.
+    await this.prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        userName: user.fullName || user.username,
+        action: 'login',
+        field: 'auth',
+        newValue: user.username,
+        details: `Вход в систему: ${user.username}`,
+      },
+    });
+
     const payload = {
       sub: user.id,
       username: user.username,
