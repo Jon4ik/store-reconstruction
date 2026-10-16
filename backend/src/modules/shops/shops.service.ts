@@ -41,7 +41,7 @@ export class ShopsService {
     const database = process.env.UKM_SQL_DATABASE?.trim();
     const user = process.env.UKM_SQL_USER?.trim();
     const password = process.env.UKM_SQL_PASSWORD;
-    if (!server || !database || !user || password === undefined) {
+    if (!server || !database || !user || !password) {
       throw new ServiceUnavailableException('Не настроено подключение к источнику магазинов: проверьте UKM_SQL_SERVER, UKM_SQL_DATABASE, UKM_SQL_USER и UKM_SQL_PASSWORD в .env.');
     }
     const python = process.env.PYTHON_EXECUTABLE || (process.platform === 'win32' ? 'python' : 'python3');
