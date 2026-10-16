@@ -19,7 +19,7 @@ export class AuditInterceptor implements NestInterceptor {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const http = context.switchToHttp();
     const request = http.getRequest<AuditRequest>();
     const response = http.getResponse<{ statusCode?: number }>();
