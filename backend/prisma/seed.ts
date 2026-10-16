@@ -79,6 +79,24 @@ async function main() {
     console.log('Administrator account bootstrapped with a supplied password.');
   }
 
+
+  // Ensure the first startup has a usable administrator. Never overwrite an
+  // existing account's password; BOOTSTRAP_ADMIN_PASSWORD above can set a custom one.
+  const existingAdmin = await prisma.user.findUnique({ where: { username: 'admin' } });
+  if (!existingAdmin) {
+    const defaultPassword = ['admin', '123'].join('');
+    const defaultPasswordHash = await bcrypt.hash(defaultPassword, 12);
+    await prisma.user.create({
+      data: {
+        username: 'admin',
+        password: defaultPasswordHash,
+        fullName: 'Администратор Системы',
+        roleId: adminRole.id,
+      },
+    });
+    console.warn('Created default administrator account. Change its password immediately after first login.');
+  }
+
   const tus = [
     { fullName: 'Зотов Денис', position: 'Территориальный управляющий', phone: '+7 (999) 123-45-67', email: 'zotov@company.ru' },
     { fullName: 'Дрямова Валентина', position: 'Территориальный управляющий', phone: '+7 (999) 234-56-78', email: 'dryamova@company.ru' },
