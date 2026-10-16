@@ -72,6 +72,28 @@ export class LdapService {
     return this.getSettings();
   }
 
+  async getIntegrationSettings() {
+    const config = await this.getStored();
+    return { enabled: Boolean(config?.intraDeskEnabled), apiGateway: config?.intraDeskApiGateway || '', apiKeyConfigured: Boolean(config?.intraDeskApiKeyEncrypted), encryptionConfigured: this.hasKey() };
+  }
+
+  async saveIntegrationSettings(input: any) {
+    const current = await this.getStored();
+    const enabled = input.enabled === undefined ? Boolean(current?.intraDeskEnabled) : input.enabled;
+    const apiGateway = input.apiGateway === undefined ? (current?.intraDeskApiGateway || '') : String(input.apiGateway).trim();
+    if (typeof enabled !== 'boolean') throw new BadRequestException('Флаг интеграции должен быть boolean');
+    if (apiGateway.length > 1000 || (apiGateway && !/^https?:\\/\\//i.test(apiGateway))) throw new BadRequestException('Укажите корректный URL API-шлюза IntraDesk');
+    let apiKeyEncrypted = current?.intraDeskApiKeyEncrypted || '';
+    if (input.clearApiKey === true) apiKeyEncrypted = '';
+    else if (typeof input.apiKey === 'string' && input.apiKey.length) {
+      if (input.apiKey.length > 4096) throw new BadRequestException('API-ключ слишком длинный');
+      apiKeyEncrypted = this.encrypt(input.apiKey);
+    }
+    if (enabled && (!apiGateway || !apiKeyEncrypted)) throw new BadRequestException('Для включения интеграции укажите API-шлюз и API-ключ');
+    await this.prisma.ldapSettings.upsert({ where: { id: 'default' }, create: { id: 'default', intraDeskEnabled: enabled, intraDeskApiGateway: apiGateway, intraDeskApiKeyEncrypted: apiKeyEncrypted }, update: { intraDeskEnabled: enabled, intraDeskApiGateway: apiGateway, intraDeskApiKeyEncrypted: apiKeyEncrypted } });
+    return this.getIntegrationSettings();
+  }
+
   private async connect(overrides?: { url?: string; baseDN?: string; bindDN?: string; bindPassword?: string }) {
     const stored = await this.getStored();
     const config = {
