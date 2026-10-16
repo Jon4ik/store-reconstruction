@@ -77,9 +77,9 @@ export class StoresService {
     if (query.search) {
       const search = String(query.search).slice(0, 200);
       where.OR = [
-        { storeNumber: { contains: search, mode: 'insensitive' } },
-        { address: { contains: search, mode: 'insensitive' } },
-        { city: { contains: search, mode: 'insensitive' } },
+        { shop: { is: { shopNumber: { contains: search, mode: 'insensitive' } } } },
+        { shop: { is: { address: { contains: search, mode: 'insensitive' } } } },
+        { shop: { is: { city: { contains: search, mode: 'insensitive' } } } },
       ];
     }
     if (query.workType) {
@@ -88,16 +88,20 @@ export class StoresService {
     }
     if (query.status) where.status = String(query.status).slice(0, 80);
     if (query.tuId) where.tuId = String(query.tuId);
-    if (query.city) where.city = String(query.city).slice(0, 150);
+    if (query.city) where.shop = { is: { city: String(query.city).slice(0, 150) } };
 
     const [data, total] = await Promise.all([
       this.prisma.storeProject.findMany({
-        where, include: { tu: true },
+        where, include: { tu: true, shop: true },
         skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' },
       }),
       this.prisma.storeProject.count({ where }),
     ]);
-    return { data, total, page, limit };
+    return { data: data.map((store) => this.withShopFields(store)), total, page, limit };
+  }
+
+  private withShopFields<T extends { storeNumber: string; shop?: { shopNumber: string; address: string; city: string } | null }>(store: T) {
+    return { ...store, storeNumber: store.shop?.shopNumber ?? store.storeNumber, address: store.shop?.address ?? '', city: store.shop?.city ?? '' };
   }
 
   async findOne(id: string) {
@@ -105,6 +109,7 @@ export class StoresService {
       where: { id, isDeleted: false },
       include: {
         tu: true,
+        shop: true,
         comments: {
           include: { user: { select: { id: true, username: true, fullName: true } } },
           orderBy: { createdAt: 'desc' },
@@ -112,15 +117,13 @@ export class StoresService {
       },
     });
     if (!store) throw new NotFoundException('Объект не найден');
-    return store;
+    return this.withShopFields(store);
   }
 
   async create(data: any, userId: string, userName: string) {
     const storeNumber = this.validateText(data.storeNumber, 'storeNumber', 100).padStart(3, '0');
     const directoryShop = await this.prisma.shopDirectory.findFirst({ where: { OR: [{ shopNumber: storeNumber }, { shopNumber: data.storeNumber }] } });
     if (!directoryShop) throw new BadRequestException('Магазин не найден в справочнике. Сначала синхронизируйте справочник магазинов.');
-    const address = directoryShop.address;
-    const city = directoryShop.city || address.split(',')[0];
     if (!WORK_TYPES.includes(data.workType)) throw new BadRequestException('Некорректный тип работ');
     if (typeof data.tuId !== 'string' || !data.tuId) throw new BadRequestException('Необходимо указать ТУ');
     const tu = await this.prisma.tU.findFirst({ where: { id: data.tuId, isActive: true }, select: { id: true } });
@@ -136,7 +139,7 @@ export class StoresService {
       throw new BadRequestException('Комментарий слишком длинный');
     }
     const clean: any = {
-      storeNumber, address, city, workType: data.workType, tuId: tu.id, createdBy: userId,
+      storeNumber: directoryShop.id, workType: data.workType, tuId: tu.id, createdBy: userId,
       rowColor: typeof data.rowColor === 'string' ? data.rowColor.slice(0, 32) : '',
       comment: typeof data.comment === 'string' ? data.comment.slice(0, 5000) : '',
       status: typeof data.status === 'string' ? data.status : 'Запланирован',
@@ -146,21 +149,25 @@ export class StoresService {
     this.validateDates(clean);
 
     return this.prisma.$transaction(async (tx) => {
-      const store = await tx.storeProject.create({ data: clean, include: { tu: true } });
+      const store = await tx.storeProject.create({ data: clean, include: { tu: true, shop: true } });
       await tx.auditLog.create({
         data: { storeId: store.id, userId, userName, action: 'create', field: 'project', newValue: store.storeNumber, details: `Создан объект №${store.storeNumber}` },
       });
-      return store;
+      return this.withShopFields(store);
     });
   }
 
   async update(id: string, data: any, userId: string, userName: string) {
-    const existing = await this.prisma.storeProject.findFirst({ where: { id, isDeleted: false }, include: { tu: true } });
+    const existing = await this.prisma.storeProject.findFirst({ where: { id, isDeleted: false }, include: { tu: true, shop: true } });
     if (!existing) throw new NotFoundException('Объект не найден');
 
     const clean: any = {};
-    for (const field of ['storeNumber', 'address', 'city'] as const) {
-      if (data[field] !== undefined) clean[field] = this.validateText(data[field], field, field === 'address' ? 300 : 150);
+    if (data.storeNumber !== undefined) {
+      const requestedNumber = this.validateText(data.storeNumber, 'storeNumber', 100);
+      const normalizedNumber = requestedNumber.padStart(3, '0');
+      const directoryShop = await this.prisma.shopDirectory.findFirst({ where: { OR: [{ shopNumber: normalizedNumber }, { shopNumber: requestedNumber }] } });
+      if (!directoryShop) throw new BadRequestException('Магазин не найден в справочнике. Сначала синхронизируйте справочник магазинов.');
+      clean.storeNumber = directoryShop.id;
     }
     if (data.workType !== undefined) {
       if (!WORK_TYPES.includes(data.workType)) throw new BadRequestException('Некорректный тип работ');
@@ -200,7 +207,7 @@ export class StoresService {
     this.validateDates({ ...existing, ...clean });
 
     return this.prisma.$transaction(async (tx) => {
-      const store = await tx.storeProject.update({ where: { id }, data: clean, include: { tu: true } });
+      const store = await tx.storeProject.update({ where: { id }, data: clean, include: { tu: true, shop: true } });
       // Цвет строки — отдельное событие аудита. Не дублируем его как обычное изменение поля.
       if (clean.rowColor !== undefined && existing.rowColor !== clean.rowColor) {
         await tx.auditLog.create({ data: { storeId: id, userId, userName, action: 'change_color', field: 'rowColor', oldValue: existing.rowColor || '', newValue: clean.rowColor, details: 'Изменён цвет строки объекта' } });
@@ -220,7 +227,7 @@ export class StoresService {
           },
         });
       }
-      return store;
+      return this.withShopFields(store);
     });
   }
 
