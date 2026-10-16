@@ -130,6 +130,11 @@ class ApiClient {
     return this.request<any>('/ldap/test', { method: 'POST', body: JSON.stringify(data || {}) });
   }
 
+  async getIntraDeskSettings() { return this.request<any>('/ldap/integrations/intradesk'); }
+  async saveIntraDeskSettings(data: { enabled: boolean; apiGateway: string; apiKey?: string; clearApiKey?: boolean }) {
+    return this.request<any>('/ldap/integrations/intradesk', { method: 'PUT', body: JSON.stringify(data) });
+  }
+
   async getLdapStatus() {
     return this.request<{ configured: boolean }>('/ldap/status');
   }
