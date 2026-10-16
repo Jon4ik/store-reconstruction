@@ -27,7 +27,6 @@ export default function AuditPage() {
     if (action.includes('role')) return 'Роли';
     if (action.includes('comment')) return 'Комментарии';
     if (action === 'login' || action === 'logout') return 'Авторизация';
-    if (action === 'import') return 'Импорт';
     if (action === 'create' || action === 'update' || action === 'delete') return 'Объекты';
     return 'Система';
   };
@@ -46,7 +45,7 @@ export default function AuditPage() {
 
   const actionLabels: Record<string, string> = {
     login: 'Вход', logout: 'Выход', create: 'Создание', update: 'Обновление',
-    delete: 'Удаление', change_color: 'Изменение цвета строки', import: 'Импорт', create_user: 'Создание пользователя',
+    delete: 'Удаление', change_color: 'Изменение цвета строки', create_user: 'Создание пользователя',
     update_user: 'Обновление пользователя', delete_user: 'Удаление пользователя',
     create_tu: 'Создание ТУ', update_tu: 'Обновление ТУ', delete_tu: 'Удаление ТУ',
     create_role: 'Создание роли', update_role: 'Обновление роли', delete_role: 'Удаление роли',
@@ -56,7 +55,7 @@ export default function AuditPage() {
   const actionColors: Record<string, string> = {
     login: 'bg-green-100 text-green-700', logout: 'bg-gray-100 text-gray-700',
     create: 'bg-blue-100 text-blue-700', update: 'bg-yellow-100 text-yellow-700',
-    delete: 'bg-red-100 text-red-700', change_color: 'bg-fuchsia-100 text-fuchsia-700', import: 'bg-purple-100 text-purple-700',
+    delete: 'bg-red-100 text-red-700', change_color: 'bg-fuchsia-100 text-fuchsia-700',
     create_user: 'bg-blue-100 text-blue-700', update_user: 'bg-yellow-100 text-yellow-700',
     delete_user: 'bg-red-100 text-red-700', create_tu: 'bg-blue-100 text-blue-700',
     update_tu: 'bg-yellow-100 text-yellow-700', delete_tu: 'bg-red-100 text-red-700',
@@ -69,7 +68,6 @@ export default function AuditPage() {
     'Роли': 'bg-purple-100 text-purple-700',
     'Комментарии': 'bg-indigo-100 text-indigo-700',
     'Авторизация': 'bg-green-100 text-green-700',
-    'Импорт': 'bg-orange-100 text-orange-700',
     'Объекты': 'bg-blue-100 text-blue-700',
     'Система': 'bg-gray-100 text-gray-700',
   };
@@ -102,8 +100,7 @@ export default function AuditPage() {
               <option value="Роли">Роли</option>
               <option value="Комментарии">Комментарии</option>
               <option value="Авторизация">Авторизация</option>
-              <option value="Импорт">Импорт</option>
-              <option value="Объекты">Объекты</option>
+                      <option value="Объекты">Объекты</option>
               <option value="Система">Система</option>
             </select>
           </div>
