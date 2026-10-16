@@ -1,6 +1,6 @@
 import { Injectable, Logger, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { Observable, from, throwError } from 'rxjs';
+import { catchError, concatMap, map } from 'rxjs/operators';
 import { PrismaService } from '../../prisma.service';
 
 type AuditRequest = {
@@ -39,15 +39,19 @@ export class AuditInterceptor implements NestInterceptor {
     const ip = String(request.ip || request.socket?.remoteAddress || '').slice(0, 100);
     const userAgent = String(request.get?.('user-agent') || '').slice(0, 300);
 
-    return next.handle().pipe(tap({
-      next: () => {
-        void this.record({ actorId, actorName, method, path, ip, userAgent, statusCode: response.statusCode || 200 });
-      },
-      error: (error: any) => {
+    return next.handle().pipe(
+      // Persist the audit event before the HTTP response completes. The writer
+      // catches its own errors so an audit outage does not mask the business result.
+      concatMap((result) => from(this.record({
+        actorId, actorName, method, path, ip, userAgent, statusCode: response.statusCode || 200,
+      })).pipe(map(() => result))),
+      catchError((error: any) => {
         const statusCode = typeof error?.getStatus === 'function' ? error.getStatus() : 500;
-        void this.record({ actorId, actorName, method, path, ip, userAgent, statusCode });
-      },
-    }));
+        return from(this.record({ actorId, actorName, method, path, ip, userAgent, statusCode })).pipe(
+          concatMap(() => throwError(() => error)),
+        );
+      }),
+    );
   }
 
   private async record(entry: {
