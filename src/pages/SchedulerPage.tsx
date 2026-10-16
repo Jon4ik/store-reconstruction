@@ -47,8 +47,8 @@ export default function SchedulerPage() {
   };
 
   return <div className="w-full space-y-6">
-    <div><h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900"><CalendarClock size={24}/>Планировщик (crontab)</h1><p className="mt-1 text-sm text-gray-500 dark-readable-muted">Автоматический запуск фоновых задач по расписанию сервера.</p></div>
     {message && <SettingsNotice message={message} variant={error ? 'error' : 'success'} onDismiss={() => setMessage('')} />}
+    <div><h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900"><CalendarClock size={24}/>Планировщик (crontab)</h1><p className="mt-1 text-sm text-gray-500 dark-readable-muted">Автоматический запуск фоновых задач по расписанию сервера.</p></div>
     {loading ? <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500">Загрузка задач…</div> : task ? <div className="grid w-full grid-cols-1 items-start gap-6 lg:grid-cols-2">
       <section className="rounded-xl border border-gray-200 bg-white p-6 space-y-5">
         <div><h2 className="text-lg font-semibold text-gray-900">{task.name}</h2><p className="mt-1 text-sm text-gray-500">Синхронизирует источник SQL Server с таблицей магазинов PostgreSQL. Новые записи добавляются, изменённые обновляются; отсутствующие в источнике не удаляются.</p></div>
