@@ -104,6 +104,7 @@ export default function RolesPage() {
       permissions: [
         { key: 'manage_ldap', label: 'Настройки LDAP / Active Directory' },
         { key: 'manage_integrations', label: 'Настройки интеграций' },
+        { key: 'manage_notifications', label: 'Настройки уведомлений' },
       ]
     },
   ];
