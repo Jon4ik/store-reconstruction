@@ -73,11 +73,23 @@ model TU {
   createdAt DateTime @default(now())
 }
 
+model ShopDirectory {
+  id              String   @id @default(uuid())
+  shopNumber      String   @unique
+  city            String   @default("")
+  address         String
+  workHours       String   @default("")
+  areaManager     String   @default("")
+  areaManagerPhone String  @default("")
+  tu              String   @default("")
+  directorate     String   @default("")
+  projects        StoreProject[]
+}
+
 model StoreProject {
   id              String   @id @default(uuid())
   storeNumber     String
-  address         String
-  city            String
+  shop            ShopDirectory @relation(fields: [storeNumber], references: [id])
   workType        String
   closureDate     DateTime?
   demolitionDate  DateTime?
