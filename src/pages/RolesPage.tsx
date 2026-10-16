@@ -10,7 +10,7 @@ export default function RolesPage() {
   const [editData, setEditData] = useState<any>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  if (!hasPermission('manage_roles') || !hasPermission('settings')) {
+  if (!hasPermission('manage_roles')) {
     return <div className="text-center py-12 text-gray-500">Нет доступа к этой странице</div>;
   }
 
