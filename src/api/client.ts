@@ -94,6 +94,36 @@ class ApiClient {
     return this.request<any>(`/stores/${id}/restore`, { method: 'POST' });
   }
 
+  // Directory of source shops stored in PostgreSQL
+  async getShops(params?: { search?: string; limit?: number }) {
+    const query = params ? '?' + new URLSearchParams(Object.entries(params).reduce((acc, [key, value]) => {
+      if (value !== undefined && value !== '') acc[key] = String(value);
+      return acc;
+    }, {} as Record<string, string>)).toString() : '';
+    return this.request<any>(`/shops${query}`);
+  }
+
+  async syncShops() {
+    return this.request<any>('/shops/sync', { method: 'POST' });
+  }
+
+  async searchShopByNumber(number: string) {
+    return this.request<any[]>(`/shops/lookup?number=${encodeURIComponent(number)}`);
+  }
+
+  // Scheduler
+  async getSchedulerTasks() {
+    return this.request<any[]>('/scheduler/tasks');
+  }
+
+  async updateSchedulerTask(id: string, data: { enabled?: boolean; cronExpression?: string }) {
+    return this.request<any>(`/scheduler/tasks/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+
+  async runSchedulerTask(id: string) {
+    return this.request<any>(`/scheduler/tasks/${encodeURIComponent(id)}/run`, { method: 'POST' });
+  }
+
   // TUs
   async getTUs() {
     return this.request<any[]>('/tus');
