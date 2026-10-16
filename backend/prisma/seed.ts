@@ -4,7 +4,7 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Seeding roles and TUs...');
+  console.log('Seeding roles...');
   const adminPermissions = ['view', 'edit', 'view_closures', 'create_closures', 'edit_closures', 'delete_closures', 'view_openings', 'create_openings', 'edit_openings', 'delete_openings', 'view_calendar', 'view_dashboard', 'export', 'view_comments', 'add_comments', 'delete_comments', 'view_users', 'manage_users', 'view_roles', 'manage_roles', 'view_tus', 'manage_tus', 'view_audit', 'manage_ldap', 'manage_integrations', 'manage_notifications', 'view_shops', 'manage_shops', 'manage_scheduler'];
   const managerPermissions = ['view', 'edit', 'view_closures', 'create_closures', 'edit_closures', 'view_openings', 'create_openings', 'edit_openings', 'view_calendar', 'view_dashboard', 'export', 'view_comments', 'add_comments', 'view_tus', 'view_shops'];
   const viewerPermissions = ['view', 'view_closures', 'view_openings', 'view_calendar', 'view_dashboard', 'view_comments', 'view_tus', 'view_shops'];
@@ -97,15 +97,20 @@ async function main() {
     console.warn('Created default administrator account. Change its password immediately after first login.');
   }
 
-  const tus = [
-    { fullName: 'Зотов Денис', position: 'Территориальный управляющий', phone: '+7 (999) 123-45-67', email: 'zotov@company.ru' },
-    { fullName: 'Дрямова Валентина', position: 'Территориальный управляющий', phone: '+7 (999) 234-56-78', email: 'dryamova@company.ru' },
-    { fullName: 'Беляева Анна', position: 'Территориальный управляющий', phone: '+7 (999) 345-67-89', email: 'belyaeva@company.ru' },
-  ];
-  for (const tu of tus) {
-    const id = `tu-${tu.fullName.replace(/\s/g, '-').toLowerCase()}`;
-    await prisma.tU.upsert({ where: { id }, update: {}, create: { id, ...tu } });
+  // Remove only legacy demo TUs inserted by older seed versions when unused.
+  // If a project still references one, deactivate it instead of breaking the relation.
+  const legacyTuIds = ['tu-зотов-денис', 'tu-дрямова-валентина', 'tu-беляева-анна'];
+  for (const id of legacyTuIds) {
+    const legacyTu = await prisma.tU.findUnique({ where: { id } });
+    if (!legacyTu) continue;
+    const linkedProjects = await prisma.storeProject.count({ where: { tuId: id } });
+    if (linkedProjects === 0) {
+      await prisma.tU.delete({ where: { id } });
+    } else if (legacyTu.isActive) {
+      await prisma.tU.update({ where: { id }, data: { isActive: false } });
+    }
   }
+
   console.log('Seed completed.');
 }
 
