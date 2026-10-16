@@ -92,8 +92,8 @@ export default function RolesPage() {
       name: 'Справочник магазинов',
       key: 'shops',
       permissions: [
-        { key: 'view_shops', label: 'Просмотр и поиск магазинов' },
-        { key: 'manage_shops', label: 'Управление и ручная синхронизация' },
+        { key: 'view_shops', label: 'Просмотр справочника (открытие страницы)' },
+        { key: 'manage_shops', label: 'Ручная синхронизация справочника' },
       ]
     },
     {
