@@ -50,7 +50,9 @@ export default function App() {
       tus: 'Справочник ТУ',
       audit: 'Аудит',
       profile: 'Профиль',
-      settings: 'Настройки LDAP',
+      settings: 'Синхронизация с LDAP',
+      integrations: 'Интеграции',
+      notifications: 'Уведомления',
     };
     
     document.title = `${titles[currentPage] || 'Главная'} - Реконструкция`;
@@ -69,6 +71,8 @@ export default function App() {
       case 'audit': return <AuditPage />;
       case 'profile': return <ProfilePage />;
       case 'settings': return <SettingsPage />;
+      case 'integrations': return <SettingsPage />;
+      case 'notifications': return <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center"><h1 className="text-xl font-semibold text-gray-900">Уведомления</h1><p className="mt-2 text-sm text-gray-500">Настройка уведомлений будет добавлена позже.</p></div>;
       default: return <Dashboard />;
     }
   };
