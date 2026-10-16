@@ -13,6 +13,9 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [integration, setIntegration] = useState({ enabled: false, apiGateway: '', apiKey: '', clearApiKey: false, apiKeyConfigured: false });
+  const [integrationSaving, setIntegrationSaving] = useState(false);
+  const [integrationMessage, setIntegrationMessage] = useState('');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -24,7 +27,9 @@ export default function SettingsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (!hasPermission('settings')) {
+  useEffect(() => { apiClient.getIntraDeskSettings().then(data => setIntegration(current => ({...current, enabled: data.enabled, apiGateway: data.apiGateway, apiKeyConfigured: data.apiKeyConfigured}))).catch(() => {}); }, []);
+
+  if (!hasPermission('manage_ldap') && !hasPermission('manage_integrations') && !hasPermission('settings')) {
     return <div className="text-center py-12 text-gray-500">Нет доступа к этой странице</div>;
   }
 
@@ -114,6 +119,14 @@ export default function SettingsPage() {
           </>
         )}
       </section>
+
+      {(hasPermission('manage_integrations') || hasPermission('settings')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+        <div><h2 className="text-lg font-semibold text-gray-900">Интеграция с IntraDesk</h2><p className="text-sm text-gray-500 mt-1">Настройте шлюз и секретный ключ для внешней интеграции.</p></div>
+        <label className="flex items-center gap-3 rounded-lg border border-gray-200 p-3"><input type="checkbox" checked={integration.enabled} onChange={e=>setIntegration({...integration,enabled:e.target.checked})} className="h-4 w-4"/><span className="text-sm font-medium text-gray-800">Интеграция включена</span></label>
+        <div><label className="block text-sm font-medium text-gray-700 mb-1">API-шлюз</label><input value={integration.apiGateway} onChange={e=>setIntegration({...integration,apiGateway:e.target.value})} placeholder="https://intradeck.company.local/api" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"/></div>
+        <div><label className="block text-sm font-medium text-gray-700 mb-1">API-ключ</label><input type="password" value={integration.apiKey} onChange={e=>setIntegration({...integration,apiKey:e.target.value,clearApiKey:false})} autoComplete="new-password" placeholder={integration.apiKeyConfigured?'Ключ сохранён и скрыт; пустое поле сохранит текущий':'Введите API-ключ'} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"/><p className="mt-1 text-xs text-gray-500">Ключ шифруется AES-256-GCM перед записью в PostgreSQL.</p>{integration.apiKeyConfigured && <label className="mt-2 flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" checked={integration.clearApiKey} onChange={e=>setIntegration({...integration,clearApiKey:e.target.checked,apiKey:''})}/> Удалить сохранённый ключ</label>}</div>
+        <div className="flex items-center gap-3"><button disabled={integrationSaving} onClick={async()=>{setIntegrationSaving(true);setIntegrationMessage('');try{const result=await apiClient.saveIntraDeskSettings({enabled:integration.enabled,apiGateway:integration.apiGateway, ...(integration.apiKey?{apiKey:integration.apiKey}:{}), ...(integration.clearApiKey?{clearApiKey:true}:{})});setIntegration(current=>({...current,apiKey:'',clearApiKey:false,apiKeyConfigured:result.apiKeyConfigured}));setIntegrationMessage('Настройки IntraDesk сохранены.');}catch(e){setIntegrationMessage('Ошибка сохранения: '+(e as Error).message);}finally{setIntegrationSaving(false)}}} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{integrationSaving?'Сохранение…':'Сохранить интеграцию'}</button>{integrationMessage && <p role="status" aria-live="polite" className="text-sm font-semibold text-blue-800">{integrationMessage}</p>}</div>
+      </section>}
 
       <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
         <div className="flex items-center gap-3">
