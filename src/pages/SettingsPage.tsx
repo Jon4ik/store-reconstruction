@@ -77,7 +77,7 @@ export default function SettingsPage() {
         <p className="text-sm text-gray-500 mt-1">Параметры подключения используются для синхронизации справочников из AD.</p>
       </div>
 
-      <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+      {(hasPermission('manage_ldap') || hasPermission('settings')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
         <div className="flex items-center gap-3">
           <Server size={22} className="text-blue-600" />
           <h2 className="text-lg font-semibold text-gray-900">Подключение к каталогу</h2>
@@ -118,7 +118,7 @@ export default function SettingsPage() {
             </div>
           </>
         )}
-      </section>
+      </section>}
 
       {(hasPermission('manage_integrations') || hasPermission('settings')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
         <div><h2 className="text-lg font-semibold text-gray-900">Интеграция с IntraDesk</h2><p className="text-sm text-gray-500 mt-1">Настройте шлюз и секретный ключ для внешней интеграции.</p></div>
@@ -128,7 +128,7 @@ export default function SettingsPage() {
         <div className="flex items-center gap-3"><button disabled={integrationSaving} onClick={async()=>{setIntegrationSaving(true);setIntegrationMessage('');try{const result=await apiClient.saveIntraDeskSettings({enabled:integration.enabled,apiGateway:integration.apiGateway, ...(integration.apiKey?{apiKey:integration.apiKey}:{}), ...(integration.clearApiKey?{clearApiKey:true}:{})});setIntegration(current=>({...current,apiKey:'',clearApiKey:false,apiKeyConfigured:result.apiKeyConfigured}));setIntegrationMessage('Настройки IntraDesk сохранены.');}catch(e){setIntegrationMessage('Ошибка сохранения: '+(e as Error).message);}finally{setIntegrationSaving(false)}}} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{integrationSaving?'Сохранение…':'Сохранить интеграцию'}</button>{integrationMessage && <p role="status" aria-live="polite" className="text-sm font-semibold text-blue-800">{integrationMessage}</p>}</div>
       </section>}
 
-      <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
+      {(hasPermission('manage_ldap') || hasPermission('settings')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
         <div className="flex items-center gap-3">
           <ShieldCheck size={22} className="text-green-600" />
           <h2 className="text-lg font-semibold text-gray-900">Защита данных</h2>
@@ -139,7 +139,7 @@ export default function SettingsPage() {
           {encryptionConfigured ? <CheckCircle2 size={17} className="text-green-600" /> : <KeyRound size={17} className="text-amber-600" />}
           <span className={encryptionConfigured ? 'text-green-700' : 'text-amber-700'}>{encryptionConfigured ? 'Ключ шифрования настроен' : 'Ключ шифрования не настроен — синхронизация отключена'}</span>
         </div>
-      </section>
+      </section>}
 
       {message && <div role="status" aria-live="polite" className={`sticky top-20 z-20 rounded-xl border-2 p-4 text-base font-semibold shadow-lg ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не удалось') ? 'border-red-400 bg-red-50 text-red-900' : 'border-green-400 bg-green-50 text-green-900'}`}>{message}</div>}
     </div>
