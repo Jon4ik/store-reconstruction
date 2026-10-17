@@ -21,7 +21,9 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     const raw = process.env.LDAP_ENCRYPTION_KEY || '';
     const key = /^[a-f0-9]{64}$/i.test(raw) ? Buffer.from(raw, 'hex') : Buffer.from(raw, 'base64');
     if (key.length !== 32) throw new Error('Не настроен ключ шифрования интеграции');
-    const [iv, tag, encrypted] = ciphertext.split(':');
+    const parts = ciphertext.split(':');
+    const [iv, tag, encrypted] = parts;
+    if (!iv || !tag || !encrypted) throw new Error('Сохранённый API-ключ IntraDesk повреждён');
     const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'hex'));
     decipher.setAuthTag(Buffer.from(tag, 'hex'));
     return Buffer.concat([decipher.update(Buffer.from(encrypted, 'hex')), decipher.final()]).toString('utf8');
