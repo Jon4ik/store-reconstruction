@@ -7,8 +7,14 @@ const EVENT_TYPES = ['closureDate', 'demolitionDate', 'installationDate', 'techO
 const CHANNELS = ['intradesk', 'telegram', 'pachca'];
 
 @Injectable()
-export class NotificationsService implements OnModuleInit, OnModuleDestroy {\n  private readonly logger = new Logger(NotificationsService.name);\n  private checking = false;\n  private timer?: NodeJS.Timeout;
-  constructor(private readonly prisma: PrismaService) {}\n\n  onModuleInit() { this.timer = setInterval(() => void this.runDueNotifications(), 30_000); void this.runDueNotifications(); }\n  onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
+export class NotificationsService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(NotificationsService.name);
+  private checking = false;
+  private timer?: NodeJS.Timeout;
+  constructor(private readonly prisma: PrismaService) {}
+
+  onModuleInit() { this.timer = setInterval(() => void this.runDueNotifications(), 30_000); void this.runDueNotifications(); }
+  onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
 
 
   private decryptApiKey(ciphertext: string): string {
@@ -109,7 +115,8 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {\n  
       this.logger.error(`Ошибка планировщика уведомлений: ${error?.message || error}`);
     } finally { this.checking = false; }
   }
-\n  findAll() {
+
+  findAll() {
     return this.prisma.notificationRule.findMany({ orderBy: { createdAt: 'asc' } });
   }
 
