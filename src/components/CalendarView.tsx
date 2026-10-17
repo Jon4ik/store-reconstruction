@@ -99,7 +99,7 @@ export default function CalendarView() {
                   <div className={`text-xs font-medium mb-1 px-1 ${isToday(day.date) ? 'text-blue-600' : 'text-gray-600'}`}>{day.date.getDate()}</div>
                   <div className="space-y-0.5">
                     {events.slice(0, 3).map(event => (
-                      <button key={event.id} onClick={() => openCard(event.projectId)} className={`w-full text-left text-[10px] px-1.5 py-0.5 rounded truncate ${getStageColor(event.stage, event.workType)} hover:opacity-80`} title={`№${event.storeNumber} — ${event.stage}`}>
+                      <button key={event.id} onClick={() => openCard(event.projectId)} className={`w-full text-left text-[10px] px-1.5 py-0.5 rounded truncate ${getStageColor(event.stage, event.workType)} hover:opacity-80`} title={`Магазин №${event.storeNumber} — ${event.stage}`}>
                         №{event.storeNumber} {event.stage}
                       </button>
                     ))}
