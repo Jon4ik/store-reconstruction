@@ -111,6 +111,12 @@ class ApiClient {
     return this.request<any[]>(`/shops/lookup?number=${encodeURIComponent(number)}`);
   }
 
+  // Notification rules
+  async getNotificationRules() { return this.request<any[]>('/notifications'); }
+  async createNotificationRule(data: any) { return this.request<any>('/notifications', { method: 'POST', body: JSON.stringify(data) }); }
+  async updateNotificationRule(id: string, data: any) { return this.request<any>(`/notifications/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) }); }
+  async deleteNotificationRule(id: string) { return this.request<any>(`/notifications/${encodeURIComponent(id)}`, { method: 'DELETE' }); }
+
   // Scheduler
   async getSchedulerTasks() {
     return this.request<any[]>('/scheduler/tasks');
