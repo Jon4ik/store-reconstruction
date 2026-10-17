@@ -15,6 +15,7 @@ import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import ShopsPage from './pages/ShopsPage';
 import SchedulerPage from './pages/SchedulerPage';
+import NotificationsPage from './pages/NotificationsPage';
 import { apiClient } from './api/client';
 
 const PAGE_PATHS: Record<string, string> = {
@@ -230,7 +231,7 @@ export default function App() {
       case 'profile': return <ProfilePage />;
       case 'settings': return <SettingsPage />;
       case 'integrations': return <SettingsPage mode="integrations" />;
-      case 'notifications': return <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center"><h1 className="text-xl font-semibold text-gray-900">Уведомления</h1><p className="mt-2 text-sm text-gray-500">Настройка уведомлений будет добавлена позже.</p></div>;
+      case 'notifications': return <NotificationsPage />;
       default: return <Dashboard />;
     }
   };

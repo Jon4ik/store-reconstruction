@@ -102,6 +102,16 @@ export default function RolesPage() {
       permissions: [ { key: 'manage_scheduler', label: 'Настройка и запуск задач' } ]
     },
     {
+      name: 'Уведомления',
+      key: 'notifications',
+      permissions: [
+        { key: 'view_notifications', label: 'Просмотр страницы уведомлений' },
+        { key: 'create_notifications', label: 'Добавление уведомлений' },
+        { key: 'edit_notifications', label: 'Редактирование и включение/выключение' },
+        { key: 'delete_notifications', label: 'Полное удаление уведомлений' },
+      ]
+    },
+    {
       name: 'Аудит',
       key: 'audit',
       permissions: [

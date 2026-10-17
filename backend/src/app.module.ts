@@ -11,6 +11,7 @@ import { LdapModule } from './modules/ldap/ldap.module';
 import { HealthController } from './health.controller';
 import { ShopsModule } from './modules/shops/shops.module';
 import { SchedulerModule } from './modules/scheduler/scheduler.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AuditInterceptor } from './modules/audit/audit.interceptor';
 
 @Module({
@@ -24,6 +25,7 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
     LdapModule,
     ShopsModule,
     SchedulerModule,
+    NotificationsModule,
   ],
   controllers: [HealthController],
   providers: [PrismaService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }],
