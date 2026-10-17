@@ -197,7 +197,7 @@ export default function App() {
   useEffect(() => {
     const titles: Record<string, string> = {
       dashboard: 'Панель управления',
-      table: 'Таблица объектов',
+      table: 'Таблица событий магазинов',
       calendar: 'Календарь',
       users: 'Пользователи',
       roles: 'Роли',
