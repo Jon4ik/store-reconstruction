@@ -27,6 +27,7 @@ export default function NotificationsPage() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [form, setForm] = useState<FormData>(blankForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
   const [integrationEnabled, setIntegrationEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -56,14 +57,15 @@ export default function NotificationsPage() {
   const canDelete = hasPermission('delete_notifications');
   const setField = <K extends keyof FormData>(key: K, value: FormData[K]) => setForm(current => ({ ...current, [key]: value }));
 
-  const startCreate = () => { setEditingId(null); setForm({ ...blankForm, channel: integrationEnabled ? 'intradesk' : 'intradesk' }); setError(''); setSuccess(''); };
+  const startCreate = () => { setEditingId(null); setForm({ ...blankForm, channel: 'intradesk' }); setFormOpen(true); setError(''); setSuccess(''); };
   const startEdit = (rule: Rule) => {
     setEditingId(rule.id);
+    setFormOpen(true);
     const { id, ...values } = rule;
     setForm(values);
     setError(''); setSuccess('');
   };
-  const cancel = () => { setEditingId(null); setForm(blankForm); setError(''); };
+  const cancel = () => { setEditingId(null); setForm(blankForm); setFormOpen(false); setError(''); };
 
   const save = async () => {
     setError(''); setSuccess('');
@@ -118,10 +120,10 @@ export default function NotificationsPage() {
     {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
     {success && <div role="status" className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{success}</div>}
 
-    {(canCreate || canEdit) && (editingId || canCreate) && <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    {(canCreate || canEdit) && formOpen && (editingId ? canEdit : canCreate) && <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-5 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900">{editingId ? 'Редактирование уведомления' : 'Новое уведомление'}</h2>
-        {editingId && <button onClick={cancel} aria-label="Закрыть форму" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"><X size={18}/></button>}
+        <button onClick={cancel} aria-label="Закрыть форму" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"><X size={18}/></button>
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <label className="block text-sm font-medium text-gray-700 md:col-span-2">Название уведомления
@@ -171,11 +173,11 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
-        <div className="mb-2 flex items-center gap-2 font-semibold"><Info size={17}/>Ключи для подстановки в текст</div>
-        <p className="mb-2 text-blue-900">Значения автоматически берутся из справочника магазинов, ТУ и дат объекта.</p>
+      <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
+        <div className="mb-2 flex items-center gap-2 font-semibold text-blue-950 dark:text-slate-100"><Info size={17}/>Ключи для подстановки в текст</div>
+        <p className="mb-2 text-blue-900 dark:text-slate-300">Значения автоматически берутся из справочника магазинов, ТУ и дат объекта.</p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{shopNumber}'}</code> — номер магазина из shop_directory</p>
+          <p><code className="rounded bg-white px-1.5 py-0.5 text-slate-900 dark:bg-slate-700 dark:text-slate-100">{'{shopNumber}'}</code> — номер магазина из shop_directory</p>
           <p><code className="rounded bg-white px-1.5 py-0.5">{'{address}'}</code> — адрес магазина из shop_directory</p>
           <p><code className="rounded bg-white px-1.5 py-0.5">{'{tu_fio}'}</code> — ФИО ТУ из tus.fullName</p>
           <p><code className="rounded bg-white px-1.5 py-0.5">{'{tu_phone}'}</code> — телефон ТУ из tus.phone</p>
@@ -186,7 +188,7 @@ export default function NotificationsPage() {
         </div>
       </div>
       <div className="mt-5 flex flex-wrap justify-end gap-2">
-        {editingId && <button onClick={cancel} className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">Отмена</button>}
+        <button onClick={cancel} className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Отмена</button>
         <button onClick={()=>void save()} disabled={saving || Boolean(editingId && !canEdit) || (!editingId && !canCreate)} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">{saving?<Loader2 className="animate-spin" size={16}/>:<Save size={16}/>}Сохранить</button>
       </div>
     </section>}
