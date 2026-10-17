@@ -21,6 +21,16 @@ export default function AddStoreModal() {
     if (isAddModalOpen) setForm(current => ({ ...current, workType: defaultWorkType }));
   }, [isAddModalOpen, defaultWorkType]);
 
+  // The modal can mount before TUs finish loading. Select an active TU once
+  // the list arrives, and never keep an inactive or missing TU selected.
+  useEffect(() => {
+    if (!isAddModalOpen) return;
+    const activeTus = tus.filter(t => t.isActive);
+    setForm(current => activeTus.some(t => t.id === current.tuId)
+      ? current
+      : { ...current, tuId: activeTus[0]?.id || '' });
+  }, [tus, isAddModalOpen]);
+
   useEffect(() => {
     const number = form.storeNumber.trim();
     if (!isAddModalOpen || !number) { setShopMatches([]); setShopSearchLoading(false); setForm(current => ({ ...current, address: '', city: '' })); return; }
@@ -51,7 +61,13 @@ export default function AddStoreModal() {
       errs.push('Номер магазина должен содержать от 1 до 4 цифр');
     }
     if (!form.address.trim()) errs.push('Магазин не найден в справочнике. Проверьте номер и синхронизацию справочника.');
-    
+    const activeTus = tus.filter(t => t.isActive);
+    if (activeTus.length === 0) {
+      errs.push('Нет активных ТУ. Сначала добавьте или активируйте ТУ в справочнике.');
+    } else if (!form.tuId || !activeTus.some(t => t.id === form.tuId)) {
+      errs.push('Выберите активного ТУ.');
+    }
+
     return errs;
   };
 
@@ -69,7 +85,7 @@ export default function AddStoreModal() {
         tuId: form.tuId, rowColor: form.rowColor, comment: form.comment,
         manualStatus: null,
       });
-      setForm({ storeNumber: '', address: '', city: '', workType: 'Закрытие' as 'Закрытие' | 'Реконструкция' | 'Открытие', closureDate: '', demolitionDate: '', installationDate: '', techOpenDate: '', tuId: tus[0]?.id || '', comment: '', rowColor: '' });
+      setForm({ storeNumber: '', address: '', city: '', workType: 'Закрытие' as 'Закрытие' | 'Реконструкция' | 'Открытие', closureDate: '', demolitionDate: '', installationDate: '', techOpenDate: '', tuId: tus.find(t => t.isActive)?.id || '', comment: '', rowColor: '' });
       closeAddModal();
     } catch (error) {
       console.error('Failed to add project:', error);
@@ -124,10 +140,13 @@ export default function AddStoreModal() {
             {shopMatches.length > 1 && <div className="mt-2 rounded-lg border border-gray-200 divide-y divide-gray-100">{shopMatches.map((shop, index) => <button type="button" key={String(shop.shopNumber) + '-' + index} onClick={() => setForm(current => ({ ...current, storeNumber: String(shop.shopNumber), address: shop.address || '', city: shop.city || '' }))} className="w-full p-2 text-left text-sm hover:bg-gray-50"><span className="font-medium">№{shop.shopNumber}</span> — {shop.city}, {shop.address}</button>)}</div>}
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">ТУ</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">ТУ <span className="text-red-500">*</span></label>
             <select value={form.tuId} onChange={e => setForm({ ...form, tuId: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-              {tus.filter(t => t.isActive).map(t => <option key={t.id} value={t.id}>{t.fullName}</option>)}
+              {tus.filter(t => t.isActive).length === 0
+                ? <option value="">Нет активных ТУ</option>
+                : tus.filter(t => t.isActive).map(t => <option key={t.id} value={t.id}>{t.fullName}</option>)}
             </select>
+            {tus.filter(t => t.isActive).length === 0 && <p className="text-xs text-red-600 mt-1">Создайте или активируйте ТУ в справочнике, чтобы добавить объект.</p>}
           </div>
           <div className="border-t border-gray-100 pt-4">
             <p className="text-xs font-medium text-gray-500 mb-3">Даты этапов (формат: ДД.ММ.ГГГГ)</p>
