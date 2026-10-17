@@ -43,7 +43,8 @@ function getModule(log: AuditLogEntry): string {
   if (action.includes('audit') || route.includes('/audit')) return 'Аудит';
   if (action === 'login' || action === 'logout' || route.includes('/auth/logout')) return 'Авторизация';
   if (action === 'scheduler_run' || route.includes('/scheduler')) return 'Планировщик';
-  if (route.includes('/ldap') || route.includes('/integrations') || route.includes('/notifications')) return 'Настройки';
+  if (action === 'notification_delivery' || route.includes('/notifications')) return 'Уведомления';
+  if (route.includes('/ldap') || route.includes('/integrations')) return 'Настройки';
   if (route.includes('/shops')) return 'Справочник магазинов';
   if (route.includes('/roles') || action.includes('role')) return 'Роли';
   if (route.includes('/tus') || action.includes('tu')) return 'Справочник ТУ';
@@ -70,10 +71,16 @@ const ACTION_LABELS: Record<string, string> = {
   add_comment: 'Добавление комментария',
   api_request: 'Запрос к API',
   scheduler_run: 'Запуск задачи',
+  notification_delivery: 'Обработка уведомления',
 };
 
 function getActionLabel(log: AuditLogEntry): string {
   if (log.action === 'api_request' && getRequestPath(log).toLowerCase().includes('/auth/logout')) return 'Выход из системы';
+  if (log.action === 'notification_delivery') {
+    const details = parseDetails(log.details);
+    const outcome = details.outcome === 'success' ? 'Успешно' : 'Ошибка';
+    return `Отправка уведомления — ${outcome}`;
+  }
   return ACTION_LABELS[log.action] || log.action;
 }
 
@@ -88,6 +95,7 @@ const ACTION_COLORS: Record<string, string> = {
   change_color: 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/40 dark:text-fuchsia-200',
   api_request: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
   scheduler_run: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200',
+  notification_delivery: 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200',
 };
 
 const MODULE_COLORS: Record<string, string> = {
@@ -99,6 +107,7 @@ const MODULE_COLORS: Record<string, string> = {
   'Роли': 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200',
   'Настройки': 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-200',
   'Планировщик': 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200',
+  'Уведомления': 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200',
   'Справочник магазинов': 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-200',
   'Система': 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200',
 };
@@ -128,7 +137,7 @@ export default function AuditPage() {
       const needle = filter.search.trim().toLocaleLowerCase('ru-RU');
       const haystack = [
         log.userName, log.userId, log.details, log.newValue, log.oldValue,
-        log.field, getRequestPath(log), module, ACTION_LABELS[log.action] || log.action,
+        log.field, getRequestPath(log), module, getActionLabel(log), ACTION_LABELS[log.action] || log.action,
       ].join(' ').toLocaleLowerCase('ru-RU');
       if (!haystack.includes(needle)) return false;
     }
@@ -190,7 +199,7 @@ export default function AuditPage() {
             <span className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Подсистема</span>
             <select value={filter.module} onChange={e => setFilter({ ...filter, module: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
               <option value="">Все подсистемы</option>
-              {['Авторизация', 'Объекты', 'Комментарии', 'Справочник ТУ', 'Справочник магазинов', 'Роли', 'Настройки', 'Планировщик', 'Система'].map(module => <option key={module} value={module}>{module}</option>)}
+              {['Авторизация', 'Объекты', 'Комментарии', 'Справочник ТУ', 'Справочник магазинов', 'Роли', 'Настройки', 'Уведомления', 'Планировщик', 'Система'].map(module => <option key={module} value={module}>{module}</option>)}
             </select>
           </label>
           <label className="block">
