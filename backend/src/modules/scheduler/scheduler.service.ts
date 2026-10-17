@@ -17,8 +17,8 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     this.logger.log(`Scheduler started; schedule timezone=${SCHEDULER_TIMEZONE}; server timezone=${Intl.DateTimeFormat().resolvedOptions().timeZone || 'system'}; polling every ${SCHEDULER_INTERVAL_MS / 1000}s`);
-    // Start polling even if PostgreSQL is temporarily unavailable. Each tick retries
-    // task creation and the first run, rather than permanently disabling the scheduler.
+    // Start polling even if PostgreSQL is temporarily unavailable; task creation and
+    // scheduled execution are retried on subsequent ticks, but never outside cron time.
     this.timer = setInterval(() => void this.tick(), SCHEDULER_INTERVAL_MS);
     void this.tick();
   }
@@ -193,7 +193,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
     const hour = this.fieldMatches(fields[1], local.hour, 0, 23);
     const dayOfMonth = this.fieldMatches(fields[2], local.day, 1, 31);
     const month = this.fieldMatches(fields[3], local.month, 1, 12);
-    const weekdayField = fields[4].replace(/(^|,)7(?=,|$)/g, '$10');
+    const weekdayField = fields[4].replace(/(^|,)7(?=,|$)/g, (_match, prefix) => prefix + '0');
     const dayOfWeek = this.fieldMatches(weekdayField, local.weekday, 0, 6);
 
     // Standard cron treats day-of-month and day-of-week as OR when both are restricted.
