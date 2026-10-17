@@ -138,7 +138,7 @@ export default function StoreTable() {
             activeTab === 'closures' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'
           }`}
         >
-          <Plus size={16} /> {activeTab === 'closures' ? 'Добавить объект' : 'Добавить открытие'}
+          <Plus size={16} /> Добавить событие
         </button>
         {hasPermission('export') && (
           <button

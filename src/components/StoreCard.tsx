@@ -121,7 +121,6 @@ export default function StoreCard() {
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 rounded-t-2xl flex items-center justify-between z-10 flex-shrink-0">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Магазин №{project.storeNumber}</h2>
-            <p className="text-sm text-gray-500 mt-0.5">{project.workType}</p>
           </div>
           <div className="flex items-center gap-2">
             {!isEditing && hasPermission('edit') && (
@@ -166,16 +165,16 @@ export default function StoreCard() {
             >
               Комментарии и история
             </button>
-            {(hasPermission('delete_closures') || hasPermission('delete_openings')) && <button onClick={() => setActiveTab('delete')} className={`py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'delete' ? 'border-red-600 text-red-600' : 'border-transparent text-gray-500 hover:text-red-600'}`}>Удаление объекта</button>}
+            {(hasPermission('delete_closures') || hasPermission('delete_openings')) && <button onClick={() => setActiveTab('delete')} className={`py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'delete' ? 'border-red-600 text-red-600' : 'border-transparent text-gray-500 hover:text-red-600'}`}>Удаление события</button>}
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
           {activeTab === 'delete' && (
             <div className="max-w-2xl mx-auto rounded-xl border border-red-200 bg-red-50 p-6 space-y-4">
-              <div className="flex items-start gap-3"><AlertTriangle className="text-red-600 mt-1" size={24}/><div><h3 className="text-lg font-semibold text-red-900">Удаление объекта №{project.storeNumber}</h3><p className="text-sm text-red-800 mt-1">Объект будет скрыт из активных таблиц. Запись и история сохранятся, действие попадёт в аудит.</p></div></div>
+              <div className="flex items-start gap-3"><AlertTriangle className="text-red-600 mt-1" size={24}/><div><h3 className="text-lg font-semibold text-red-900">Удаление события магазина №{project.storeNumber}</h3><p className="text-sm text-red-800 mt-1">Событие магазина будет скрыто из активных таблиц. Запись и история сохранятся, действие попадёт в аудит.</p></div></div>
               <p className="text-sm text-gray-700">Адрес: <strong>{project.address}</strong></p>
-              <button onClick={async () => { if (!window.confirm(`Вы действительно хотите удалить объект №${project.storeNumber}?`)) return; try { await deleteProject(project.id); closeCard(); alert('Объект удалён. Событие записано в аудит.'); } catch (e) { alert('Не удалось удалить объект: ' + (e as Error).message); } }} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700">Подтвердить удаление</button>
+              <button onClick={async () => { if (!window.confirm(`Вы действительно хотите удалить событие для магазина №${project.storeNumber}?`)) return; try { await deleteProject(project.id); closeCard(); alert('Событие магазина удалёно. Событие записано в аудит.'); } catch (e) { alert('Не удалось удалить событие магазина: ' + (e as Error).message); } }} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700">Подтвердить удаление</button>
             </div>
           )}
 
@@ -210,7 +209,7 @@ export default function StoreCard() {
                   <div>
                     <label className="text-xs font-medium text-gray-500 mb-1 block">Адрес</label>
                     <p className="text-sm font-medium text-gray-900 bg-gray-50 px-3 py-2 rounded-lg">{project.address}</p>
-                    <p className="mt-1 text-xs text-gray-500">Адрес берётся из справочника магазинов и не редактируется в карточке объекта.</p>
+                    <p className="mt-1 text-xs text-gray-500">Адрес берётся из справочника магазинов и не редактируется в карточке события магазина.</p>
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-500 mb-1 block">ТУ (Территориальный управляющий)</label>
