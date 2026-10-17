@@ -151,3 +151,38 @@ model AuditLog {
   @@index([timestamp])
   @@map("audit_logs")
 }
+
+
+model NotificationRule {
+  id               String   @id @default(uuid())
+  name             String
+  offsetType       String
+  eventType        String
+  days             Int
+  channel          String
+  enabled          Boolean  @default(true)
+  sendTime         String   @default("09:00")
+  messageTemplate  String   @db.Text
+  intradeskGroup   String   @default("")
+  intradeskService String   @default("")
+  intradeskSubject String   @default("")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  deliveries       NotificationDelivery[]
+  @@index([enabled, eventType])
+  @@map("notification_rules")
+}
+
+model NotificationDelivery {
+  id        String   @id @default(uuid())
+  ruleId    String
+  rule      NotificationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  projectId String
+  eventDate DateTime
+  status    String   @default("sent")
+  message   String   @default("") @db.Text
+  sentAt    DateTime @default(now())
+  @@unique([ruleId, projectId, eventDate])
+  @@index([sentAt])
+  @@map("notification_deliveries")
+}
