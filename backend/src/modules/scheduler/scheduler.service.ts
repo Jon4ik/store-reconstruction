@@ -4,7 +4,7 @@ import { ShopsService } from '../shops/shops.service';
 
 const SHOP_TASK_ID = 'shops-sync';
 const SCHEDULER_INTERVAL_MS = 10_000;
-const RETRY_INTERVAL_MS = 5 * 60_000;
+const SCHEDULER_TIMEZONE = process.env.SCHEDULER_TIMEZONE || 'Europe/Moscow';
 
 @Injectable()
 export class SchedulerService implements OnModuleInit, OnModuleDestroy {
@@ -16,11 +16,11 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly prisma: PrismaService, private readonly shops: ShopsService) {}
 
   async onModuleInit() {
-    this.logger.log(`Scheduler started; timezone=${Intl.DateTimeFormat().resolvedOptions().timeZone || 'system'}; polling every ${SCHEDULER_INTERVAL_MS / 1000}s`);
-    // Start polling even if PostgreSQL is temporarily unavailable. Each tick retries
-    // task creation and the first run, rather than permanently disabling the scheduler.
+    this.logger.log(`Scheduler started; schedule timezone=${SCHEDULER_TIMEZONE}; server timezone=${Intl.DateTimeFormat().resolvedOptions().timeZone || 'system'}; polling every ${SCHEDULER_INTERVAL_MS / 1000}s`);
+    // Start polling even if PostgreSQL is temporarily unavailable; task creation and
+    // scheduled execution are retried on subsequent ticks, but never outside cron time.
     this.timer = setInterval(() => void this.tick(), SCHEDULER_INTERVAL_MS);
-    void this.tick(true);
+    void this.tick();
   }
 
   onModuleDestroy() {
@@ -113,25 +113,18 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async tick(runOnStartup = false) {
+  private async tick() {
     if (this.checking) return;
     this.checking = true;
     try {
       const task = await this.ensureTask();
       const now = new Date();
       if (!task.enabled) return;
-      // Run once after first registration (or retry a previously failed initial run).
-      // Otherwise a daily 00:00 schedule could appear broken until the next midnight.
-      const needsInitialRun = runOnStartup && (!task.lastRunAt || task.lastStatus === 'never' || task.lastStatus === 'error');
-      const shouldRetry = task.lastStatus === 'error' && Boolean(task.lastRunAt) && now.getTime() - task.lastRunAt!.getTime() >= RETRY_INTERVAL_MS;
-      if (!needsInitialRun && !shouldRetry && !this.cronMatches(task.cronExpression, now)) return;
-      if (!needsInitialRun && !shouldRetry && task.lastRunAt &&
-          task.lastRunAt.getFullYear() === now.getFullYear() &&
-          task.lastRunAt.getMonth() === now.getMonth() &&
-          task.lastRunAt.getDate() === now.getDate() &&
-          task.lastRunAt.getHours() === now.getHours() &&
-          task.lastRunAt.getMinutes() === now.getMinutes()) return;
-      this.logger.log(`${needsInitialRun ? 'Initial startup run' : shouldRetry ? 'Retry after previous failure' : 'Cron matched'} for task ${task.id} at ${now.toString()}`);
+      // A configured cron expression is the only trigger. Startup and retrying a
+      // failed task must not execute it at an unrelated time.
+      if (!this.cronMatches(task.cronExpression, now)) return;
+      if (task.lastRunAt && this.sameScheduleMinute(task.lastRunAt, now)) return;
+      this.logger.log(`Cron matched for task ${task.id} at ${this.formatScheduleDate(now)} (${SCHEDULER_TIMEZONE})`);
       await this.runTask(task.id);
     } catch (error: any) {
       this.logger.error(`Scheduler poll failed: ${error?.message || error}`);
@@ -167,15 +160,41 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  private scheduleParts(date: Date) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: SCHEDULER_TIMEZONE,
+      year: 'numeric', month: 'numeric', day: 'numeric',
+      hour: 'numeric', minute: 'numeric', hourCycle: 'h23', weekday: 'short',
+    }).formatToParts(date);
+    const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    const weekdays: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    return {
+      year: Number(values.year), month: Number(values.month), day: Number(values.day),
+      hour: Number(values.hour), minute: Number(values.minute), weekday: weekdays[values.weekday],
+    };
+  }
+
+  private formatScheduleDate(date: Date) {
+    return new Intl.DateTimeFormat('ru-RU', {
+      timeZone: SCHEDULER_TIMEZONE, dateStyle: 'short', timeStyle: 'medium',
+    }).format(date);
+  }
+
+  private sameScheduleMinute(left: Date, right: Date) {
+    const a = this.scheduleParts(left), b = this.scheduleParts(right);
+    return a.year === b.year && a.month === b.month && a.day === b.day && a.hour === b.hour && a.minute === b.minute;
+  }
+
   private cronMatches(expression: string, date: Date) {
     if (!this.validCron(expression)) return false;
     const fields = expression.split(/\s+/);
-    const minute = this.fieldMatches(fields[0], date.getMinutes(), 0, 59);
-    const hour = this.fieldMatches(fields[1], date.getHours(), 0, 23);
-    const dayOfMonth = this.fieldMatches(fields[2], date.getDate(), 1, 31);
-    const month = this.fieldMatches(fields[3], date.getMonth() + 1, 1, 12);
-    const weekdayField = fields[4].replace(/(^|,)7(?=,|$)/g, '$10');
-    const dayOfWeek = this.fieldMatches(weekdayField, date.getDay(), 0, 6);
+    const local = this.scheduleParts(date);
+    const minute = this.fieldMatches(fields[0], local.minute, 0, 59);
+    const hour = this.fieldMatches(fields[1], local.hour, 0, 23);
+    const dayOfMonth = this.fieldMatches(fields[2], local.day, 1, 31);
+    const month = this.fieldMatches(fields[3], local.month, 1, 12);
+    const weekdayField = fields[4].replace(/(^|,)7(?=,|$)/g, (_match, prefix) => prefix + '0');
+    const dayOfWeek = this.fieldMatches(weekdayField, local.weekday, 0, 6);
 
     // Standard cron treats day-of-month and day-of-week as OR when both are restricted.
     const dayOfMonthRestricted = fields[2] !== '*';

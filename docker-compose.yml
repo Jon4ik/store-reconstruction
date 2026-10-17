@@ -90,6 +90,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
       NODE_ENV: production
+      SCHEDULER_TIMEZONE: ${SCHEDULER_TIMEZONE:-Europe/Moscow}
       PORT: 4000
       DOMAIN: ${DOMAIN:-http://localhost:5001}
       LDAP_ENCRYPTION_KEY: ${LDAP_ENCRYPTION_KEY:-}

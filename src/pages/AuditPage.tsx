@@ -43,7 +43,8 @@ function getModule(log: AuditLogEntry): string {
   if (action.includes('audit') || route.includes('/audit')) return 'Аудит';
   if (action === 'login' || action === 'logout' || route.includes('/auth/logout')) return 'Авторизация';
   if (action === 'scheduler_run' || route.includes('/scheduler')) return 'Планировщик';
-  if (route.includes('/ldap') || route.includes('/integrations') || route.includes('/notifications')) return 'Настройки';
+  if (action === 'notification_delivery' || route.includes('/notifications')) return 'Уведомления';
+  if (route.includes('/ldap') || route.includes('/integrations')) return 'Настройки';
   if (route.includes('/shops')) return 'Справочник магазинов';
   if (route.includes('/roles') || action.includes('role')) return 'Роли';
   if (route.includes('/tus') || action.includes('tu')) return 'Справочник ТУ';
@@ -70,10 +71,28 @@ const ACTION_LABELS: Record<string, string> = {
   add_comment: 'Добавление комментария',
   api_request: 'Запрос к API',
   scheduler_run: 'Запуск задачи',
+  notification_delivery: 'Обработка уведомления',
 };
 
 function getActionLabel(log: AuditLogEntry): string {
-  if (log.action === 'api_request' && getRequestPath(log).toLowerCase().includes('/auth/logout')) return 'Выход из системы';
+  if (log.action === 'api_request') {
+    const request = String(log.newValue || '');
+    const method = request.split(/\s+/)[0]?.toUpperCase();
+    const route = getRequestPath(log).toLowerCase();
+    if (route.includes('/auth/logout')) return 'Выход из системы';
+    if (route.includes('/notifications')) return method === 'POST' ? 'Создание правила уведомления' : method === 'PUT' ? 'Изменение правила уведомления' : method === 'DELETE' ? 'Удаление правила уведомления' : 'Запрос к уведомлениям';
+    if (route.includes('/scheduler/tasks') && method === 'PUT') return 'Изменение расписания';
+    if (route.includes('/scheduler/tasks') && method === 'POST') return 'Ручной запуск задачи';
+    if (route.includes('/shops')) return method === 'POST' ? 'Добавление магазина' : method === 'PUT' ? 'Изменение магазина' : method === 'DELETE' ? 'Удаление магазина' : 'Запрос к справочнику магазинов';
+    if (route.includes('/stores')) return method === 'POST' ? 'Создание объекта' : method === 'PUT' || method === 'PATCH' ? 'Изменение объекта' : method === 'DELETE' ? 'Удаление объекта' : 'Запрос к объектам';
+    if (route.includes('/roles')) return method === 'POST' ? 'Создание роли' : method === 'PUT' ? 'Изменение роли' : method === 'DELETE' ? 'Удаление роли' : 'Запрос к ролям';
+    if (route.includes('/ldap') || route.includes('/integrations')) return 'Изменение настроек интеграции';
+  }
+  if (log.action === 'notification_delivery') {
+    const details = parseDetails(log.details);
+    const outcome = details.outcome === 'success' ? 'Успешно' : 'Ошибка';
+    return `Отправка уведомления — ${outcome}`;
+  }
   return ACTION_LABELS[log.action] || log.action;
 }
 
@@ -88,6 +107,7 @@ const ACTION_COLORS: Record<string, string> = {
   change_color: 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/40 dark:text-fuchsia-200',
   api_request: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
   scheduler_run: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200',
+  notification_delivery: 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200',
 };
 
 const MODULE_COLORS: Record<string, string> = {
@@ -99,6 +119,7 @@ const MODULE_COLORS: Record<string, string> = {
   'Роли': 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200',
   'Настройки': 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-200',
   'Планировщик': 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200',
+  'Уведомления': 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200',
   'Справочник магазинов': 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-200',
   'Система': 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200',
 };
@@ -128,7 +149,7 @@ export default function AuditPage() {
       const needle = filter.search.trim().toLocaleLowerCase('ru-RU');
       const haystack = [
         log.userName, log.userId, log.details, log.newValue, log.oldValue,
-        log.field, getRequestPath(log), module, ACTION_LABELS[log.action] || log.action,
+        log.field, getRequestPath(log), module, getActionLabel(log), ACTION_LABELS[log.action] || log.action,
       ].join(' ').toLocaleLowerCase('ru-RU');
       if (!haystack.includes(needle)) return false;
     }
@@ -190,7 +211,7 @@ export default function AuditPage() {
             <span className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Подсистема</span>
             <select value={filter.module} onChange={e => setFilter({ ...filter, module: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
               <option value="">Все подсистемы</option>
-              {['Авторизация', 'Объекты', 'Комментарии', 'Справочник ТУ', 'Справочник магазинов', 'Роли', 'Настройки', 'Планировщик', 'Система'].map(module => <option key={module} value={module}>{module}</option>)}
+              {['Авторизация', 'Объекты', 'Комментарии', 'Справочник ТУ', 'Справочник магазинов', 'Роли', 'Настройки', 'Уведомления', 'Планировщик', 'Система'].map(module => <option key={module} value={module}>{module}</option>)}
             </select>
           </label>
           <label className="block">
@@ -256,7 +277,7 @@ export default function AuditPage() {
                       <td className="px-3 py-3"><span className={`inline-flex rounded px-2 py-1 text-xs whitespace-nowrap ${MODULE_COLORS[module] || MODULE_COLORS['Система']}`}>{module}</span></td>
                       <td className="px-3 py-3"><span className={`inline-flex rounded px-2 py-1 text-xs whitespace-nowrap ${ACTION_COLORS[log.action] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}`}>{getActionLabel(log)}</span>{log.action === 'api_request' && statusCode > 0 && <span className={`ml-1 text-xs ${isError ? 'text-red-600 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>{statusCode}</span>}</td>
                       <td className="px-3 py-3 text-xs font-medium text-gray-800 dark:text-gray-100 whitespace-nowrap">{log.userName || (log.userId ? log.userId : 'Система')}</td>
-                      <td className="px-3 py-3 text-xs text-gray-700 dark:text-gray-200 break-words">{requestPath ? <><span className="font-mono">{requestPath}</span>{log.details && <p className="mt-1 text-gray-500 dark:text-gray-400 line-clamp-2">{details.outcome === 'error' ? 'Запрос завершился ошибкой' : 'Запрос к API'}</p>}</> : (log.details || log.field || '—')}</td>
+                      <td className="px-3 py-3 text-xs text-gray-700 dark:text-gray-200 break-words">{log.action === 'notification_delivery' ? <><span className="font-medium">{String(details.ruleName || 'Уведомление')}</span><p className="mt-1 text-gray-500 dark:text-gray-400">Магазин №{String(details.shopNumber || '—')} · {String(details.message || '')}</p></> : requestPath ? <><span className="font-mono">{requestPath}</span>{log.details && <p className="mt-1 text-gray-500 dark:text-gray-400 line-clamp-2">{details.outcome === 'error' ? 'Запрос завершился ошибкой' : 'Запрос выполнен'}</p>}</> : (log.details || log.field || '—')}</td>
                     </tr>
                     {isExpanded && (
                       <tr className="bg-gray-50 dark:bg-gray-900/60 border-b border-gray-200 dark:border-gray-700">
@@ -270,6 +291,7 @@ export default function AuditPage() {
                             {details.statusCode !== undefined && <div><p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Результат HTTP</p><p className={`text-xs font-medium ${isError ? 'text-red-600 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>{statusCode} · {isError ? 'Ошибка' : 'Успешно'}</p></div>}
                             {typeof details.ip === 'string' && <div><p className="text-xs text-gray-500 dark:text-gray-400 mb-1">IP-адрес</p><p className="text-xs font-mono break-all text-gray-800 dark:text-gray-100">{details.ip || '—'}</p></div>}
                             {typeof details.userAgent === 'string' && <div className="md:col-span-2"><p className="text-xs text-gray-500 dark:text-gray-400 mb-1">User-Agent</p><p className="text-xs break-all text-gray-800 dark:text-gray-100">{details.userAgent || '—'}</p></div>}
+                            {log.action === 'notification_delivery' && <><div><p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Правило уведомления</p><p className="text-xs text-gray-800 dark:text-gray-100">{String(details.ruleName || '—')}</p></div><div><p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Магазин / объект</p><p className="text-xs text-gray-800 dark:text-gray-100">{String(details.shopNumber || '—')} / {String(details.projectId || '—')}</p></div><div><p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Дата события</p><p className="text-xs text-gray-800 dark:text-gray-100">{typeof details.eventDate === 'string' ? new Date(details.eventDate).toLocaleDateString('ru-RU') : '—'}</p></div><div className="md:col-span-2 xl:col-span-3"><p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Результат обработки</p><p className="text-xs whitespace-pre-wrap break-words text-gray-800 dark:text-gray-100">{String(details.message || '—')}</p></div></>}
                             {(log.oldValue || log.newValue) && <div className="md:col-span-2 xl:col-span-3"><p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Изменение данных</p><div className="grid grid-cols-1 md:grid-cols-2 gap-3"><div className="rounded-lg border border-red-200 dark:border-red-900/70 p-3"><p className="text-xs font-medium text-red-700 dark:text-red-300 mb-1">Было</p><pre className="text-xs whitespace-pre-wrap break-words text-gray-800 dark:text-gray-100">{log.oldValue || '—'}</pre></div><div className="rounded-lg border border-green-200 dark:border-green-900/70 p-3"><p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">Стало</p><pre className="text-xs whitespace-pre-wrap break-words text-gray-800 dark:text-gray-100">{log.newValue || '—'}</pre></div></div></div>}
                             {details.payload !== undefined && <div className="md:col-span-2 xl:col-span-3"><p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Данные запроса (секреты замаскированы)</p><pre className="text-xs whitespace-pre-wrap break-all rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 text-gray-800 dark:text-gray-100">{JSON.stringify(details.payload, null, 2)}</pre></div>}
                             {log.details && !Object.keys(details).length && <div className="md:col-span-2 xl:col-span-3"><p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Подробности</p><pre className="text-xs whitespace-pre-wrap break-words text-gray-800 dark:text-gray-100">{log.details}</pre></div>}
