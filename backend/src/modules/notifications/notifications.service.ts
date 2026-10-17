@@ -54,6 +54,19 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     return template.replace(/\{([A-Za-z]+)\}/g, (token, key) => key in values ? values[key] : token);
   }
 
+  private async auditDelivery(input: { ruleId: string; ruleName: string; projectId: string; shopNumber: string; eventType: string; eventDate: Date; outcome: 'success' | 'error'; message: string; statusCode?: number }) {
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          userId: null, userName: 'Система', action: 'notification_delivery', field: input.eventType, oldValue: '', newValue: input.outcome,
+          details: JSON.stringify({ outcome: input.outcome, ruleId: input.ruleId, ruleName: input.ruleName, projectId: input.projectId, shopNumber: input.shopNumber, eventType: input.eventType, eventDate: input.eventDate.toISOString(), statusCode: input.statusCode, message: input.message.slice(0, 2000) }).slice(0, 4000),
+        },
+      });
+    } catch (error: any) {
+      this.logger.error('Не удалось записать аудит уведомления «' + input.ruleName + '»: ' + (error?.message || error));
+    }
+  }
+
   private async runDueNotifications() {
     if (this.checking) return;
     this.checking = true;
@@ -99,8 +112,13 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
               body: JSON.stringify({ group: rule.intradeskGroup, service: rule.intradeskService, subject: rule.intradeskSubject, description: message, shopNumber: project.shop?.shopNumber || project.storeNumber }),
             });
-            if (!response.ok) throw new Error(`IntraDesk вернул HTTP ${response.status}: ${(await response.text()).slice(0, 500)}`);
+            if (!response.ok) {
+              const responseText = (await response.text()).slice(0, 500);
+              await this.auditDelivery({ ruleId: rule.id, ruleName: rule.name, projectId: project.id, shopNumber: String(project.shop?.shopNumber || project.storeNumber || ''), eventType: rule.eventType, eventDate, outcome: 'error', statusCode: response.status, message: 'IntraDesk вернул HTTP ' + response.status + ': ' + responseText });
+              throw new Error('IntraDesk вернул HTTP ' + response.status + ': ' + responseText);
+            }
             await this.prisma.notificationDelivery.update({ where: { id: delivery.id }, data: { status: 'sent', message, sentAt: new Date() } });
+            await this.auditDelivery({ ruleId: rule.id, ruleName: rule.name, projectId: project.id, shopNumber: String(project.shop?.shopNumber || project.storeNumber || ''), eventType: rule.eventType, eventDate, outcome: 'success', statusCode: response.status, message: 'Уведомление успешно передано в IntraDesk' });
           } catch (error: any) {
             this.logger.error(`Не удалось отправить уведомление "${rule.name}" для объекта ${project.id}: ${error?.message || error}`);
             try {
