@@ -31,7 +31,7 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
     { id: 'settings', label: 'Настройки', icon: Settings, items: [
       { id: 'settings', label: 'Синхронизация с LDAP', permission: 'manage_ldap' },
       { id: 'integrations', label: 'Интеграции', permission: 'manage_integrations' },
-      { id: 'notifications', label: 'Уведомления', permission: 'manage_notifications' },
+      { id: 'notifications', label: 'Уведомления', permission: 'view_notifications' },
       { id: 'scheduler', label: 'Планировщик (crontab)', permission: 'manage_scheduler' },
     ]},
     { id: 'audit', label: 'Аудит', icon: FileText, items: [
