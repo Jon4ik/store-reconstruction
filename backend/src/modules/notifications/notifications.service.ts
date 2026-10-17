@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { createDecipheriv } from 'node:crypto';
 import { PrismaService } from '../../prisma.service';
 
 const OFFSET_TYPES = ['calendar_days', 'business_days'];
@@ -9,7 +10,106 @@ const CHANNELS = ['intradesk', 'telegram', 'pachca'];
 export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll() {
+
+  private decryptApiKey(ciphertext: string): string {
+    const raw = process.env.LDAP_ENCRYPTION_KEY || '';
+    const key = /^[a-f0-9]{64}$/i.test(raw) ? Buffer.from(raw, 'hex') : Buffer.from(raw, 'base64');
+    if (key.length !== 32) throw new Error('Не настроен ключ шифрования интеграции');
+    const [iv, tag, encrypted] = ciphertext.split(':');
+    const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'hex'));
+    decipher.setAuthTag(Buffer.from(tag, 'hex'));
+    return Buffer.concat([decipher.update(Buffer.from(encrypted, 'hex')), decipher.final()]).toString('utf8');
+  }
+
+  private addDays(date: Date, days: number) {
+    const result = new Date(date);
+    result.setHours(0, 0, 0, 0);
+    let remaining = days;
+    while (remaining > 0) {
+      result.setDate(result.getDate() - 1);
+      if (result.getDay() !== 0 && result.getDay() !== 6) remaining--;
+    }
+    return result;
+  }
+
+  private renderTemplate(template: string, project: any) {
+    const values: Record<string, string> = {
+      shopNumber: String(project.shop?.shopNumber || project.storeNumber || ''),
+      address: String(project.shop?.address || ''),
+      tu_fio: String(project.tu?.fullName || ''),
+      tu_phone: String(project.tu?.phone || ''),
+    };
+    for (const key of EVENT_TYPES) {
+      const value = project[key];
+      values[key] = value ? new Date(value).toLocaleDateString('ru-RU') : '';
+    }
+    return template.replace(/\{([A-Za-z]+)\}/g, (token, key) => key in values ? values[key] : token);
+  }
+
+  private async runDueNotifications() {
+    if (this.checking) return;
+    this.checking = true;
+    try {
+      const rules = await this.prisma.notificationRule.findMany({ where: { enabled: true, channel: 'intradesk' } });
+      if (!rules.length) return;
+      const integration = await this.prisma.ldapSettings.findUnique({ where: { id: 'default' } });
+      if (!integration?.intraDeskEnabled || !integration.intraDeskApiGateway || !integration.intraDeskApiKeyEncrypted) return;
+      const now = new Date();
+      const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const projects = await this.prisma.storeProject.findMany({
+        where: { isDeleted: false },
+        include: { shop: true, tu: true },
+      });
+      for (const rule of rules) {
+        if (rule.sendTime !== time) continue;
+        for (const project of projects) {
+          const rawEventDate = (project as any)[rule.eventType];
+          if (!rawEventDate) continue;
+          const eventDate = new Date(rawEventDate);
+          const dueDate = new Date(eventDate);
+          dueDate.setHours(0, 0, 0, 0);
+          if (rule.offsetType === 'business_days') {
+            const remaining = rule.days;
+            let count = remaining;
+            while (count > 0) {
+              dueDate.setDate(dueDate.getDate() - 1);
+              if (dueDate.getDay() !== 0 && dueDate.getDay() !== 6) count--;
+            }
+          } else {
+            dueDate.setDate(dueDate.getDate() - rule.days);
+          }
+          if (dueDate.getFullYear() !== now.getFullYear() || dueDate.getMonth() !== now.getMonth() || dueDate.getDate() !== now.getDate()) continue;
+          const unique = { ruleId_projectId_eventDate: { ruleId: rule.id, projectId: project.id, eventDate: new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate()) } };
+          const existing = await this.prisma.notificationDelivery.findUnique({ where: unique });
+          if (existing?.status === 'sent') continue;
+          try {
+            const delivery = existing || await this.prisma.notificationDelivery.create({ data: { ruleId: rule.id, projectId: project.id, eventDate: unique.ruleId_projectId_eventDate.eventDate, status: 'sending' } });
+            const message = this.renderTemplate(rule.messageTemplate, project);
+            const apiKey = this.decryptApiKey(integration.intraDeskApiKeyEncrypted);
+            const response = await fetch(integration.intraDeskApiGateway, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+              body: JSON.stringify({ group: rule.intradeskGroup, service: rule.intradeskService, subject: rule.intradeskSubject, description: message, shopNumber: project.shop?.shopNumber || project.storeNumber }),
+            });
+            if (!response.ok) throw new Error(`IntraDesk вернул HTTP ${response.status}: ${(await response.text()).slice(0, 500)}`);
+            await this.prisma.notificationDelivery.update({ where: { id: delivery.id }, data: { status: 'sent', message, sentAt: new Date() } });
+          } catch (error: any) {
+            this.logger.error(`Не удалось отправить уведомление "${rule.name}" для объекта ${project.id}: ${error?.message || error}`);
+            try {
+              await this.prisma.notificationDelivery.upsert({
+                where: unique,
+                create: { ruleId: rule.id, projectId: project.id, eventDate: unique.ruleId_projectId_eventDate.eventDate, status: 'error', message: String(error?.message || error).slice(0, 3000) },
+                update: { status: 'error', message: String(error?.message || error).slice(0, 3000), sentAt: new Date() },
+              });
+            } catch (persistError: any) { this.logger.error(`Не удалось сохранить статус отправки: ${persistError?.message || persistError}`); }
+          }
+        }
+      }
+    } catch (error: any) {
+      this.logger.error(`Ошибка планировщика уведомлений: ${error?.message || error}`);
+    } finally { this.checking = false; }
+  }
+\n  findAll() {
     return this.prisma.notificationRule.findMany({ orderBy: { createdAt: 'asc' } });
   }
 
