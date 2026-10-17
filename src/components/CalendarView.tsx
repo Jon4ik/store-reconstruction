@@ -100,7 +100,7 @@ export default function CalendarView() {
                   <div className="space-y-0.5">
                     {events.slice(0, 3).map(event => (
                       <button key={event.id} onClick={() => openCard(event.projectId)} className={`w-full text-left text-[10px] px-1.5 py-0.5 rounded truncate ${getStageColor(event.stage, event.workType)} hover:opacity-80`} title={`Магазин №${event.storeNumber} — ${event.stage}`}>
-                        №{event.storeNumber} {event.stage}
+                        Магазин №{event.storeNumber} {event.stage}
                       </button>
                     ))}
                     {events.length > 3 && <p className="text-[10px] text-gray-500 px-1">+{events.length - 3} ещё</p>}
