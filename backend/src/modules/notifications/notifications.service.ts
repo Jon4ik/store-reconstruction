@@ -7,8 +7,8 @@ const EVENT_TYPES = ['closureDate', 'demolitionDate', 'installationDate', 'techO
 const CHANNELS = ['intradesk', 'telegram', 'pachca'];
 
 @Injectable()
-export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+export class NotificationsService implements OnModuleInit, OnModuleDestroy {\n  private readonly logger = new Logger(NotificationsService.name);\n  private checking = false;\n  private timer?: NodeJS.Timeout;
+  constructor(private readonly prisma: PrismaService) {}\n\n  onModuleInit() { this.timer = setInterval(() => void this.runDueNotifications(), 30_000); void this.runDueNotifications(); }\n  onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
 
 
   private decryptApiKey(ciphertext: string): string {
