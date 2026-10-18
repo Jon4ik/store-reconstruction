@@ -6,13 +6,13 @@ import { useStore } from '../store/useStore';
 type Rule = {
   id: string; name: string; offsetType: 'calendar_days' | 'business_days'; eventType: string;
   days: number; channel: 'intradesk' | 'telegram' | 'pachca'; enabled: boolean; sendTime: string;
-  messageTemplate: string; intradeskGroup: string; intradeskService: string; intradeskSubject: string;
+  messageTemplate: string; intradeskGroup: string; intradeskService: string; intradeskSubject: string; intradeskTaskType: string; intradeskTags: string;
 };
 type FormData = Omit<Rule, 'id'>;
 const blankForm: FormData = {
   name: '', offsetType: 'calendar_days', eventType: 'closureDate', days: 1,
   channel: 'intradesk', enabled: true, sendTime: '09:00', messageTemplate: '',
-  intradeskGroup: '', intradeskService: '', intradeskSubject: '',
+  intradeskGroup: '', intradeskService: '', intradeskSubject: '', intradeskTaskType: '', intradeskTags: '',
 };
 const events: Record<string, string> = {
   closureDate: 'Закрытие для покупателей', demolitionDate: 'Демонтаж',
@@ -73,7 +73,9 @@ export default function NotificationsPage() {
     if (!form.messageTemplate.trim()) return setError('Заполните текст уведомления.');
     if (form.channel === 'intradesk') {
       if (!integrationEnabled) return setError('Подключите интеграцию IntraDesk в разделе «Настройки → Интеграции».');
-      if (!form.intradeskGroup.trim() || !form.intradeskService.trim() || !form.intradeskSubject.trim()) return setError('Заполните группу исполнителей, сервис и тему заявки IntraDesk.');
+      if (!form.intradeskGroup.trim() || !form.intradeskService.trim() || !form.intradeskSubject.trim() || !form.intradeskTaskType.trim()) return setError('Заполните группу исполнителей, сервис, тип и тему заявки IntraDesk.');
+      if (!/^\d+$/.test(form.intradeskGroup.trim()) || !/^\d+$/.test(form.intradeskTaskType.trim())) return setError('Группа исполнителей и тип заявки должны содержать числовые ID.');
+      if (form.intradeskTags.trim() && !/^\d+(\s*,\s*\d+)*$/.test(form.intradeskTags.trim())) return setError('Теги укажите числовыми ID через запятую.');
     }
     setSaving(true);
     try {
@@ -162,6 +164,13 @@ export default function NotificationsPage() {
           </label>
           <label className="block text-sm font-medium text-gray-700">Тема заявки
             <input value={form.intradeskSubject} onChange={e=>setField('intradeskSubject',e.target.value)} maxLength={500} className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm"/>
+          </label>
+          <label className="block text-sm font-medium text-gray-700">Тип заявки (ID)
+            <input value={form.intradeskTaskType} onChange={e=>setField('intradeskTaskType',e.target.value)} inputMode="numeric" maxLength={20} placeholder="Например, 36283" className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm"/>
+          </label>
+          <label className="block text-sm font-medium text-gray-700 md:col-span-3">Теги IntraDesk (ID через запятую, необязательно)
+            <input value={form.intradeskTags} onChange={e=>setField('intradeskTags',e.target.value)} maxLength={1000} placeholder="Например, 33290, 56899" className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm"/>
+            <span className="mt-1 block text-xs text-gray-500">Укажите ID тегов из IntraDesk; если поле пустое, теги не передаются.</span>
           </label>
         </div>}
         <label className="block text-sm font-medium text-gray-700 md:col-span-2">Текст уведомления

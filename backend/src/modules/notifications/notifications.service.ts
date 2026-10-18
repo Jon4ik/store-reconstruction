@@ -107,10 +107,25 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
             const delivery = existing || await this.prisma.notificationDelivery.create({ data: { ruleId: rule.id, projectId: project.id, eventDate: unique.ruleId_projectId_eventDate.eventDate, status: 'sending' } });
             const message = this.renderTemplate(rule.messageTemplate, project);
             const apiKey = this.decryptApiKey(integration.intraDeskApiKeyEncrypted);
-            const response = await fetch(integration.intraDeskApiGateway, {
+            const baseUrl = integration.intraDeskApiGateway.trim().replace(/\/+$/, '');
+            const groupId = Number(rule.intradeskGroup.trim());
+            const taskTypeId = Number(rule.intradeskTaskType.trim());
+            if (!Number.isSafeInteger(groupId) || groupId <= 0) throw new Error('Группа исполнителей IntraDesk должна содержать числовой ID');
+            if (!Number.isSafeInteger(taskTypeId) || taskTypeId <= 0) throw new Error('Тип заявки IntraDesk должен содержать числовой ID');
+            const tags = rule.intradeskTags.trim() ? rule.intradeskTags.split(',').map(value => Number(value.trim())) : [];
+            if (tags.some(tag => !Number.isSafeInteger(tag) || tag <= 0)) throw new Error('Теги IntraDesk должны содержать числовые ID');
+            const blocks: Record<string, string> = {
+              tasktype: JSON.stringify({ value: taskTypeId }),
+              executor: JSON.stringify({ value: { groupid: groupId } }),
+              service: JSON.stringify({ value: rule.intradeskService.trim() }),
+              name: JSON.stringify({ value: this.renderTemplate(rule.intradeskSubject, project) }),
+              description: JSON.stringify({ value: message }),
+            };
+            if (tags.length) blocks.tags = JSON.stringify({ value: tags });
+            const response = await fetch(baseUrl + '/changes/v3/Tasks?ApiKey=' + encodeURIComponent(apiKey), {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-              body: JSON.stringify({ group: rule.intradeskGroup, service: rule.intradeskService, subject: rule.intradeskSubject, description: message, shopNumber: project.shop?.shopNumber || project.storeNumber }),
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ blocks, Channel: 'web' }),
             });
             if (!response.ok) {
               const responseText = (await response.text()).slice(0, 500);
@@ -142,7 +157,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
 
   private validate(input: any, partial = false) {
     const data: any = {};
-    const fields = ['name', 'offsetType', 'eventType', 'days', 'channel', 'enabled', 'sendTime', 'messageTemplate', 'intradeskGroup', 'intradeskService', 'intradeskSubject'];
+    const fields = ['name', 'offsetType', 'eventType', 'days', 'channel', 'enabled', 'sendTime', 'messageTemplate', 'intradeskGroup', 'intradeskService', 'intradeskSubject', 'intradeskTaskType', 'intradeskTags'];
     for (const field of fields) if (input[field] !== undefined) data[field] = input[field];
     if (!partial || data.name !== undefined) {
       if (typeof data.name !== 'string' || !data.name.trim() || data.name.trim().length > 120) throw new BadRequestException('Название уведомления обязательно (до 120 символов)');
@@ -158,13 +173,15 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       if (typeof data.messageTemplate !== 'string' || !data.messageTemplate.trim() || data.messageTemplate.length > 10000) throw new BadRequestException('Текст уведомления обязателен (до 10000 символов)');
       data.messageTemplate = data.messageTemplate.trim();
     }
-    for (const field of ['intradeskGroup', 'intradeskService', 'intradeskSubject']) {
+    for (const field of ['intradeskGroup', 'intradeskService', 'intradeskSubject', 'intradeskTaskType']) {
       if (data[field] !== undefined && (typeof data[field] !== 'string' || data[field].length > 500)) throw new BadRequestException('Поля IntraDesk не должны превышать 500 символов');
     }
+    if (data.intradeskTags !== undefined && (typeof data.intradeskTags !== 'string' || data.intradeskTags.length > 1000 || (data.intradeskTags.trim() && !/^\d+(\s*,\s*\d+)*$/.test(data.intradeskTags.trim())))) throw new BadRequestException('Теги IntraDesk укажите числовыми ID через запятую');
+    if (data.intradeskTags !== undefined) data.intradeskTags = data.intradeskTags.trim();
     const channel = data.channel;
     if (channel === 'intradesk' && !partial) {
-      for (const field of ['intradeskGroup', 'intradeskService', 'intradeskSubject']) {
-        if (typeof data[field] !== 'string' || !data[field].trim()) throw new BadRequestException('Для IntraDesk заполните группу исполнителей, сервис и тему заявки');
+      for (const field of ['intradeskGroup', 'intradeskService', 'intradeskSubject', 'intradeskTaskType']) {
+        if (typeof data[field] !== 'string' || !data[field].trim()) throw new BadRequestException('Для IntraDesk заполните группу исполнителей, сервис, тип и тему заявки');
         data[field] = data[field].trim();
       }
     }
@@ -186,7 +203,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     const channel = data.channel ?? existing.channel;
     if (channel !== 'intradesk') throw new BadRequestException('Каналы Telegram и Pachca пока недоступны');
     if (channel === 'intradesk') {
-      for (const field of ['intradeskGroup', 'intradeskService', 'intradeskSubject']) {
+      for (const field of ['intradeskGroup', 'intradeskService', 'intradeskSubject', 'intradeskTaskType']) {
         const value = data[field] ?? (existing as any)[field];
         if (typeof value !== 'string' || !value.trim()) throw new BadRequestException('Для IntraDesk заполните группу исполнителей, сервис и тему заявки');
       }
