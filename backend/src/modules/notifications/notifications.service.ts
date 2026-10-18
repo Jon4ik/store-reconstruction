@@ -13,7 +13,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
   constructor(private readonly prisma: PrismaService) {}
 
-  onModuleInit() { this.timer = setInterval(() => void this.runDueNotifications(), 30_000); void this.runDueNotifications(); }
+  onModuleInit() { this.logger.log('Планировщик уведомлений запущен; проверка каждые 30 секунд'); this.timer = setInterval(() => void this.runDueNotifications(), 30_000); void this.runDueNotifications(); }
   onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
 
 
@@ -105,6 +105,8 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
           if (existing?.status === 'sent') continue;
           try {
             const delivery = existing || await this.prisma.notificationDelivery.create({ data: { ruleId: rule.id, projectId: project.id, eventDate: unique.ruleId_projectId_eventDate.eventDate, status: 'sending' } });
+            const shopNumber = String(project.shop?.shopNumber || project.storeNumber || '');
+            this.logger.log(`Отправка уведомления: ruleId=${rule.id}, rule="${rule.name}", projectId=${project.id}, shop=${shopNumber}, event=${rule.eventType}, eventDate=${eventDate.toISOString()}`);
             const message = this.renderTemplate(rule.messageTemplate, project);
             const apiKey = this.decryptApiKey(integration.intraDeskApiKeyEncrypted);
             const baseUrl = integration.intraDeskApiGateway.trim().replace(/\/+$/, '');
@@ -133,9 +135,10 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
               throw new Error('IntraDesk вернул HTTP ' + response.status + ': ' + responseText);
             }
             await this.prisma.notificationDelivery.update({ where: { id: delivery.id }, data: { status: 'sent', message, sentAt: new Date() } });
+            this.logger.log(`Уведомление отправлено: ruleId=${rule.id}, projectId=${project.id}, shop=${String(project.shop?.shopNumber || project.storeNumber || '')}, HTTP ${response.status}`);
             await this.auditDelivery({ ruleId: rule.id, ruleName: rule.name, projectId: project.id, shopNumber: String(project.shop?.shopNumber || project.storeNumber || ''), eventType: rule.eventType, eventDate, outcome: 'success', statusCode: response.status, message: 'Уведомление успешно передано в IntraDesk' });
           } catch (error: any) {
-            this.logger.error(`Не удалось отправить уведомление "${rule.name}" для объекта ${project.id}: ${error?.message || error}`);
+            this.logger.error(`Ошибка отправки уведомления: ruleId=${rule.id}, rule="${rule.name}", projectId=${project.id}, shop=${String(project.shop?.shopNumber || project.storeNumber || '')}, event=${rule.eventType}: ${error?.message || error}`);
             try {
               await this.prisma.notificationDelivery.upsert({
                 where: unique,
