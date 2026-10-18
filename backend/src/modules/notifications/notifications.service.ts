@@ -261,9 +261,10 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     const channel = data.channel ?? existing.channel;
     const integration = await this.prisma.integrationSettings.findUnique({ where: { id: 'default' } });
     const enabled = channel === 'intradesk' ? integration?.intraDeskEnabled : channel === 'pachca' ? integration?.pachcaEnabled : integration?.smtpEnabled;
-    if (!enabled) throw new BadRequestException('Сначала включите интеграцию ' + channel + ' в разделе «Настройки → Интеграции»');
-    if (channel === 'pachca' && !integration?.pachcaApiKeyEncrypted) throw new BadRequestException('Сначала настройте API KEY Pachca');
-    if (channel === 'smtp' && (!integration?.smtpHost || !integration.smtpFromEmail)) throw new BadRequestException('Сначала настройте SMTP');
+    // Turning a rule off must remain possible even after its integration has been disabled.
+    if (data.enabled !== false && !enabled) throw new BadRequestException('Сначала включите интеграцию ' + channel + ' в разделе «Настройки → Интеграции»');
+    if (data.enabled !== false && channel === 'pachca' && !integration?.pachcaApiKeyEncrypted) throw new BadRequestException('Сначала настройте API KEY Pachca');
+    if (data.enabled !== false && channel === 'smtp' && (!integration?.smtpHost || !integration.smtpFromEmail)) throw new BadRequestException('Сначала настройте SMTP');
     if (channel === 'intradesk') {
       for (const field of ['intradeskGroup', 'intradeskService', 'intradeskSubject', 'intradeskTaskType']) {
         const value = data[field] ?? (existing as any)[field];
