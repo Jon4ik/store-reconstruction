@@ -1,15 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store/useStore';
 import { apiClient } from '../api/client';
-import { User, Lock, MessageSquare, Palette, Save } from 'lucide-react';
+import { User, Lock, Palette, Save } from 'lucide-react';
 import { SystemUser } from '../types';
 
 export default function ProfilePage() {
   const { currentUser } = useStore();
   const [username, setUsername] = useState(currentUser?.username || '');
   const [fullName, setFullName] = useState(currentUser?.fullName || '');
-  const [chatId, setChatId] = useState(currentUser?.chatId || '');
-  const [telegramId, setTelegramId] = useState(currentUser?.telegramId || '');
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(currentUser?.theme || 'light');
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -33,8 +31,6 @@ export default function ProfilePage() {
       if (!active) return;
       setUsername(profile.username || '');
       setFullName(profile.fullName || '');
-      setChatId(profile.chatId || '');
-      setTelegramId(profile.telegramId || '');
       setTheme(profile.theme || 'light');
       const mergedUser = { ...(useStore.getState().currentUser || {}), ...profile } as SystemUser;
       useStore.setState({ currentUser: mergedUser });
@@ -62,8 +58,6 @@ export default function ProfilePage() {
       const profile = await apiClient.updateMyProfile({
         username: normalizedUsername,
         fullName,
-        chatId: chatId.trim() || null,
-        telegramId: telegramId.trim() || null,
         theme,
       });
       const mergedUser = { ...(useStore.getState().currentUser || currentUser), ...profile } as SystemUser;
