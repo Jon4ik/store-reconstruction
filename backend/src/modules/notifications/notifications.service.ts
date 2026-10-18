@@ -121,7 +121,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
             if (rule.channel === 'intradesk') {
               if (!integrations.intraDeskApiGateway || !integrations.intraDeskApiKeyEncrypted) throw new Error('Интеграция IntraDesk включена, но API-шлюз или API-ключ не настроен');
               const apiKey = this.decryptApiKey(integrations.intraDeskApiKeyEncrypted);
-              const baseUrl = integrations.intraDeskApiGateway.trim().replace(/\\/+$/, '');
+              const baseUrl = integrations.intraDeskApiGateway.trim().replace(/\/+$/, '');
               const groupId = Number(rule.intradeskGroup.trim());
               const taskTypeId = Number(rule.intradeskTaskType.trim());
               if (!Number.isSafeInteger(groupId) || groupId <= 0) throw new Error('Группа исполнителей IntraDesk должна содержать числовой ID');
@@ -146,7 +146,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
             } else if (rule.channel === 'pachca') {
               if (!integrations.pachcaApiGateway || !integrations.pachcaApiKeyEncrypted) throw new Error('Интеграция Pachca включена, но API-шлюз или API KEY не настроен');
               const token = this.decryptApiKey(integrations.pachcaApiKeyEncrypted);
-              const baseUrl = integrations.pachcaApiGateway.trim().replace(/\\/+$/, '');
+              const baseUrl = integrations.pachcaApiGateway.trim().replace(/\/+$/, '');
               let entityId = Number(rule.pachcaEntityId);
               if (rule.pachcaTargetType === 'direct') {
                 const recipientId = Number(rule.pachcaRecipientId);
