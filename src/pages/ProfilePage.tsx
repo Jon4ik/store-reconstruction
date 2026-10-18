@@ -150,19 +150,6 @@ export default function ProfilePage() {
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="flex items-center gap-3 mb-6">
-          <Palette size={24} className="text-purple-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Тема оформления</h2>
-        </div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">Выберите тему</label>
-        <select value={theme} onChange={e => handleThemeChange(e.target.value as 'light' | 'dark' | 'system')} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">
-          <option value="light">Светлая тема</option>
-          <option value="dark">Тёмная тема</option>
-          <option value="system">Системная тема</option>
-        </select>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center gap-3 mb-6">
           <Lock size={24} className="text-red-600" />
           <h2 className="text-lg font-semibold text-gray-900">Смена пароля</h2>
         </div>
