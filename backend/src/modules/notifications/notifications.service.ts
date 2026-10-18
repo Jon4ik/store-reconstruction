@@ -122,7 +122,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
               description: JSON.stringify({ value: message }),
             };
             if (tags.length) blocks.tags = JSON.stringify({ value: tags });
-            const response = await fetch(baseUrl + '/changes/v3/Tasks?apikey=' + encodeURIComponent(apiKey), {
+            const response = await fetch(baseUrl + '/changes/v3/Tasks?ApiKey=' + encodeURIComponent(apiKey), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ blocks, Channel: 'web' }),
@@ -203,7 +203,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     const channel = data.channel ?? existing.channel;
     if (channel !== 'intradesk') throw new BadRequestException('Каналы Telegram и Pachca пока недоступны');
     if (channel === 'intradesk') {
-      for (const field of ['intradeskGroup', 'intradeskService', 'intradeskSubject']) {
+      for (const field of ['intradeskGroup', 'intradeskService', 'intradeskSubject', 'intradeskTaskType']) {
         const value = data[field] ?? (existing as any)[field];
         if (typeof value !== 'string' || !value.trim()) throw new BadRequestException('Для IntraDesk заполните группу исполнителей, сервис и тему заявки');
       }
