@@ -5,7 +5,7 @@ import { useStore } from '../store/useStore';
 
 type Rule = {
   id: string; name: string; offsetType: 'calendar_days' | 'business_days'; eventType: string;
-  days: number; channel: 'intradesk' | 'telegram' | 'pachca'; enabled: boolean; sendTime: string;
+  days: number; channel: 'intradesk' | 'pachca' | 'smtp'; enabled: boolean; sendTime: string;
   messageTemplate: string; intradeskGroup: string; intradeskService: string; intradeskSubject: string; intradeskTaskType: string; intradeskTags: string;
   pachcaTargetType: 'channel' | 'direct'; pachcaEntityId: string; pachcaRecipientId: string; emailTo: string; emailSubject: string;
 };
