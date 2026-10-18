@@ -29,6 +29,22 @@ export class LdapController {
   @RequirePermissions('manage_integrations')
   saveIntegrationSettings(@Body() body: any) { return this.ldapService.saveIntegrationSettings(body); }
 
+  @Get('integrations/pachca')
+  @RequirePermissions('manage_integrations')
+  getPachcaSettings() { return this.ldapService.getPachcaSettings(); }
+
+  @Put('integrations/pachca')
+  @RequirePermissions('manage_integrations')
+  savePachcaSettings(@Body() body: any) { return this.ldapService.savePachcaSettings(body); }
+
+  @Get('integrations/smtp')
+  @RequirePermissions('manage_integrations')
+  getSmtpSettings() { return this.ldapService.getSmtpSettings(); }
+
+  @Put('integrations/smtp')
+  @RequirePermissions('manage_integrations')
+  saveSmtpSettings(@Body() body: any) { return this.ldapService.saveSmtpSettings(body); }
+
   @Get('status')
   @RequirePermissions('manage_tus')
   getStatus() { return this.ldapService.getStatus(); }

@@ -73,25 +73,66 @@ export class LdapService {
   }
 
   async getIntegrationSettings() {
-    const config = await this.getStored();
+    const config = await this.prisma.integrationSettings.findUnique({ where: { id: 'default' } });
     return { enabled: Boolean(config?.intraDeskEnabled), apiGateway: config?.intraDeskApiGateway || '', apiKeyConfigured: Boolean(config?.intraDeskApiKeyEncrypted), encryptionConfigured: this.hasKey() };
   }
 
   async saveIntegrationSettings(input: any) {
-    const current = await this.getStored();
+    const current = await this.prisma.integrationSettings.findUnique({ where: { id: 'default' } });
     const enabled = input.enabled === undefined ? Boolean(current?.intraDeskEnabled) : input.enabled;
     const apiGateway = input.apiGateway === undefined ? (current?.intraDeskApiGateway || '') : String(input.apiGateway).trim();
     if (typeof enabled !== 'boolean') throw new BadRequestException('Флаг интеграции должен быть boolean');
     if (apiGateway.length > 1000 || (apiGateway && !/^https?:\/\//i.test(apiGateway))) throw new BadRequestException('Укажите корректный URL API-шлюза IntraDesk');
     let apiKeyEncrypted = current?.intraDeskApiKeyEncrypted || '';
     if (input.clearApiKey === true) apiKeyEncrypted = '';
-    else if (typeof input.apiKey === 'string' && input.apiKey.length) {
-      if (input.apiKey.length > 4096) throw new BadRequestException('API-ключ слишком длинный');
-      apiKeyEncrypted = this.encrypt(input.apiKey);
-    }
+    else if (typeof input.apiKey === 'string' && input.apiKey.length) apiKeyEncrypted = this.encrypt(input.apiKey);
     if (enabled && (!apiGateway || !apiKeyEncrypted)) throw new BadRequestException('Для включения интеграции укажите API-шлюз и API-ключ');
-    await this.prisma.ldapSettings.upsert({ where: { id: 'default' }, create: { id: 'default', intraDeskEnabled: enabled, intraDeskApiGateway: apiGateway, intraDeskApiKeyEncrypted: apiKeyEncrypted }, update: { intraDeskEnabled: enabled, intraDeskApiGateway: apiGateway, intraDeskApiKeyEncrypted: apiKeyEncrypted } });
+    await this.prisma.integrationSettings.upsert({ where: { id: 'default' }, create: { id: 'default', intraDeskEnabled: enabled, intraDeskApiGateway: apiGateway, intraDeskApiKeyEncrypted: apiKeyEncrypted }, update: { intraDeskEnabled: enabled, intraDeskApiGateway: apiGateway, intraDeskApiKeyEncrypted: apiKeyEncrypted } });
     return this.getIntegrationSettings();
+  }
+
+  async getPachcaSettings() {
+    const config = await this.prisma.integrationSettings.findUnique({ where: { id: 'default' } });
+    return { enabled: Boolean(config?.pachcaEnabled), apiGateway: config?.pachcaApiGateway || 'https://api.pachca.com/api/shared/v1', apiKeyConfigured: Boolean(config?.pachcaApiKeyEncrypted), encryptionConfigured: this.hasKey() };
+  }
+
+  async savePachcaSettings(input: any) {
+    const current = await this.prisma.integrationSettings.findUnique({ where: { id: 'default' } });
+    const enabled = input.enabled === undefined ? Boolean(current?.pachcaEnabled) : input.enabled;
+    const apiGateway = input.apiGateway === undefined ? (current?.pachcaApiGateway || 'https://api.pachca.com/api/shared/v1') : String(input.apiGateway).trim();
+    if (typeof enabled !== 'boolean') throw new BadRequestException('Флаг интеграции Pachca должен быть boolean');
+    if (apiGateway.length > 1000 || !/^https?:\/\//i.test(apiGateway)) throw new BadRequestException('Укажите корректный URL API-шлюза Pachca');
+    let apiKeyEncrypted = current?.pachcaApiKeyEncrypted || '';
+    if (input.clearApiKey === true) apiKeyEncrypted = '';
+    else if (typeof input.apiKey === 'string' && input.apiKey.length) apiKeyEncrypted = this.encrypt(input.apiKey);
+    if (enabled && (!apiGateway || !apiKeyEncrypted)) throw new BadRequestException('Для включения Pachca укажите API-шлюз и API KEY');
+    await this.prisma.integrationSettings.upsert({ where: { id: 'default' }, create: { id: 'default', pachcaEnabled: enabled, pachcaApiGateway: apiGateway, pachcaApiKeyEncrypted: apiKeyEncrypted }, update: { pachcaEnabled: enabled, pachcaApiGateway: apiGateway, pachcaApiKeyEncrypted: apiKeyEncrypted } });
+    return this.getPachcaSettings();
+  }
+
+  async getSmtpSettings() {
+    const config = await this.prisma.integrationSettings.findUnique({ where: { id: 'default' } });
+    return { enabled: Boolean(config?.smtpEnabled), host: config?.smtpHost || '', port: config?.smtpPort || 587, secure: Boolean(config?.smtpSecure), user: config?.smtpUser || '', fromEmail: config?.smtpFromEmail || '', fromName: config?.smtpFromName || '', passwordConfigured: Boolean(config?.smtpPasswordEncrypted), encryptionConfigured: this.hasKey() };
+  }
+
+  async saveSmtpSettings(input: any) {
+    const current = await this.prisma.integrationSettings.findUnique({ where: { id: 'default' } });
+    const enabled = input.enabled === undefined ? Boolean(current?.smtpEnabled) : input.enabled;
+    const host = input.host === undefined ? (current?.smtpHost || '') : String(input.host).trim();
+    const port = input.port === undefined ? (current?.smtpPort || 587) : Number(input.port);
+    const secure = input.secure === undefined ? Boolean(current?.smtpSecure) : input.secure;
+    const user = input.user === undefined ? (current?.smtpUser || '') : String(input.user).trim();
+    const fromEmail = input.fromEmail === undefined ? (current?.smtpFromEmail || '') : String(input.fromEmail).trim();
+    const fromName = input.fromName === undefined ? (current?.smtpFromName || '') : String(input.fromName).trim();
+    if (typeof enabled !== 'boolean' || typeof secure !== 'boolean') throw new BadRequestException('Проверьте флаги SMTP');
+    if (!Number.isInteger(port) || port < 1 || port > 65535) throw new BadRequestException('Порт SMTP должен быть от 1 до 65535');
+    if ([host,user,fromEmail,fromName].some(v => v.length > 500)) throw new BadRequestException('Поля SMTP не должны превышать 500 символов');
+    let passwordEncrypted = current?.smtpPasswordEncrypted || '';
+    if (input.clearPassword === true) passwordEncrypted = '';
+    else if (typeof input.password === 'string' && input.password.length) passwordEncrypted = this.encrypt(input.password);
+    if (enabled && (!host || !fromEmail || (user && !passwordEncrypted))) throw new BadRequestException('Для включения SMTP укажите сервер, адрес отправителя и пароль, если используется авторизация');
+    await this.prisma.integrationSettings.upsert({ where: { id: 'default' }, create: { id: 'default', smtpEnabled: enabled, smtpHost: host, smtpPort: port, smtpSecure: secure, smtpUser: user, smtpPasswordEncrypted: passwordEncrypted, smtpFromEmail: fromEmail, smtpFromName: fromName }, update: { smtpEnabled: enabled, smtpHost: host, smtpPort: port, smtpSecure: secure, smtpUser: user, smtpPasswordEncrypted: passwordEncrypted, smtpFromEmail: fromEmail, smtpFromName: fromName } });
+    return this.getSmtpSettings();
   }
 
   private async connect(overrides?: { url?: string; baseDN?: string; bindDN?: string; bindPassword?: string }) {

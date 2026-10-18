@@ -1,15 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store/useStore';
 import { apiClient } from '../api/client';
-import { User, Lock, MessageSquare, Palette, Save } from 'lucide-react';
+import { User, Lock, Palette, Save } from 'lucide-react';
 import { SystemUser } from '../types';
 
 export default function ProfilePage() {
   const { currentUser } = useStore();
   const [username, setUsername] = useState(currentUser?.username || '');
   const [fullName, setFullName] = useState(currentUser?.fullName || '');
-  const [chatId, setChatId] = useState(currentUser?.chatId || '');
-  const [telegramId, setTelegramId] = useState(currentUser?.telegramId || '');
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(currentUser?.theme || 'light');
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -33,8 +31,6 @@ export default function ProfilePage() {
       if (!active) return;
       setUsername(profile.username || '');
       setFullName(profile.fullName || '');
-      setChatId(profile.chatId || '');
-      setTelegramId(profile.telegramId || '');
       setTheme(profile.theme || 'light');
       const mergedUser = { ...(useStore.getState().currentUser || {}), ...profile } as SystemUser;
       useStore.setState({ currentUser: mergedUser });
@@ -62,8 +58,6 @@ export default function ProfilePage() {
       const profile = await apiClient.updateMyProfile({
         username: normalizedUsername,
         fullName,
-        chatId: chatId.trim() || null,
-        telegramId: telegramId.trim() || null,
         theme,
       });
       const mergedUser = { ...(useStore.getState().currentUser || currentUser), ...profile } as SystemUser;
@@ -134,24 +128,6 @@ export default function ProfilePage() {
             <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} maxLength={120} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="Иванов Иван Иванович" />
           </div>
         </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <MessageSquare size={24} className="text-green-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Настройки уведомлений</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">ID чата для уведомлений в Пачке</label>
-            <input type="text" value={chatId} onChange={e => setChatId(e.target.value)} maxLength={128} placeholder="ID чата" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">ID Telegram</label>
-            <input type="text" value={telegramId} onChange={e => setTelegramId(e.target.value)} maxLength={128} placeholder="Telegram user ID" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-          </div>
-        </div>
-        <p className="text-xs text-gray-400 mt-2">Оба идентификатора сохраняются в профиле пользователя в базе данных.</p>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">
