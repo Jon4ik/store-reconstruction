@@ -122,7 +122,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
               description: JSON.stringify({ value: message }),
             };
             if (tags.length) blocks.tags = JSON.stringify({ value: tags });
-            const response = await fetch(\`\${baseUrl}/changes/v3/Tasks?apikey=\${encodeURIComponent(apiKey)}\`, {
+            const response = await fetch(baseUrl + '/changes/v3/Tasks?apikey=' + encodeURIComponent(apiKey), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ blocks, Channel: 'web' }),
@@ -180,8 +180,8 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     if (data.intradeskTags !== undefined) data.intradeskTags = data.intradeskTags.trim();
     const channel = data.channel;
     if (channel === 'intradesk' && !partial) {
-      for (const field of ['intradeskGroup', 'intradeskService', 'intradeskSubject']) {
-        if (typeof data[field] !== 'string' || !data[field].trim()) throw new BadRequestException('Для IntraDesk заполните группу исполнителей, сервис и тему заявки');
+      for (const field of ['intradeskGroup', 'intradeskService', 'intradeskSubject', 'intradeskTaskType']) {
+        if (typeof data[field] !== 'string' || !data[field].trim()) throw new BadRequestException('Для IntraDesk заполните группу исполнителей, сервис, тип и тему заявки');
         data[field] = data[field].trim();
       }
     }
