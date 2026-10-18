@@ -7,12 +7,14 @@ type Rule = {
   id: string; name: string; offsetType: 'calendar_days' | 'business_days'; eventType: string;
   days: number; channel: 'intradesk' | 'telegram' | 'pachca'; enabled: boolean; sendTime: string;
   messageTemplate: string; intradeskGroup: string; intradeskService: string; intradeskSubject: string; intradeskTaskType: string; intradeskTags: string;
+  pachcaTargetType: 'channel' | 'direct'; pachcaEntityId: string; pachcaRecipientId: string; emailTo: string; emailSubject: string;
 };
 type FormData = Omit<Rule, 'id'>;
 const blankForm: FormData = {
   name: '', offsetType: 'calendar_days', eventType: 'closureDate', days: 1,
   channel: 'intradesk', enabled: true, sendTime: '09:00', messageTemplate: '',
   intradeskGroup: '', intradeskService: '', intradeskSubject: '', intradeskTaskType: '', intradeskTags: '',
+  pachcaTargetType: 'channel', pachcaEntityId: '', pachcaRecipientId: '', emailTo: '', emailSubject: '',
 };
 const events: Record<string, string> = {
   closureDate: 'Закрытие для покупателей', demolitionDate: 'Демонтаж',
@@ -29,6 +31,8 @@ export default function NotificationsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [integrationEnabled, setIntegrationEnabled] = useState(false);
+  const [pachcaEnabled, setPachcaEnabled] = useState(false);
+  const [smtpEnabled, setSmtpEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -47,7 +51,7 @@ export default function NotificationsPage() {
   useEffect(() => {
     if (!hasPermission('view_notifications')) { setLoading(false); return; }
     void load();
-    apiClient.getIntraDeskSettings().then(data => setIntegrationEnabled(Boolean(data.enabled))).catch(() => setIntegrationEnabled(false));
+    Promise.all([apiClient.getIntraDeskSettings(), apiClient.getPachcaSettings(), apiClient.getSmtpSettings()]).then(([intra,pachca,smtp]) => { setIntegrationEnabled(Boolean(intra.enabled)); setPachcaEnabled(Boolean(pachca.enabled)); setSmtpEnabled(Boolean(smtp.enabled)); }).catch(() => { setIntegrationEnabled(false); setPachcaEnabled(false); setSmtpEnabled(false); });
   }, [hasPermission, load]);
 
   if (!hasPermission('view_notifications')) return <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-gray-500">Нет доступа к этой странице</div>;
@@ -76,6 +80,15 @@ export default function NotificationsPage() {
       if (!form.intradeskGroup.trim() || !form.intradeskService.trim() || !form.intradeskSubject.trim() || !form.intradeskTaskType.trim()) return setError('Заполните группу исполнителей, сервис, тип и тему заявки IntraDesk.');
       if (!/^\d+$/.test(form.intradeskGroup.trim()) || !/^\d+$/.test(form.intradeskTaskType.trim())) return setError('Группа исполнителей и тип заявки должны содержать числовые ID.');
       if (form.intradeskTags.trim() && !/^\d+(\s*,\s*\d+)*$/.test(form.intradeskTags.trim())) return setError('Теги укажите числовыми ID через запятую.');
+    }
+    if (form.channel === 'pachca') {
+      if (!pachcaEnabled) return setError('Включите интеграцию Pachca в разделе «Настройки → Интеграции».');
+      if (form.pachcaTargetType === 'channel' && !/^\d+$/.test(form.pachcaEntityId.trim())) return setError('Укажите числовой ID канала/чата Pachca.');
+      if (form.pachcaTargetType === 'direct' && !/^\d+$/.test(form.pachcaRecipientId.trim())) return setError('Укажите числовой ID получателя Pachca.');
+    }
+    if (form.channel === 'smtp') {
+      if (!smtpEnabled) return setError('Включите SMTP в разделе «Настройки → Интеграции».');
+      if (!form.emailTo.trim() || !form.emailSubject.trim()) return setError('Для SMTP укажите адрес получателя и тему письма.');
     }
     setSaving(true);
     try {
@@ -151,8 +164,8 @@ export default function NotificationsPage() {
         <label className="block text-sm font-medium text-gray-700 md:col-span-2">Канал связи
           <select value={form.channel} onChange={e=>setField('channel',e.target.value as FormData['channel'])} className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm">
             <option value="intradesk" disabled={!integrationEnabled}>IntraDesk{!integrationEnabled?' — интеграция не подключена':''}</option>
-            <option value="telegram" disabled>Telegram — скоро</option>
-            <option value="pachca" disabled>Pachca — скоро</option>
+            <option value="pachca" disabled={!pachcaEnabled}>Pachca{!pachcaEnabled?' — интеграция не подключена':''}</option>
+            <option value="smtp" disabled={!smtpEnabled}>SMTP / Email{!smtpEnabled?' — интеграция не подключена':''}</option>
           </select>
         </label>
         {form.channel === 'intradesk' && <div className="grid grid-cols-1 gap-4 rounded-lg border border-blue-100 bg-blue-50/50 p-4 md:col-span-2 md:grid-cols-3">
@@ -173,8 +186,27 @@ export default function NotificationsPage() {
             <span className="mt-1 block text-xs text-gray-500">Укажите ID тегов из IntraDesk; если поле пустое, теги не передаются.</span>
           </label>
         </div>}
+        {form.channel === 'pachca' && <div className="grid grid-cols-1 gap-4 rounded-lg border border-indigo-100 bg-indigo-50/50 p-4 md:col-span-2 md:grid-cols-2">
+          <label className="block text-sm font-medium text-gray-700 md:col-span-2">Тип отправки
+            <select value={form.pachcaTargetType} onChange={e=>setField('pachcaTargetType',e.target.value as FormData['pachcaTargetType'])} className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm"><option value="channel">В канал / групповой чат</option><option value="direct">Личное сообщение сотруднику</option></select>
+          </label>
+          {form.pachcaTargetType === 'channel' ? <label className="block text-sm font-medium text-gray-700 md:col-span-2">ID канала или чата Pachca
+            <input value={form.pachcaEntityId} onChange={e=>setField('pachcaEntityId',e.target.value)} inputMode="numeric" maxLength={30} placeholder="Например, 334" className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm"/>
+          </label> : <label className="block text-sm font-medium text-gray-700 md:col-span-2">ID сотрудника Pachca
+            <input value={form.pachcaRecipientId} onChange={e=>setField('pachcaRecipientId',e.target.value)} inputMode="numeric" maxLength={30} placeholder="ID получателя личного сообщения" className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm"/>
+            <span className="mt-1 block text-xs text-gray-500">Для личного сообщения интеграция создаёт личный чат через API Pachca.</span>
+          </label>}
+        </div>}
+        {form.channel === 'smtp' && <div className="grid grid-cols-1 gap-4 rounded-lg border border-amber-100 bg-amber-50/50 p-4 md:col-span-2 md:grid-cols-2">
+          <label className="block text-sm font-medium text-gray-700">Email получателя
+            <input type="email" value={form.emailTo} onChange={e=>setField('emailTo',e.target.value)} maxLength={1000} placeholder="recipient@company.ru" className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm"/>
+          </label>
+          <label className="block text-sm font-medium text-gray-700">Тема письма
+            <input value={form.emailSubject} onChange={e=>setField('emailSubject',e.target.value)} maxLength={1000} placeholder="Закрытие магазина №{shopNumber}" className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm"/>
+          </label>
+        </div>}
         <label className="block text-sm font-medium text-gray-700 md:col-span-2">Текст уведомления
-          <textarea value={form.messageTemplate} onChange={e=>setField('messageTemplate',e.target.value)} rows={5} maxLength={10000} placeholder="Введите текст уведомления. Используйте ключи из подсказки ниже." className="mt-1.5 w-full resize-y rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"/>
+          <textarea value={form.messageTemplate} onChange={e=>setField('messageTemplate',e.target.value)} rows={Math.min(20, Math.max(5, form.messageTemplate.split('\n').length + Math.floor(form.messageTemplate.length / 90)))} maxLength={10000} placeholder="Введите текст уведомления. Используйте ключи из подсказки ниже." className="mt-1.5 w-full resize-none overflow-hidden rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"/>
         </label>
         <div className="flex items-center gap-2 md:col-span-2">
           <input id="notification-enabled" type="checkbox" checked={form.enabled} onChange={e=>setField('enabled',e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-blue-600"/>
@@ -188,9 +220,11 @@ export default function NotificationsPage() {
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <p><code className="rounded bg-white px-1.5 py-0.5 text-slate-900 dark:bg-slate-700 dark:text-slate-100">{'{shopNumber}'}</code> — номер магазина из shop_directory</p>
           <p><code className="rounded bg-white px-1.5 py-0.5">{'{address}'}</code> — адрес магазина из shop_directory</p>
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{tu_fio}'}</code> — ФИО ТУ из tus.fullName</p>
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{tu_phone}'}</code> — телефон ТУ из tus.phone</p>
+          <p><code className="rounded bg-white px-1.5 py-0.5">{'{tuFio}'}</code> — ФИО ТУ из tus.fullName</p>
+          <p><code className="rounded bg-white px-1.5 py-0.5">{'{tuPhone}'}</code> — телефон ТУ из tus.phone</p>
           <p><code className="rounded bg-white px-1.5 py-0.5">{'{closureDate}'}</code> — дата закрытия для покупателей</p>
+          <p><code className="rounded bg-white px-1.5 py-0.5">{'{days}'}</code> — число дней</p>
+          <p><code className="rounded bg-white px-1.5 py-0.5">{'{daysText}'}</code> — число со склонением: 1 день, 2 дня, 5 дней</p>
           <p><code className="rounded bg-white px-1.5 py-0.5">{'{demolitionDate}'}</code> — дата демонтажа</p>
           <p><code className="rounded bg-white px-1.5 py-0.5">{'{installationDate}'}</code> — дата монтажа</p>
           <p><code className="rounded bg-white px-1.5 py-0.5">{'{techOpenDate}'}</code> — дата технического открытия</p>
@@ -211,8 +245,8 @@ export default function NotificationsPage() {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-gray-900">{rule.name}</h3><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${rule.enabled?'bg-green-100 text-green-800':'bg-gray-100 text-gray-600'}`}>{rule.enabled?'Включено':'Выключено'}</span></div>
             <p className="mt-1.5 text-sm text-gray-600">{eventLabel(rule)}</p>
-            <p className="mt-1 text-sm text-gray-500">Канал: IntraDesk · Время отправки: {rule.sendTime}</p>
-            {rule.intradeskSubject && <p className="mt-1 text-sm text-gray-500">Тема заявки: {rule.intradeskSubject}</p>}
+            <p className="mt-1 text-sm text-gray-500">Канал: {{intradesk:'IntraDesk',pachca:'Pachca',smtp:'SMTP'}[rule.channel] || rule.channel} · Время отправки: {rule.sendTime}</p>
+            {rule.channel === 'intradesk' && rule.intradeskSubject && <p className="mt-1 text-sm text-gray-500">Тема заявки: {rule.intradeskSubject}</p>}{rule.channel === 'smtp' && rule.emailSubject && <p className="mt-1 text-sm text-gray-500">Тема письма: {rule.emailSubject} · {rule.emailTo}</p>}
             <p className="mt-3 whitespace-pre-wrap break-words rounded-lg bg-gray-50 p-3 text-sm text-gray-700">{rule.messageTemplate}</p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
