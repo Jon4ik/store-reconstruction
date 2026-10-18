@@ -85,8 +85,6 @@ export interface SystemUser {
   permissions?: string[];
   isActive: boolean;
   createdAt: string;
-  chatId?: string | null;
-  telegramId?: string | null;
   theme?: 'light' | 'dark' | 'system';
 }
 
