@@ -65,7 +65,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       const value = project[key];
       values[key] = value ? new Date(value).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' }) : '';
     }
-    return template.replace(/\{([A-Za-z]+)\}/g, (token, key) => key in values ? values[key] : token);
+    return template.replace(/\{([A-Za-z_]+)\}/g, (token, key) => key in values ? values[key] : token);
   }
 
   private async auditDelivery(input: { ruleId: string; ruleName: string; projectId: string; shopNumber: string; eventType: string; eventDate: Date; outcome: 'success' | 'error'; message: string; statusCode?: number }) {
