@@ -237,10 +237,10 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     }
     if (channel === 'pachca' && !partial) {
       const targetType = data.pachcaTargetType || 'channel';
-      if (targetType === 'channel' && !String(data.pachcaEntityId || '').trim()) throw new BadRequestException('Укажите ID канала/чата Pachca');
-      if (targetType === 'direct' && !String(data.pachcaRecipientId || '').trim()) throw new BadRequestException('Укажите ID получателя личного сообщения Pachca');
+      if (targetType === 'channel' && !/^\\d+$/.test(String(data.pachcaEntityId || '').trim())) throw new BadRequestException('Укажите числовой ID канала/чата Pachca');
+      if (targetType === 'direct' && !/^\\d+$/.test(String(data.pachcaRecipientId || '').trim())) throw new BadRequestException('Укажите числовой ID получателя личного сообщения Pachca');
     }
-    if (channel === 'smtp' && !partial && (!String(data.emailTo || '').trim() || !String(data.emailSubject || '').trim())) throw new BadRequestException('Для SMTP укажите адрес получателя и тему письма');
+    if (channel === 'smtp' && !partial && (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(data.emailTo || '').trim()) || !String(data.emailSubject || '').trim())) throw new BadRequestException('Для SMTP укажите корректный адрес получателя и тему письма');
     return data;
   }
 
@@ -275,13 +275,13 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       const targetType = data.pachcaTargetType ?? (existing as any).pachcaTargetType ?? 'channel';
       const entityId = data.pachcaEntityId ?? (existing as any).pachcaEntityId;
       const recipientId = data.pachcaRecipientId ?? (existing as any).pachcaRecipientId;
-      if (targetType === 'channel' && !String(entityId || '').trim()) throw new BadRequestException('Укажите ID канала/чата Pachca');
-      if (targetType === 'direct' && !String(recipientId || '').trim()) throw new BadRequestException('Укажите ID получателя личного сообщения Pachca');
+      if (targetType === 'channel' && !/^\\d+$/.test(String(entityId || '').trim())) throw new BadRequestException('Укажите числовой ID канала/чата Pachca');
+      if (targetType === 'direct' && !/^\\d+$/.test(String(recipientId || '').trim())) throw new BadRequestException('Укажите числовой ID получателя личного сообщения Pachca');
     }
     if (channel === 'smtp') {
       const emailTo = data.emailTo ?? (existing as any).emailTo;
       const emailSubject = data.emailSubject ?? (existing as any).emailSubject;
-      if (!String(emailTo || '').trim() || !String(emailSubject || '').trim()) throw new BadRequestException('Для SMTP укажите адрес получателя и тему письма');
+      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(emailTo || '').trim()) || !String(emailSubject || '').trim()) throw new BadRequestException('Для SMTP укажите корректный адрес получателя и тему письма');
     }
     return this.prisma.notificationRule.update({ where: { id }, data });
   }
