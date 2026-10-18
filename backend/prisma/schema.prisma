@@ -14,8 +14,6 @@ model User {
   username     String   @unique
   password     String
   fullName     String
-  chatId       String?
-  telegramId   String?
   theme        String   @default("light")
   roleId       String
   role         Role     @relation(fields: [roleId], references: [id])
@@ -59,11 +57,29 @@ model LdapSettings {
   baseDN                String   @default("")
   bindDN                String   @default("")
   bindPasswordEncrypted String   @default("")
+  updatedAt             DateTime @updatedAt
+  @@map("ldap_settings")
+}
+
+
+model IntegrationSettings {
+  id                     String   @id @default("default")
   intraDeskEnabled       Boolean  @default(false)
   intraDeskApiGateway    String   @default("")
   intraDeskApiKeyEncrypted String @default("")
-  updatedAt             DateTime @updatedAt
-  @@map("ldap_settings")
+  pachcaEnabled          Boolean  @default(false)
+  pachcaApiGateway       String   @default("https://api.pachca.com/api/shared/v1")
+  pachcaApiKeyEncrypted  String   @default("")
+  smtpEnabled            Boolean  @default(false)
+  smtpHost               String   @default("")
+  smtpPort               Int      @default(587)
+  smtpSecure             Boolean  @default(false)
+  smtpUser               String   @default("")
+  smtpPasswordEncrypted  String   @default("")
+  smtpFromEmail          String   @default("")
+  smtpFromName           String   @default("")
+  updatedAt              DateTime @updatedAt
+  @@map("integration_settings")
 }
 
 model ShopDirectory {
@@ -168,6 +184,11 @@ model NotificationRule {
   intradeskSubject String   @default("")
   intradeskTaskType String  @default("")
   intradeskTags     String   @default("")
+  pachcaTargetType  String   @default("channel")
+  pachcaEntityId    String   @default("")
+  pachcaRecipientId String   @default("")
+  emailTo           String   @default("")
+  emailSubject      String   @default("")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   deliveries       NotificationDelivery[]
@@ -183,6 +204,7 @@ model NotificationDelivery {
   eventDate DateTime
   status    String   @default("sent")
   message   String   @default("") @db.Text
+  requestNumber String @default("")
   sentAt    DateTime @default(now())
   @@unique([ruleId, projectId, eventDate])
   @@index([sentAt])

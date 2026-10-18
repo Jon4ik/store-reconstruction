@@ -112,8 +112,6 @@ export default function App() {
           role: user.role,
           roleName: user.roleName,
           permissions: [...(user.permissions || [])].sort(),
-          chatId: user.chatId ?? null,
-          telegramId: user.telegramId ?? null,
           theme: user.theme,
         });
 

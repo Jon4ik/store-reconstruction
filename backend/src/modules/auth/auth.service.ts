@@ -89,8 +89,6 @@ export class AuthService {
         role: user.roleId,
         roleName: user.role.name,
         permissions: user.role.permissions,
-        chatId: user.chatId,
-        telegramId: user.telegramId,
         theme: user.theme,
       },
     };
@@ -105,7 +103,7 @@ export class AuthService {
   }
 
   async updateMyProfile(userId: string, data: any) {
-    const existing = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, username: true, fullName: true, chatId: true, telegramId: true, theme: true, isActive: true, role: { select: { id: true, name: true, permissions: true } } } });
+    const existing = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, username: true, fullName: true, theme: true, isActive: true, role: { select: { id: true, name: true, permissions: true } } } });
     if (!existing || !existing.isActive) throw new UnauthorizedException();
 
     const updateData: any = {};
@@ -118,12 +116,6 @@ export class AuthService {
       if (typeof data.fullName !== 'string' || data.fullName.trim().length < 2 || data.fullName.trim().length > 120) throw new BadRequestException('Некорректное ФИО');
       updateData.fullName = data.fullName.trim();
     }
-    for (const field of ['chatId', 'telegramId'] as const) {
-      if (data[field] !== undefined) {
-        if (data[field] !== null && (typeof data[field] !== 'string' || data[field].length > 128)) throw new BadRequestException(`Некорректное поле ${field}`);
-        updateData[field] = data[field] === '' ? null : data[field];
-      }
-    }
     if (data.theme !== undefined) {
       if (!['light', 'dark', 'system'].includes(data.theme)) throw new BadRequestException('Некорректная тема оформления');
       updateData.theme = data.theme;
@@ -134,7 +126,7 @@ export class AuthService {
       const user = await this.prisma.user.update({
         where: { id: userId },
         data: updateData,
-        select: { id: true, username: true, fullName: true, chatId: true, telegramId: true, theme: true, role: { select: { id: true, name: true, permissions: true } } },
+        select: { id: true, username: true, fullName: true, theme: true, role: { select: { id: true, name: true, permissions: true } } },
       });
       return { ...user, role: user.role.id, roleName: user.role.name, permissions: user.role.permissions };
     } catch (error: any) {
@@ -157,21 +149,21 @@ export class AuthService {
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: { password, tokenVersion: { increment: 1 } },
-      select: { id: true, username: true, fullName: true, roleId: true, tokenVersion: true, chatId: true, telegramId: true, theme: true, role: { select: { name: true, permissions: true } } },
+      select: { id: true, username: true, fullName: true, roleId: true, tokenVersion: true, theme: true, role: { select: { name: true, permissions: true } } },
     });
     const access_token = this.jwtService.sign({ sub: updated.id, username: updated.username, role: updated.roleId, ver: updated.tokenVersion });
     return {
       access_token,
-      user: { id: updated.id, username: updated.username, fullName: updated.fullName, role: updated.roleId, roleName: updated.role.name, permissions: updated.role.permissions, chatId: updated.chatId, telegramId: updated.telegramId, theme: updated.theme },
+      user: { id: updated.id, username: updated.username, fullName: updated.fullName, role: updated.roleId, roleName: updated.role.name, permissions: updated.role.permissions, theme: updated.theme },
     };
   }
 
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, username: true, fullName: true, isActive: true, chatId: true, telegramId: true, theme: true, role: { select: { id: true, name: true, permissions: true } } },
+      select: { id: true, username: true, fullName: true, isActive: true, theme: true, role: { select: { id: true, name: true, permissions: true } } },
     });
     if (!user || !user.isActive) throw new UnauthorizedException();
-    return { id: user.id, username: user.username, fullName: user.fullName, role: user.role.id, roleName: user.role.name, permissions: user.role.permissions, chatId: user.chatId, telegramId: user.telegramId, theme: user.theme };
+    return { id: user.id, username: user.username, fullName: user.fullName, role: user.role.id, roleName: user.role.name, permissions: user.role.permissions, theme: user.theme };
   }
 }
