@@ -110,7 +110,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
           if (dueDateKey !== nowMoscow.dateKey) continue;
           const unique = { ruleId_projectId_eventDate: { ruleId: rule.id, projectId: project.id, eventDate } };
           const existing = await this.prisma.notificationDelivery.findUnique({ where: unique });
-          if (existing?.status === 'sent') continue;
+          if (String(existing?.status || '').toLowerCase() === 'sent') continue;
           let delivery: any;
           const shopNumber = String(project.shop?.shopNumber || project.storeNumber || '');
           const message = this.renderTemplate(rule.messageTemplate, project, rule.days);
