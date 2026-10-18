@@ -98,7 +98,7 @@ export default function AddStoreModal() {
       <div className="fixed inset-0 bg-black/40" onClick={closeAddModal} />
       <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 rounded-t-2xl flex items-center justify-between z-10">
-          <h2 className="text-lg font-bold text-gray-900">Добавить объект</h2>
+          <h2 className="text-lg font-bold text-gray-900">Добавить событие</h2>
           <button onClick={closeAddModal} className="p-2 hover:bg-gray-100 rounded-lg"><X size={20} className="text-gray-500" /></button>
         </div>
         <div className="p-6 space-y-4">
@@ -141,12 +141,13 @@ export default function AddStoreModal() {
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">ТУ <span className="text-red-500">*</span></label>
+            <select selected>Не выбран</select>
             <select value={form.tuId} onChange={e => setForm({ ...form, tuId: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
               {tus.filter(t => t.isActive).length === 0
                 ? <option value="">Нет активных ТУ</option>
                 : tus.filter(t => t.isActive).map(t => <option key={t.id} value={t.id}>{t.fullName}</option>)}
             </select>
-            {tus.filter(t => t.isActive).length === 0 && <p className="text-xs text-red-600 mt-1">Создайте или активируйте ТУ в справочнике, чтобы добавить объект.</p>}
+            {tus.filter(t => t.isActive).length === 0 && <p className="text-xs text-red-600 mt-1">Создайте или активируйте ТУ в справочнике, чтобы добавить событие.</p>}
           </div>
           <div className="border-t border-gray-100 pt-4">
             <p className="text-xs font-medium text-gray-500 mb-3">Даты этапов (формат: ДД.ММ.ГГГГ)</p>
@@ -180,7 +181,7 @@ export default function AddStoreModal() {
             <textarea value={form.comment} onChange={e => setForm({ ...form, comment: e.target.value })} rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
           </div>
           <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
-            <button onClick={handleSubmit} className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Добавить объект</button>
+            <button onClick={handleSubmit} className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Добавить событие</button>
             <button onClick={closeAddModal} className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Отмена</button>
           </div>
         </div>
