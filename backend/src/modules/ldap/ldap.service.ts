@@ -82,7 +82,7 @@ export class LdapService {
     const enabled = input.enabled === undefined ? Boolean(current?.intraDeskEnabled) : input.enabled;
     const apiGateway = input.apiGateway === undefined ? (current?.intraDeskApiGateway || '') : String(input.apiGateway).trim();
     if (typeof enabled !== 'boolean') throw new BadRequestException('Флаг интеграции должен быть boolean');
-    if (apiGateway.length > 1000 || (apiGateway && !/^https?:\\/\\//i.test(apiGateway))) throw new BadRequestException('Укажите корректный URL API-шлюза IntraDesk');
+    if (apiGateway.length > 1000 || (apiGateway && !/^https?:\/\//i.test(apiGateway))) throw new BadRequestException('Укажите корректный URL API-шлюза IntraDesk');
     let apiKeyEncrypted = current?.intraDeskApiKeyEncrypted || '';
     if (input.clearApiKey === true) apiKeyEncrypted = '';
     else if (typeof input.apiKey === 'string' && input.apiKey.length) apiKeyEncrypted = this.encrypt(input.apiKey);
@@ -101,7 +101,7 @@ export class LdapService {
     const enabled = input.enabled === undefined ? Boolean(current?.pachcaEnabled) : input.enabled;
     const apiGateway = input.apiGateway === undefined ? (current?.pachcaApiGateway || 'https://api.pachca.com/api/shared/v1') : String(input.apiGateway).trim();
     if (typeof enabled !== 'boolean') throw new BadRequestException('Флаг интеграции Pachca должен быть boolean');
-    if (apiGateway.length > 1000 || !/^https?:\\/\\//i.test(apiGateway)) throw new BadRequestException('Укажите корректный URL API-шлюза Pachca');
+    if (apiGateway.length > 1000 || !/^https?:\/\//i.test(apiGateway)) throw new BadRequestException('Укажите корректный URL API-шлюза Pachca');
     let apiKeyEncrypted = current?.pachcaApiKeyEncrypted || '';
     if (input.clearApiKey === true) apiKeyEncrypted = '';
     else if (typeof input.apiKey === 'string' && input.apiKey.length) apiKeyEncrypted = this.encrypt(input.apiKey);
