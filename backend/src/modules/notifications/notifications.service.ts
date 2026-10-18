@@ -54,12 +54,15 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     return `${result.getUTCFullYear()}-${String(result.getUTCMonth() + 1).padStart(2, '0')}-${String(result.getUTCDate()).padStart(2, '0')}`;
   }
 
-  private renderTemplate(template: string, project: any) {
+  private renderTemplate(template: string, project: any, days?: number) {
+    const pluralDays = (value: number) => { const n = Math.abs(value) % 100; const last = n % 10; return n > 10 && n < 20 ? 'дней' : last > 1 && last < 5 ? 'дня' : last === 1 ? 'день' : 'дней'; };
     const values: Record<string, string> = {
       shopNumber: String(project.shop?.shopNumber || project.storeNumber || ''),
       address: String(project.shop?.address || ''),
       tuFio: String(project.tu?.fullName || ''),
       tuPhone: String(project.tu?.phone || ''),
+      days: days === undefined ? '' : String(days),
+      daysText: days === undefined ? '' : `${days} ${pluralDays(days)}`,
     };
     for (const key of EVENT_TYPES) {
       const value = project[key];
@@ -110,7 +113,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
           if (existing?.status === 'sent') continue;
           let delivery: any;
           const shopNumber = String(project.shop?.shopNumber || project.storeNumber || '');
-          const message = this.renderTemplate(rule.messageTemplate, project);
+          const message = this.renderTemplate(rule.messageTemplate, project, rule.days);
           let requestNumber = '';
           try {
             delivery = existing || await this.prisma.notificationDelivery.create({ data: { ruleId: rule.id, projectId: project.id, eventDate, status: 'sending' } });
