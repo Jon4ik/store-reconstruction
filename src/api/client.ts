@@ -49,7 +49,7 @@ class ApiClient {
     return this.request<any>('/auth/me');
   }
 
-  async updateMyProfile(data: { username?: string; fullName?: string; chatId?: string | null; telegramId?: string | null; theme?: 'light' | 'dark' | 'system' }) {
+  async updateMyProfile(data: { username?: string; fullName?: string; theme?: 'light' | 'dark' | 'system' }) {
     return this.request<any>('/auth/me/profile', { method: 'POST', body: JSON.stringify(data) });
   }
 
@@ -170,6 +170,10 @@ class ApiClient {
   async saveIntraDeskSettings(data: { enabled: boolean; apiGateway: string; apiKey?: string; clearApiKey?: boolean }) {
     return this.request<any>('/ldap/integrations/intradesk', { method: 'PUT', body: JSON.stringify(data) });
   }
+  async getPachcaSettings() { return this.request<any>('/ldap/integrations/pachca'); }
+  async savePachcaSettings(data: any) { return this.request<any>('/ldap/integrations/pachca', { method: 'PUT', body: JSON.stringify(data) }); }
+  async getSmtpSettings() { return this.request<any>('/ldap/integrations/smtp'); }
+  async saveSmtpSettings(data: any) { return this.request<any>('/ldap/integrations/smtp', { method: 'PUT', body: JSON.stringify(data) }); }
 
   async getLdapStatus() {
     return this.request<{ configured: boolean }>('/ldap/status');
