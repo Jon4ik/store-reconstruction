@@ -13,7 +13,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
   constructor(private readonly prisma: PrismaService) {}
 
-  onModuleInit() { this.logger.log('Планировщик уведомлений запущен; проверка каждые 30 секунд'); this.timer = setInterval(() => void this.runDueNotifications(), 30_000); void this.runDueNotifications(); }
+  onModuleInit() { this.logger.log('Планировщик уведомлений запущен; проверка каждые 10 секунд, часовой пояс Europe/Moscow'); this.timer = setInterval(() => void this.runDueNotifications(), 10_000); }
   onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
 
 
@@ -29,15 +29,29 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     return Buffer.concat([decipher.update(Buffer.from(encrypted, 'hex')), decipher.final()]).toString('utf8');
   }
 
-  private addDays(date: Date, days: number) {
-    const result = new Date(date);
-    result.setHours(0, 0, 0, 0);
+  private getMoscowDateTime(date: Date) {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Moscow',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(date);
+    const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    return {
+      dateKey: `${values.year}-${values.month}-${values.day}`,
+      time: `${values.hour}:${values.minute}`,
+    };
+  }
+
+  private subtractDateDays(dateKey: string, days: number, businessDays: boolean): string {
+    const [year, month, day] = dateKey.split('-').map(Number);
+    const result = new Date(Date.UTC(year, month - 1, day));
     let remaining = days;
     while (remaining > 0) {
-      result.setDate(result.getDate() - 1);
-      if (result.getDay() !== 0 && result.getDay() !== 6) remaining--;
+      result.setUTCDate(result.getUTCDate() - 1);
+      const weekday = result.getUTCDay();
+      if (!businessDays || (weekday !== 0 && weekday !== 6)) remaining--;
     }
-    return result;
+    return `${result.getUTCFullYear()}-${String(result.getUTCMonth() + 1).padStart(2, '0')}-${String(result.getUTCDate()).padStart(2, '0')}`;
   }
 
   private renderTemplate(template: string, project: any) {
@@ -49,7 +63,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     };
     for (const key of EVENT_TYPES) {
       const value = project[key];
-      values[key] = value ? new Date(value).toLocaleDateString('ru-RU') : '';
+      values[key] = value ? new Date(value).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' }) : '';
     }
     return template.replace(/\{([A-Za-z]+)\}/g, (token, key) => key in values ? values[key] : token);
   }
@@ -76,7 +90,8 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       const integration = await this.prisma.ldapSettings.findUnique({ where: { id: 'default' } });
       if (!integration?.intraDeskEnabled || !integration.intraDeskApiGateway || !integration.intraDeskApiKeyEncrypted) return;
       const now = new Date();
-      const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const nowMoscow = this.getMoscowDateTime(now);
+      const time = nowMoscow.time;
       const projects = await this.prisma.storeProject.findMany({
         where: { isDeleted: false },
         include: { shop: true, tu: true },
@@ -86,21 +101,12 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
         for (const project of projects) {
           const rawEventDate = (project as any)[rule.eventType];
           if (!rawEventDate) continue;
-          const eventDate = new Date(rawEventDate);
-          const dueDate = new Date(eventDate);
-          dueDate.setHours(0, 0, 0, 0);
-          if (rule.offsetType === 'business_days') {
-            const remaining = rule.days;
-            let count = remaining;
-            while (count > 0) {
-              dueDate.setDate(dueDate.getDate() - 1);
-              if (dueDate.getDay() !== 0 && dueDate.getDay() !== 6) count--;
-            }
-          } else {
-            dueDate.setDate(dueDate.getDate() - rule.days);
-          }
-          if (dueDate.getFullYear() !== now.getFullYear() || dueDate.getMonth() !== now.getMonth() || dueDate.getDate() !== now.getDate()) continue;
-          const unique = { ruleId_projectId_eventDate: { ruleId: rule.id, projectId: project.id, eventDate: new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate()) } };
+          // Store event dates as date-only values so server timezone cannot shift the notification day.
+          const eventDateKey = this.getMoscowDateTime(new Date(rawEventDate)).dateKey;
+          const eventDate = new Date(`${eventDateKey}T00:00:00.000Z`);
+          const dueDateKey = this.subtractDateDays(eventDateKey, rule.days, rule.offsetType === 'business_days');
+          if (dueDateKey !== nowMoscow.dateKey) continue;
+          const unique = { ruleId_projectId_eventDate: { ruleId: rule.id, projectId: project.id, eventDate } };
           const existing = await this.prisma.notificationDelivery.findUnique({ where: unique });
           if (existing?.status === 'sent') continue;
           try {
