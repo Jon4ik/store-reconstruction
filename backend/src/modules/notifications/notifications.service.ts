@@ -130,19 +130,26 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
               description: JSON.stringify({ value: message }),
             };
             if (tags.length) blocks.tags = JSON.stringify({ value: tags });
-            const response = await fetch(baseUrl + '/changes/v3/Tasks?ApiKey=' + encodeURIComponent(apiKey), {
+            const response = await fetch(baseUrl + '/changes/v3/tasks?ApiKey=' + encodeURIComponent(apiKey), {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
               body: JSON.stringify({ blocks, Channel: 'web' }),
             });
-            if (!response.ok) {
-              const responseText = (await response.text()).slice(0, 500);
-              await this.auditDelivery({ ruleId: rule.id, ruleName: rule.name, projectId: project.id, shopNumber: String(project.shop?.shopNumber || project.storeNumber || ''), eventType: rule.eventType, eventDate, outcome: 'error', statusCode: response.status, message: 'IntraDesk вернул HTTP ' + response.status + ': ' + responseText });
-              throw new Error('IntraDesk вернул HTTP ' + response.status + ': ' + responseText);
+            const responseText = (await response.text()).slice(0, 4000);
+            let responseData: any = null;
+            try { responseData = responseText ? JSON.parse(responseText) : null; } catch { /* Some IntraDesk deployments return plain text. */ }
+            const apiError = responseData && typeof responseData === 'object'
+              ? (responseData.ErrorMessage || responseData.errorMessage || responseData.error || responseData.Error)
+              : null;
+            if (!response.ok || apiError) {
+              const failure = 'IntraDesk вернул HTTP ' + response.status + (apiError ? ', ошибка API: ' + String(apiError) : '') + (responseText ? ': ' + responseText : '');
+              await this.auditDelivery({ ruleId: rule.id, ruleName: rule.name, projectId: project.id, shopNumber: String(project.shop?.shopNumber || project.storeNumber || ''), eventType: rule.eventType, eventDate, outcome: 'error', statusCode: response.status, message: failure });
+              throw new Error(failure);
             }
+            const taskNumber = responseData?.Number ?? responseData?.number ?? responseData?.Id ?? responseData?.id;
             await this.prisma.notificationDelivery.update({ where: { id: delivery.id }, data: { status: 'sent', message, sentAt: new Date() } });
-            this.logger.log(`Уведомление отправлено: ruleId=${rule.id}, projectId=${project.id}, shop=${String(project.shop?.shopNumber || project.storeNumber || '')}, HTTP ${response.status}`);
-            await this.auditDelivery({ ruleId: rule.id, ruleName: rule.name, projectId: project.id, shopNumber: String(project.shop?.shopNumber || project.storeNumber || ''), eventType: rule.eventType, eventDate, outcome: 'success', statusCode: response.status, message: 'Уведомление успешно передано в IntraDesk' });
+            this.logger.log(`Заявка создана в IntraDesk: ruleId=${rule.id}, projectId=${project.id}, shop=${String(project.shop?.shopNumber || project.storeNumber || '')}, HTTP ${response.status}${taskNumber != null ? ', номер/ID=' + taskNumber : ''}`);
+            await this.auditDelivery({ ruleId: rule.id, ruleName: rule.name, projectId: project.id, shopNumber: String(project.shop?.shopNumber || project.storeNumber || ''), eventType: rule.eventType, eventDate, outcome: 'success', statusCode: response.status, message: 'IntraDesk принял заявку' + (taskNumber != null ? ' №/ID ' + taskNumber : '') });
           } catch (error: any) {
             this.logger.error(`Ошибка отправки уведомления: ruleId=${rule.id}, rule="${rule.name}", projectId=${project.id}, shop=${String(project.shop?.shopNumber || project.storeNumber || '')}, event=${rule.eventType}: ${error?.message || error}`);
             try {
