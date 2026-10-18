@@ -267,8 +267,20 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     if (channel === 'intradesk') {
       for (const field of ['intradeskGroup', 'intradeskService', 'intradeskSubject', 'intradeskTaskType']) {
         const value = data[field] ?? (existing as any)[field];
-        if (typeof value !== 'string' || !value.trim()) throw new BadRequestException('Для IntraDesk заполните группу исполнителей, сервис и тему заявки');
+        if (typeof value !== 'string' || !value.trim()) throw new BadRequestException('Для IntraDesk заполните группу исполнителей, сервис, тип и тему заявки');
       }
+    }
+    if (channel === 'pachca') {
+      const targetType = data.pachcaTargetType ?? (existing as any).pachcaTargetType ?? 'channel';
+      const entityId = data.pachcaEntityId ?? (existing as any).pachcaEntityId;
+      const recipientId = data.pachcaRecipientId ?? (existing as any).pachcaRecipientId;
+      if (targetType === 'channel' && !String(entityId || '').trim()) throw new BadRequestException('Укажите ID канала/чата Pachca');
+      if (targetType === 'direct' && !String(recipientId || '').trim()) throw new BadRequestException('Укажите ID получателя личного сообщения Pachca');
+    }
+    if (channel === 'smtp') {
+      const emailTo = data.emailTo ?? (existing as any).emailTo;
+      const emailSubject = data.emailSubject ?? (existing as any).emailSubject;
+      if (!String(emailTo || '').trim() || !String(emailSubject || '').trim()) throw new BadRequestException('Для SMTP укажите адрес получателя и тему письма');
     }
     return this.prisma.notificationRule.update({ where: { id }, data });
   }
