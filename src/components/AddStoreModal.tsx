@@ -143,8 +143,7 @@ export default function AddStoreModal() {
             <label className="block text-xs font-medium text-gray-600 mb-1">ТУ <span className="text-red-500">*</span></label>
   
             <select value={form.tuId} onChange={e => setForm({ ...form, tuId: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option selected disabled>Не выбран</option>
-              {tus.filter(t => t.isActive).length === 0
+                {tus.filter(t => t.isActive).length === 0
                 ? <option value="">Нет активных ТУ</option>
                 : tus.filter(t => t.isActive).map(t => <option key={t.id} value={t.id}>{t.fullName}</option>)}
             </select>
