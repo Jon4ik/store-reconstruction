@@ -141,7 +141,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
               let data: any = null; try { data = responseText ? JSON.parse(responseText) : null; } catch {}
               const apiError = data && typeof data === 'object' ? (data.ErrorMessage || data.errorMessage || data.error || data.Error) : null;
               if (!response.ok || apiError) throw new Error('IntraDesk HTTP ' + response.status + (apiError ? ': ' + String(apiError) : '') + (responseText ? ' — ' + responseText : ''));
-              const number = data?.Number ?? data?.number ?? data?.TaskNumber ?? data?.taskNumber ?? data?.Id ?? data?.id;
+              const number = data?.Number ?? data?.number ?? data?.TaskNumber ?? data?.taskNumber ?? data?.TaskID ?? data?.task_id ?? data?.RequestNumber ?? data?.requestNumber ?? data?.data?.Number ?? data?.data?.number ?? data?.data?.id ?? data?.Id ?? data?.id;
               requestNumber = number == null ? '' : String(number);
             } else if (rule.channel === 'pachca') {
               if (!integrations.pachcaApiGateway || !integrations.pachcaApiKeyEncrypted) throw new Error('Интеграция Pachca включена, но API-шлюз или API KEY не настроен');

@@ -1,3 +1,3 @@
 ALTER TABLE "notification_rules"
-ADD COLUMN "intradeskTaskType" TEXT NOT NULL DEFAULT '',
-ADD COLUMN "intradeskTags" TEXT NOT NULL DEFAULT '';
+ADD COLUMN IF NOT EXISTS "intradeskTaskType" TEXT NOT NULL DEFAULT '',
+ADD COLUMN IF NOT EXISTS "intradeskTags" TEXT NOT NULL DEFAULT '';
