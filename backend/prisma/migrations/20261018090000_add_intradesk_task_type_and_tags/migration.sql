@@ -1,3 +1,4 @@
-ALTER TABLE "notification_rules"
-ADD COLUMN IF NOT EXISTS "intradeskTaskType" TEXT NOT NULL DEFAULT '',
-ADD COLUMN IF NOT EXISTS "intradeskTags" TEXT NOT NULL DEFAULT '';
+-- Intentionally empty: intradeskTaskType and intradeskTags are already created
+-- idempotently by 20261018000000_integrations_pachca_smtp.
+-- This migration is retained so databases that recorded it as failed can recover
+-- without attempting to add columns that may already exist.
