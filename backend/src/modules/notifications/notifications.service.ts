@@ -139,13 +139,17 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
               if (!response.ok || apiError) throw new Error('IntraDesk HTTP ' + response.status + (apiError ? ': ' + String(apiError) : '') + (responseText ? ' — ' + responseText : ''));
               const findRequestNumber = (value: any, depth = 0): unknown => {
                 if (!value || typeof value !== 'object' || depth > 5) return undefined;
-                for (const key of ['RequestNumber', 'requestNumber', 'TaskNumber', 'taskNumber', 'Number', 'number', 'TaskID', 'task_id', 'Id', 'ID', 'id']) {
+                for (const key of ['RequestNumber', 'requestNumber', 'TaskNumber', 'taskNumber', 'Number', 'number', 'TaskID', 'task_id']) {
                   const candidate = value[key];
                   if (candidate !== undefined && candidate !== null && (typeof candidate === 'string' || typeof candidate === 'number') && String(candidate).trim()) return candidate;
                 }
                 for (const nested of Object.values(value)) {
                   const found = findRequestNumber(nested, depth + 1);
                   if (found !== undefined) return found;
+                }
+                for (const key of ['Id', 'ID', 'id']) {
+                  const candidate = value[key];
+                  if (candidate !== undefined && candidate !== null && (typeof candidate === 'string' || typeof candidate === 'number') && String(candidate).trim()) return candidate;
                 }
                 return undefined;
               };
