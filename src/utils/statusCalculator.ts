@@ -45,7 +45,7 @@ export function parseDateInput(dateStr: string): string | null {
   }
 }
 
-// Возвращает этапы в зависимости от типа работ
+// Возвращает этапы в зависимости от типа работ.
 export function getStagesByWorkType(workType: WorkType): { name: string; dateKey: string }[] {
   switch (workType) {
     case 'Закрытие':
@@ -79,65 +79,90 @@ export function getStagesByWorkType(workType: WorkType): { name: string; dateKey
 export function calculateStages(project: StoreProject): StageInfo[] {
   const today = startOfDay(new Date());
   const stageDefs = getStagesByWorkType(project.workType);
-  
-  const stages: { name: string; date: string | null }[] = stageDefs.map(s => ({
+  const stages = stageDefs.map(s => ({
     name: s.name,
-    date: (project as any)[s.dateKey] || null,
+    date: s.dateKey ? (project as any)[s.dateKey] || null : null,
   }));
+  const tasks = project.stageTasks || {};
+  const plannedComplete = project.workType === 'Открытие' || (
+    tasks.sdRequest?.completed === true &&
+    tasks.sberApplication?.completed === true &&
+    tasks.lakshmiApplication?.completed === true
+  );
+  const preDemolitionComplete = plannedComplete && tasks.buyersClosed?.completed === true &&
+    tasks.ukmShiftsClosed?.completed === true &&
+    tasks.ukmOperationalDaysClosed?.completed === true &&
+    tasks.cashDelConfigured?.completed === true;
+  const demolitionTaskIds = [
+    'equipmentDismantled',
+    'monitoringRemovalRequested',
+    'removedFromMailings',
+    'deletedFromPrintstat',
+  ];
+  const demolitionComplete = demolitionTaskIds.every(taskId => tasks[taskId]?.completed === true);
 
   let foundCurrent = false;
-  
-  return stages.map((stage, index) => {
+
+  return stages.map(stage => {
     const date = parseDate(stage.date);
-    let status: StageStatus;
+    let status: StageStatus = 'planned';
     let isOverdue = false;
-    let daysUntil: number | null = null;
+    let daysUntil: number | null = date ? differenceInDays(date, today) : null;
     let daysOverdue: number | null = null;
-    const stageTasks = project.stageTasks || {};
-    const plannedComplete = project.workType === 'Открытие' || (
-      stageTasks.sdRequest?.completed === true &&
-      stageTasks.sberApplication?.completed === true &&
-      stageTasks.lakshmiApplication?.completed === true
-    );
+
     if (stage.name === 'Запланировано') {
-      if (plannedComplete) return { name: stage.name, date: null, status: 'completed', isOverdue: false, daysUntil: null, daysOverdue: null };
+      if (plannedComplete) {
+        return { name: stage.name, date: null, status: 'completed', isOverdue: false, daysUntil: null, daysOverdue: null };
+      }
       foundCurrent = true;
       return { name: stage.name, date: null, status: 'current', isOverdue: false, daysUntil: null, daysOverdue: null };
     }
-    if (stage.name === 'Закрыт для покупателей' && stageTasks.buyersClosed?.completed === true) {
-      return { name: stage.name, date: stage.date, status: 'completed', isOverdue: false, daysUntil: null, daysOverdue: null };
+
+    if (stage.name === 'Закрыт для покупателей') {
+      if (tasks.buyersClosed?.completed === true) {
+        return { name: stage.name, date: stage.date, status: 'completed', isOverdue: false, daysUntil: null, daysOverdue: null };
+      }
+      if (!plannedComplete) {
+        return { name: stage.name, date: stage.date, status: 'planned', isOverdue: false, daysUntil, daysOverdue: null };
+      }
+      if (!date || !isAfter(date, today)) {
+        foundCurrent = true;
+        return { name: stage.name, date: stage.date, status: 'current', isOverdue: false, daysUntil, daysOverdue: null };
+      }
+      return { name: stage.name, date: stage.date, status: 'planned', isOverdue: false, daysUntil, daysOverdue: null };
     }
+
+    if (stage.name === 'Демонтаж') {
+      if (demolitionComplete) {
+        return { name: stage.name, date: stage.date, status: 'completed', isOverdue: false, daysUntil: null, daysOverdue: null };
+      }
+      if (!preDemolitionComplete) {
+        return { name: stage.name, date: stage.date, status: 'planned', isOverdue: false, daysUntil, daysOverdue: null };
+      }
+      // Демонтаж считается текущим по факту готовности предыдущих задач, а не только по календарной дате.
+      foundCurrent = true;
+      return { name: stage.name, date: stage.date, status: 'current', isOverdue: false, daysUntil, daysOverdue: null };
+    }
+
     if (stage.name === 'Работы завершены') {
-      const completed = stageTasks.projectCompleted?.completed === true;
-      const previousStagesCompleted = stages.slice(0, index).every((previousStage) => {
-        if (previousStage.name === 'Запланировано') return plannedComplete;
-        if (previousStage.name === 'Закрыт для покупателей') return stageTasks.buyersClosed?.completed === true || (
-          previousStage.date ? (parseDate(previousStage.date) !== null && isBefore(parseDate(previousStage.date)!, today)) : false
-        );
-        const previousDate = parseDate(previousStage.date);
-        return previousDate !== null && isBefore(previousDate, today);
-      });
-      return {
-        name: stage.name,
-        date: null,
-        status: completed ? 'completed' : previousStagesCompleted ? 'current' : 'planned',
-        isOverdue: false,
-        daysUntil: null,
-        daysOverdue: null,
-      };
+      if (tasks.projectCompleted?.completed === true) {
+        return { name: stage.name, date: null, status: 'completed', isOverdue: false, daysUntil: null, daysOverdue: null };
+      }
+      if (!foundCurrent) {
+        foundCurrent = true;
+        return { name: stage.name, date: null, status: 'current', isOverdue: false, daysUntil: null, daysOverdue: null };
+      }
+      return { name: stage.name, date: null, status: 'planned', isOverdue: false, daysUntil: null, daysOverdue: null };
     }
+
     if (!plannedComplete) {
-      return { name: stage.name, date: stage.date, status: 'planned', isOverdue: false, daysUntil: date ? differenceInDays(date, today) : null, daysOverdue: null };
+      return { name: stage.name, date: stage.date, status: 'planned', isOverdue: false, daysUntil, daysOverdue: null };
     }
 
     if (!date) {
       status = 'not_started';
     } else if (isBefore(date, today)) {
-      if (!foundCurrent) {
-        status = 'completed';
-      } else {
-        status = 'not_started';
-      }
+      status = foundCurrent ? 'not_started' : 'completed';
     } else if (date.getTime() === today.getTime()) {
       if (!foundCurrent) {
         status = 'current';
@@ -147,15 +172,13 @@ export function calculateStages(project: StoreProject): StageInfo[] {
         status = 'planned';
         daysUntil = differenceInDays(date, today);
       }
+    } else if (!foundCurrent) {
+      status = 'current';
+      foundCurrent = true;
+      daysUntil = differenceInDays(date, today);
     } else {
-      if (!foundCurrent) {
-        status = 'current';
-        foundCurrent = true;
-        daysUntil = differenceInDays(date, today);
-      } else {
-        status = 'planned';
-        daysUntil = differenceInDays(date, today);
-      }
+      status = 'planned';
+      daysUntil = differenceInDays(date, today);
     }
 
     if (date && isBefore(date, today) && status !== 'completed') {
@@ -174,25 +197,23 @@ export function calculateProjectStatus(project: StoreProject): ProjectStatus {
 
   const today = startOfDay(new Date());
   const stages = calculateStages(project);
+  if (stages.length > 0 && stages.every(stage => stage.status === 'completed')) return 'Завершено';
 
-  const allCompleted = stages.length > 0 && stages.every(s => s.status === 'completed');
-  if (allCompleted) return 'Завершено';
-
-  const currentStage = stages.find(s => s.status === 'current');
+  const currentStage = stages.find(stage => stage.status === 'current');
   if (currentStage) {
     switch (currentStage.name) {
       case 'Закрыт для покупателей': return 'Закрыт для покупателей';
       case 'Демонтаж': return 'Демонтаж';
       case 'Монтаж': return 'Монтаж';
       case 'Техническое открытие': return 'Техническое открытие';
+      case 'Работы завершены': return 'В работе';
     }
   }
 
-  // Для открытия - если монтаж в будущем
   if (project.workType === 'Открытие') {
     if (project.installationDate) {
-      const d = parseDate(project.installationDate);
-      if (d && isAfter(d, today)) return 'Запланирован';
+      const date = parseDate(project.installationDate);
+      if (date && isAfter(date, today)) return 'Запланирован';
     }
     return 'Запланирован';
   }
@@ -203,16 +224,14 @@ export function calculateProjectStatus(project: StoreProject): ProjectStatus {
 export function getNearestEvent(project: StoreProject): { name: string; date: Date; daysUntil: number } | null {
   const today = startOfDay(new Date());
   const dates: { name: string; date: Date }[] = [];
-
-  const stageDefs = getStagesByWorkType(project.workType);
-  stageDefs.forEach(s => {
-    const dateStr = (project as any)[s.dateKey];
-    if (dateStr) {
-      const d = parseDate(dateStr);
-      if (d && !isBefore(d, today)) dates.push({ name: s.name, date: d });
+  getStagesByWorkType(project.workType).forEach(stage => {
+    if (!stage.dateKey) return;
+    const dateString = (project as any)[stage.dateKey];
+    if (dateString) {
+      const date = parseDate(dateString);
+      if (date && !isBefore(date, today)) dates.push({ name: stage.name, date });
     }
   });
-
   if (dates.length === 0) return null;
   dates.sort((a, b) => a.date.getTime() - b.date.getTime());
   const next = dates[0];
@@ -220,7 +239,6 @@ export function getNearestEvent(project: StoreProject): { name: string; date: Da
 }
 
 export function getOverdueInfo(project: StoreProject): { stage: string; days: number } | null {
-  const today = startOfDay(new Date());
   const stages = calculateStages(project);
   for (const stage of stages) {
     if (stage.isOverdue && stage.daysOverdue !== null) {
