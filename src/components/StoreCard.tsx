@@ -372,7 +372,7 @@ export default function StoreCard() {
                         />
                       ) : (
                         <p className={`text-sm ${stage.date ? 'text-gray-700' : 'text-gray-400 italic'}`}>
-                          {formatDate(stage.date) || 'Не назначено'}
+                          {stage.name === 'Запланировано' ? 'Этап создан' : formatDate(stage.date) || 'Не назначено'}
                         </p>
                       )}
                     </div>
