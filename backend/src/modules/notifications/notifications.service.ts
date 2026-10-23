@@ -105,9 +105,9 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
           const eventDateKey = this.getMoscowDateTime(new Date(rawEventDate)).dateKey;
           const eventDate = new Date(`${eventDateKey}T00:00:00.000Z`);
           const dueDateKey = this.subtractDateDays(eventDateKey, rule.days, rule.offsetType === 'business_days');
-          if (dueDateKey !== nowMoscow.dateKey) continue;
           const unique = { ruleId_projectId_eventDate: { ruleId: rule.id, projectId: project.id, eventDate } };
           const existing = await this.prisma.notificationDelivery.findUnique({ where: unique });
+          if (dueDateKey !== nowMoscow.dateKey && existing?.status !== 'retry_requested') continue;
           if (String(existing?.status || '').toLowerCase() === 'sent') continue;
           let delivery: any;
           const shopNumber = String(project.shop?.shopNumber || project.storeNumber || '');
@@ -199,6 +199,27 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
 
   findAll() {
     return this.prisma.notificationRule.findMany({ orderBy: { createdAt: 'asc' } });
+  }
+
+  async getClosureRequestStatus(projectId: string) {
+    const delivery = await this.prisma.notificationDelivery.findFirst({
+      where: { projectId, rule: { channel: 'intradesk', eventType: 'closureDate' } },
+      orderBy: { sentAt: 'desc' },
+      select: { id: true, status: true, message: true, requestNumber: true, sentAt: true, ruleId: true, rule: { select: { name: true } } },
+    });
+    return delivery;
+  }
+
+  async retryClosureRequest(projectId: string) {
+    const delivery = await this.prisma.notificationDelivery.findFirst({
+      where: { projectId, rule: { channel: 'intradesk', eventType: 'closureDate' }, status: 'error' },
+      orderBy: { sentAt: 'desc' },
+    });
+    if (!delivery) throw new NotFoundException('Не найдена ошибочная заявка SD для повторной отправки');
+    return this.prisma.notificationDelivery.update({
+      where: { id: delivery.id },
+      data: { status: 'retry_requested', sentAt: new Date() },
+    });
   }
 
   private validate(input: any, partial = false) {
