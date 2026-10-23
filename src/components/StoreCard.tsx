@@ -63,13 +63,6 @@ export default function StoreCard() {
   
   if (!project || !isCardOpen) return null;
 
-  const status = calculateProjectStatus(project);
-  const stages = calculateStages(projectForStages);
-  const nearestEvent = getNearestEvent(project);
-  const overdueInfo = getOverdueInfo(project);
-  const tu = tus.find(t => t.id === project.tuId);
-  const projectAudit = auditLog.filter(l => l.storeId === project.id).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  const projectComments = getProjectComments(project.id);
   const stageTasks = project.stageTasks || {};
   const projectForStages = {
     ...project,
@@ -80,6 +73,13 @@ export default function StoreCard() {
       } : {}),
     },
   };
+  const status = calculateProjectStatus(projectForStages);
+  const stages = calculateStages(projectForStages);
+  const nearestEvent = getNearestEvent(project);
+  const overdueInfo = getOverdueInfo(project);
+  const tu = tus.find(t => t.id === project.tuId);
+  const projectAudit = auditLog.filter(l => l.storeId === project.id).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const projectComments = getProjectComments(project.id);
   const taskGroups = project.workType === 'Открытие' ? [
     { title: 'Запланировано', tasks: [] as { id: string; label: string }[] },
   ] : [
