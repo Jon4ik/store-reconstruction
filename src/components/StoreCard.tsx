@@ -43,7 +43,10 @@ export default function StoreCard() {
   useEffect(() => {
     if (selectedProjectId && isCardOpen) {
       loadComments(selectedProjectId);
-      apiClient.getClosureRequestStatus(selectedProjectId).then(setClosureRequest).catch(() => setClosureRequest(null));
+      const refreshClosureRequest = () => apiClient.getClosureRequestStatus(selectedProjectId).then(setClosureRequest).catch(() => setClosureRequest(null));
+      void refreshClosureRequest();
+      const timer = window.setInterval(() => void refreshClosureRequest(), 10000);
+      return () => window.clearInterval(timer);
     }
   }, [selectedProjectId, isCardOpen, loadComments]);
 
