@@ -202,6 +202,23 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getClosureRequestStatus(projectId: string) {
+    return this.prisma.notificationDelivery.findFirst({
+      where: { projectId, rule: { channel: 'intradesk', eventType: 'closureDate' } },
+      orderBy: { sentAt: 'desc' },
+      select: { id: true, status: true, message: true, requestNumber: true, sentAt: true, ruleId: true, rule: { select: { name: true } } },
+    });
+  }
+
+  async retryClosureRequest(projectId: string) {
+    const delivery = await this.prisma.notificationDelivery.findFirst({
+      where: { projectId, rule: { channel: 'intradesk', eventType: 'closureDate' }, status: 'error' },
+      orderBy: { sentAt: 'desc' },
+    });
+    if (!delivery) throw new NotFoundException('Не найдена ошибочная заявка SD для повторной отправки');
+    return this.prisma.notificationDelivery.update({ where: { id: delivery.id }, data: { status: 'retry_requested', sentAt: new Date() } });
+  }
+
+  async getClosureRequestStatus(projectId: string) {
     const delivery = await this.prisma.notificationDelivery.findFirst({
       where: { projectId, rule: { channel: 'intradesk', eventType: 'closureDate' } },
       orderBy: { sentAt: 'desc' },
