@@ -227,6 +227,8 @@ export class StoresService {
         if (!value || typeof value !== 'object' || Array.isArray(value)) throw new BadRequestException('Некорректная задача этапа');
         const previous = previousTasks[taskId] || {};
         const next = { ...value };
+        // Имя всегда вычисляется из таблицы users и не принимается от клиента.
+        delete next.completedByUserName;
         if (next.completed === true) {
           // ID пользователя берём из проверенного JWT, а не из тела запроса.
           if (previous.completed === true) {
