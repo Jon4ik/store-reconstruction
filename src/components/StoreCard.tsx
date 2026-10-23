@@ -64,17 +64,9 @@ export default function StoreCard() {
   if (!project || !isCardOpen) return null;
 
   const stageTasks = project.stageTasks || {};
-  const projectForStages = {
-    ...project,
-    stageTasks: {
-      ...stageTasks,
-      ...(closureRequest?.status === 'sent' ? {
-        sdRequest: { ...(stageTasks.sdRequest || {}), completed: true, requestNumber: closureRequest.requestNumber || stageTasks.sdRequest?.requestNumber, status: 'sent' },
-      } : {}),
-    },
-  };
-  const status = calculateProjectStatus(projectForStages);
-  const stages = calculateStages(projectForStages);
+  // Статус карточки и главной таблицы рассчитывается по одним и тем же сохранённым задачам.
+  const status = calculateProjectStatus(project);
+  const stages = calculateStages(project);
   const nearestEvent = getNearestEvent(project);
   const overdueInfo = getOverdueInfo(project);
   const tu = tus.find(t => t.id === project.tuId);
@@ -96,8 +88,12 @@ export default function StoreCard() {
       { id: 'ukmOperationalDaysClosed', label: 'В УКМ закрыты операционные дни' },
       { id: 'cashDelConfigured', label: 'Конфигурации касс изменены на cash_del' },
     ] },
-    { title: 'Демонтаж', tasks: [] as { id: string; label: string }[] },
-    { title: 'Оборудование демонтировано', tasks: [{ id: 'equipmentDismantled', label: 'Оборудование демонтировано' }] },
+    { title: 'Демонтаж', tasks: [
+      { id: 'equipmentDismantled', label: 'Оборудование демонтировано' },
+      { id: 'monitoringRemovalRequested', label: 'Отправлена заявка на снятие с мониторинга' },
+      { id: 'removedFromMailings', label: 'Магазин убран из рассылок' },
+      { id: 'deletedFromPrintstat', label: 'Магазин удален из printstat' },
+    ] },
     { title: 'Оборудование доставлено', tasks: [{ id: 'equipmentDelivered', label: 'Оборудование доставлено' }] },
     { title: 'Работы завершены', tasks: [{ id: 'projectCompleted', label: 'Работы завершены' }] },
   ];
@@ -327,6 +323,7 @@ export default function StoreCard() {
                     <div>
                       <label className="text-xs font-medium text-gray-500 mb-1 block">Ручная установка статуса</label>
                       <p className="mb-2 text-xs text-gray-500">Выберите «Автоматически», чтобы текущий статус рассчитывался по датам и выполненным этапам таймлайна.</p>
+                      <p className="mb-1 text-xs text-gray-500">«Автоматически» — статус рассчитывается по датам и выполненным этапам таймлайна. Ручной статус отключает автоматический расчёт.</p>
                       <select value={editData?.manualStatus || ''} onChange={e => setEditData({ ...editData, manualStatus: e.target.value || null })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">
                         <option value="">Автоматически</option>
                         <option value="Запланирован">Запланирован</option>
