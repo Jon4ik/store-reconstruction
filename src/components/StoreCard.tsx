@@ -95,7 +95,12 @@ export default function StoreCard() {
       alert((error as Error).message || 'Не удалось сохранить задачу этапа');
     }
   };
-  const isStageTaskComplete = (group: { tasks: { id: string; label: string }[] }) => group.tasks.length > 0 && group.tasks.every(task => task.id === 'sdRequest' ? closureRequest?.status === 'sent' : stageTasks[task.id]?.completed === true);
+  const isStageTaskComplete = (group: { title: string; tasks: { id: string; label: string }[] }) => {
+    if (group.tasks.length > 0) return group.tasks.every(task => task.id === 'sdRequest' ? closureRequest?.status === 'sent' : stageTasks[task.id]?.completed === true);
+    if (group.title === 'Запланировано') return true;
+    const milestone = stages.find(stage => stage.name === group.title);
+    return milestone?.status === 'completed';
+  };
 
   const handleStartEdit = () => {
     setEditData({
@@ -383,11 +388,11 @@ export default function StoreCard() {
                 <h3 className="font-semibold text-gray-900">Задачи этапов</h3>
                 {taskGroups.map((group, index) => {
                   const completed = isStageTaskComplete(group);
-                  const previousTasksComplete = taskGroups.slice(0, index).every(previous => previous.tasks.length === 0 || isStageTaskComplete(previous));
+                  const previousTasksComplete = taskGroups.slice(0, index).every(previous => isStageTaskComplete(previous));
                   return <div key={group.title} className="rounded-lg border border-gray-200 p-4">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <h4 className="font-medium text-gray-900">{index + 1}. {group.title}</h4>
-                      <span className={completed ? "rounded-full px-2.5 py-1 text-xs font-medium bg-green-100 text-green-700" : "rounded-full px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-600"}>{group.tasks.length === 0 ? 'Этап' : completed ? 'Все задачи выполнены' : 'Выполняется'}</span>
+                      <span className={completed ? "rounded-full px-2.5 py-1 text-xs font-medium bg-green-100 text-green-700" : "rounded-full px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-600"}>{group.tasks.length === 0 ? completed ? 'Завершён' : 'Ожидает этапа' : completed ? 'Все задачи выполнены' : 'Выполняется'}</span>
                     </div>
                     {group.tasks.length === 0 ? <p className="text-sm text-gray-500">Этап определяется датой и завершением задач предыдущего этапа.</p> : <div className="space-y-3">
                       {group.tasks.map(task => task.id === 'sdRequest' ? <div key={task.id} className="flex flex-col gap-2 rounded-md bg-gray-50 p-3 text-sm">
