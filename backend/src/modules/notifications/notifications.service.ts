@@ -191,12 +191,21 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
             }
             await this.prisma.notificationDelivery.update({ where: { id: delivery.id }, data: { status: 'sent', message, requestNumber, sentAt: new Date() } });
             if (rule.channel === 'intradesk' && rule.eventType === 'closureDate' && rule.days === 1 && rule.offsetType === 'business_days') {
-              const previousTasks = project.stageTasks && typeof project.stageTasks === 'object' && !Array.isArray(project.stageTasks)
-                ? project.stageTasks as Record<string, any>
-                : {};
-              await this.prisma.storeProject.update({
-                where: { id: project.id },
-                data: { stageTasks: { ...previousTasks, sdRequest: { ...(previousTasks.sdRequest || {}), completed: true, requestNumber, status: 'sent', updatedAt: new Date().toISOString() } } },
+              await this.prisma.storeStageTask.upsert({
+                where: { projectId_taskId: { projectId: project.id, taskId: 'sdRequest' } },
+                create: {
+                  projectId: project.id,
+                  taskId: 'sdRequest',
+                  completed: true,
+                  requestNumber,
+                  status: 'sent',
+                  message: '',
+                },
+                update: {
+                  completed: true,
+                  requestNumber,
+                  status: 'sent',
+                },
               });
             }
             this.logger.log(`Уведомление отправлено: ruleId=${rule.id}, channel=${rule.channel}, projectId=${project.id}, shop=${shopNumber}${requestNumber ? ', номер/ID=' + requestNumber : ''}`);
