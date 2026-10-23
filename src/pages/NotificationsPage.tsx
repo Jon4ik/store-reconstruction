@@ -20,9 +20,18 @@ const events: Record<string, string> = {
   closureDate: 'Закрытие для покупателей', demolitionDate: 'Демонтаж',
   installationDate: 'Монтаж', techOpenDate: 'Техническое открытие',
 };
-const offsetLabels: Record<string, string> = {
-  calendar_days: 'За N дней до событий', business_days: 'За N рабочих дней до событий',
+const pluralize = (value: number, forms: [string, string, string]) => {
+  const n = Math.abs(value) % 100;
+  const last = n % 10;
+  if (n > 10 && n < 20) return forms[2];
+  if (last > 1 && last < 5) return forms[1];
+  if (last === 1) return forms[0];
+  return forms[2];
 };
+const eventOffsetLabel = (offsetType: Rule['offsetType'], days: number) =>
+  offsetType === 'business_days'
+    ? `За ${days} ${pluralize(days, ['рабочий день', 'рабочих дня', 'рабочих дней'])} до события`
+    : `За ${days} ${pluralize(days, ['день', 'дня', 'дней'])} до события`;
 
 export default function NotificationsPage() {
   const { hasPermission } = useStore();
@@ -121,7 +130,7 @@ export default function NotificationsPage() {
     } catch (e) { setError((e as Error).message || 'Не удалось удалить уведомление'); }
   };
 
-  const eventLabel = (rule: Rule) => `${offsetLabels[rule.offsetType].replace('N', String(rule.days))} · ${events[rule.eventType]}`;
+  const eventLabel = (rule: Rule) => `${eventOffsetLabel(rule.offsetType, rule.days)} · ${events[rule.eventType]}`;
 
   return <div className="space-y-6">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -223,8 +232,6 @@ export default function NotificationsPage() {
           <p><code className="rounded bg-white px-1.5 py-0.5">{'{tuFio}'}</code> — ФИО ТУ из tus.fullName</p>
           <p><code className="rounded bg-white px-1.5 py-0.5">{'{tuPhone}'}</code> — телефон ТУ из tus.phone</p>
           <p><code className="rounded bg-white px-1.5 py-0.5">{'{closureDate}'}</code> — дата закрытия для покупателей</p>
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{days}'}</code> — число дней</p>
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{daysText}'}</code> — число со склонением: 1 день, 2 дня, 5 дней</p>
           <p><code className="rounded bg-white px-1.5 py-0.5">{'{demolitionDate}'}</code> — дата демонтажа</p>
           <p><code className="rounded bg-white px-1.5 py-0.5">{'{installationDate}'}</code> — дата монтажа</p>
           <p><code className="rounded bg-white px-1.5 py-0.5">{'{techOpenDate}'}</code> — дата технического открытия</p>

@@ -13,6 +13,18 @@ export class NotificationsController {
   @RequirePermissions('view_notifications')
   findAll() { return this.notifications.findAll(); }
 
+  @Get('projects/:projectId/closure-request')
+  @RequirePermissions('view')
+  getClosureRequestStatus(@Param('projectId') projectId: string) {
+    return this.notifications.getClosureRequestStatus(projectId);
+  }
+
+  @Post('projects/:projectId/closure-request/retry')
+  @RequirePermissions('edit')
+  retryClosureRequest(@Param('projectId') projectId: string) {
+    return this.notifications.retryClosureRequest(projectId);
+  }
+
   @Post()
   @RequirePermissions('create_notifications')
   create(@Body() body: any) { return this.notifications.create(body); }

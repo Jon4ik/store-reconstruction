@@ -4,12 +4,15 @@ import { calculateProjectStatus, calculateStages, getNearestEvent, getOverdueInf
 import { X, Edit3, Check, AlertTriangle, Clock, MapPin, User, Calendar, MessageSquare, History, ChevronDown, ChevronUp, Send, Palette } from 'lucide-react';
 import { validateDate } from '../utils/validation';
 import { formatDate } from '../utils/format';
+import { apiClient } from '../api/client';
 
 export default function StoreCard() {
   const { selectedProjectId, isCardOpen, closeCard, projects, tus, users, auditLog, updateProject, deleteProject, currentUser, isEditing, setEditing, hasPermission, addComment, getProjectComments, loadComments } = useStore();
   const [editData, setEditData] = useState<any>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [newComment, setNewComment] = useState('');
+  const [closureRequest, setClosureRequest] = useState<any>(null);
+  const [retryingClosureRequest, setRetryingClosureRequest] = useState(false);
   const [activeTab, setActiveTab] = useState<'main' | 'stages' | 'comments' | 'delete'>('main');
 
   const project = projects.find(p => p.id === selectedProjectId);
@@ -40,8 +43,23 @@ export default function StoreCard() {
   useEffect(() => {
     if (selectedProjectId && isCardOpen) {
       loadComments(selectedProjectId);
+      const refreshClosureRequest = () => apiClient.getClosureRequestStatus(selectedProjectId).then(setClosureRequest).catch(() => setClosureRequest(null));
+      void refreshClosureRequest();
+      const timer = window.setInterval(() => void refreshClosureRequest(), 10000);
+      return () => window.clearInterval(timer);
     }
   }, [selectedProjectId, isCardOpen, loadComments]);
+
+  const retryClosureRequest = async () => {
+    if (!selectedProjectId) return;
+    setRetryingClosureRequest(true);
+    try {
+      await apiClient.retryClosureRequest(selectedProjectId);
+      const status = await apiClient.getClosureRequestStatus(selectedProjectId);
+      setClosureRequest(status);
+    } catch (error) { alert((error as Error).message || 'Не удалось повторно отправить заявку SD'); }
+    finally { setRetryingClosureRequest(false); }
+  };
   
   if (!project || !isCardOpen) return null;
 
@@ -52,6 +70,40 @@ export default function StoreCard() {
   const tu = tus.find(t => t.id === project.tuId);
   const projectAudit = auditLog.filter(l => l.storeId === project.id).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   const projectComments = getProjectComments(project.id);
+  const stageTasks = project.stageTasks || {};
+  const taskGroups = project.workType === 'Открытие' ? [
+    { title: 'Запланировано', tasks: [] as { id: string; label: string }[] },
+  ] : [
+    { title: 'Запланировано', tasks: [] as { id: string; label: string }[] },
+    { title: 'За 1 рабочий день до закрытия', tasks: [
+      { id: 'sdRequest', label: 'Заявка в SD создана' },
+      { id: 'sberApplication', label: 'Заявка в Сбер сделана' },
+      { id: 'lakshmiApplication', label: 'Заявка в Лакшми сделана' },
+    ] },
+    { title: 'Закрыт для покупателей', tasks: [] as { id: string; label: string }[] },
+    { title: 'За 1 рабочий день до демонтажа', tasks: [
+      { id: 'ukmShiftsClosed', label: 'В УКМ закрыты смены' },
+      { id: 'ukmOperationalDaysClosed', label: 'В УКМ закрыты операционные дни' },
+      { id: 'cashDelConfigured', label: 'Конфигурации касс изменены на cash_del' },
+    ] },
+    { title: 'Демонтаж', tasks: [] as { id: string; label: string }[] },
+    { title: 'Оборудование демонтировано', tasks: [{ id: 'equipmentDismantled', label: 'Оборудование демонтировано' }] },
+    { title: 'Оборудование доставлено', tasks: [{ id: 'equipmentDelivered', label: 'Оборудование доставлено' }] },
+    { title: 'Завершено', tasks: [{ id: 'projectCompleted', label: 'Работы завершены' }] },
+  ];
+  const toggleStageTask = async (taskId: string, completed: boolean) => {
+    try {
+      await updateProject(project.id, { stageTasks: { ...stageTasks, [taskId]: { ...(stageTasks[taskId] || {}), completed, updatedAt: new Date().toISOString() } } });
+    } catch (error) {
+      alert((error as Error).message || 'Не удалось сохранить задачу этапа');
+    }
+  };
+  const isStageTaskComplete = (group: { title: string; tasks: { id: string; label: string }[] }) => {
+    if (group.tasks.length > 0) return group.tasks.every(task => task.id === 'sdRequest' ? closureRequest?.status === 'sent' : stageTasks[task.id]?.completed === true);
+    if (group.title === 'Запланировано') return true;
+    const milestone = stages.find(stage => stage.name === group.title);
+    return milestone?.status === 'completed';
+  };
 
   const handleStartEdit = () => {
     setEditData({
@@ -319,7 +371,7 @@ export default function StoreCard() {
                           )}
                         </div>
                       </div>
-                      {isEditing ? (
+                      {isEditing && getStageField(stage.name) ? (
                         <input
                           type="date"
                           value={toInputDate(editData?.[getStageField(stage.name)] || '')}
@@ -328,13 +380,39 @@ export default function StoreCard() {
                         />
                       ) : (
                         <p className={`text-sm ${stage.date ? 'text-gray-700' : 'text-gray-400 italic'}`}>
-                          {formatDate(stage.date) || 'Не назначено'}
+                          {stage.name === 'Запланировано' ? 'Этап создан' : formatDate(stage.date) || 'Не назначено'}
                         </p>
                       )}
                     </div>
                   </div>
                 ))}
               </div>
+              <section className="mt-8 space-y-4">
+                <h3 className="font-semibold text-gray-900">Задачи этапов</h3>
+                {taskGroups.map((group, index) => {
+                  const completed = isStageTaskComplete(group);
+                  const previousTasksComplete = taskGroups.slice(0, index).every(previous => isStageTaskComplete(previous));
+                  return <div key={group.title} className="rounded-lg border border-gray-200 p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <h4 className="font-medium text-gray-900">{index + 1}. {group.title}</h4>
+                      <span className={completed ? "rounded-full px-2.5 py-1 text-xs font-medium bg-green-100 text-green-700" : "rounded-full px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-600"}>{group.tasks.length === 0 ? completed ? 'Завершён' : 'Ожидает этапа' : completed ? 'Все задачи выполнены' : 'Выполняется'}</span>
+                    </div>
+                    {group.tasks.length === 0 ? <p className="text-sm text-gray-500">Этап определяется датой и завершением задач предыдущего этапа.</p> : <div className="space-y-3">
+                      {group.tasks.map(task => task.id === 'sdRequest' ? <div key={task.id} className="flex flex-col gap-2 rounded-md bg-gray-50 p-3 text-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-medium text-gray-800">{task.label}</span>
+                          <span className={closureRequest?.status === 'sent' ? "rounded-full bg-green-100 px-2 py-1 text-xs text-green-700" : closureRequest?.status === 'error' ? "rounded-full bg-red-100 px-2 py-1 text-xs text-red-700" : "rounded-full bg-gray-200 px-2 py-1 text-xs text-gray-700"}>{closureRequest?.status === 'sent' ? 'Успешно создана' : closureRequest?.status === 'error' ? 'Ошибка создания' : closureRequest?.status === 'retry_requested' || closureRequest?.status === 'sending' ? 'Отправляется' : 'Ожидает отправки по правилу уведомлений'}</span>
+                        </div>
+                        {closureRequest?.requestNumber && <p className="text-gray-600">Номер заявки: <strong>{closureRequest.requestNumber}</strong></p>}
+                        {closureRequest?.status === 'error' && <><p className="text-red-700">{closureRequest.message}</p><button type="button" disabled={retryingClosureRequest} onClick={() => void retryClosureRequest()} className="self-start rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">{retryingClosureRequest ? 'Отправка…' : 'Повторить отправку'}</button></>}
+                      </div> : <label key={task.id} className="flex items-start gap-3 text-sm text-gray-700">
+                        <input type="checkbox" disabled={!previousTasksComplete} checked={stageTasks[task.id]?.completed === true} onChange={event => void toggleStageTask(task.id, event.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 disabled:opacity-40" />
+                        <span>{task.label}</span>
+                      </label>)}
+                    </div>}
+                  </div>;
+                })}
+              </section>
             </div>
           )}
 

@@ -54,15 +54,12 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     return `${result.getUTCFullYear()}-${String(result.getUTCMonth() + 1).padStart(2, '0')}-${String(result.getUTCDate()).padStart(2, '0')}`;
   }
 
-  private renderTemplate(template: string, project: any, days?: number) {
-    const pluralDays = (value: number) => { const n = Math.abs(value) % 100; const last = n % 10; return n > 10 && n < 20 ? 'дней' : last > 1 && last < 5 ? 'дня' : last === 1 ? 'день' : 'дней'; };
+  private renderTemplate(template: string, project: any) {
     const values: Record<string, string> = {
       shopNumber: String(project.shop?.shopNumber || project.storeNumber || ''),
       address: String(project.shop?.address || ''),
       tuFio: String(project.tu?.fullName || ''),
       tuPhone: String(project.tu?.phone || ''),
-      days: days === undefined ? '' : String(days),
-      daysText: days === undefined ? '' : `${days} ${pluralDays(days)}`,
     };
     for (const key of EVENT_TYPES) {
       const value = project[key];
@@ -95,7 +92,6 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       const nowMoscow = this.getMoscowDateTime(new Date());
       const projects = await this.prisma.storeProject.findMany({ where: { isDeleted: false }, include: { shop: true, tu: true } });
       for (const rule of rules) {
-        if (rule.sendTime !== nowMoscow.time) continue;
         const enabled = rule.channel === 'intradesk' ? integrations.intraDeskEnabled : rule.channel === 'pachca' ? integrations.pachcaEnabled : integrations.smtpEnabled;
         if (!enabled) {
           this.logger.warn(`Пропуск уведомления «${rule.name}»: интеграция ${rule.channel} выключена`);
@@ -107,13 +103,13 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
           const eventDateKey = this.getMoscowDateTime(new Date(rawEventDate)).dateKey;
           const eventDate = new Date(`${eventDateKey}T00:00:00.000Z`);
           const dueDateKey = this.subtractDateDays(eventDateKey, rule.days, rule.offsetType === 'business_days');
-          if (dueDateKey !== nowMoscow.dateKey) continue;
           const unique = { ruleId_projectId_eventDate: { ruleId: rule.id, projectId: project.id, eventDate } };
           const existing = await this.prisma.notificationDelivery.findUnique({ where: unique });
+          if (existing?.status !== 'retry_requested' && (dueDateKey !== nowMoscow.dateKey || rule.sendTime !== nowMoscow.time)) continue;
           if (String(existing?.status || '').toLowerCase() === 'sent') continue;
           let delivery: any;
           const shopNumber = String(project.shop?.shopNumber || project.storeNumber || '');
-          const message = this.renderTemplate(rule.messageTemplate, project, rule.days);
+          const message = this.renderTemplate(rule.messageTemplate, project);
           let requestNumber = '';
           try {
             delivery = existing || await this.prisma.notificationDelivery.create({ data: { ruleId: rule.id, projectId: project.id, eventDate, status: 'sending' } });
@@ -201,6 +197,23 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
 
   findAll() {
     return this.prisma.notificationRule.findMany({ orderBy: { createdAt: 'asc' } });
+  }
+
+  async getClosureRequestStatus(projectId: string) {
+    return this.prisma.notificationDelivery.findFirst({
+      where: { projectId, rule: { channel: 'intradesk', eventType: 'closureDate', days: 1, offsetType: 'business_days' } },
+      orderBy: { sentAt: 'desc' },
+      select: { id: true, status: true, message: true, requestNumber: true, sentAt: true, ruleId: true, rule: { select: { name: true } } },
+    });
+  }
+
+  async retryClosureRequest(projectId: string) {
+    const delivery = await this.prisma.notificationDelivery.findFirst({
+      where: { projectId, rule: { channel: 'intradesk', eventType: 'closureDate', days: 1, offsetType: 'business_days' }, status: 'error' },
+      orderBy: { sentAt: 'desc' },
+    });
+    if (!delivery) throw new NotFoundException('Не найдена ошибочная заявка SD для повторной отправки');
+    return this.prisma.notificationDelivery.update({ where: { id: delivery.id }, data: { status: 'retry_requested', sentAt: new Date() } });
   }
 
   private validate(input: any, partial = false) {

@@ -46,6 +46,7 @@ export interface StoreProject {
   comment: string;
   status: ProjectStatus;
   manualStatus: ProjectStatus | null;
+  stageTasks?: Record<string, { completed?: boolean; status?: string; requestNumber?: string; message?: string; updatedAt?: string }>;
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;
