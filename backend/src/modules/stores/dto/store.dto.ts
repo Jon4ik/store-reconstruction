@@ -1,4 +1,4 @@
-import { IsIn, IsInt, IsOptional, IsString, Length, Max, MaxLength, Min } from 'class-validator';
+import { IsIn, IsInt, IsObject, IsOptional, IsString, Length, Max, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 const WORK_TYPES = ['Закрытие', 'Реконструкция', 'Открытие'];
@@ -16,7 +16,7 @@ export class CreateStoreDto {
   @IsOptional() @IsString() @MaxLength(30) demolitionDate?: string | null;
   @IsOptional() @IsString() @MaxLength(30) installationDate?: string | null;
   @IsOptional() @IsString() @MaxLength(30) techOpenDate?: string | null;
-  @IsOptional() stageTasks?: Record<string, unknown>;
+  @IsOptional() @IsObject() stageTasks?: Record<string, unknown>;
 }
 
 export class UpdateStoreDto {
@@ -31,6 +31,7 @@ export class UpdateStoreDto {
   @IsOptional() @IsString() @MaxLength(30) demolitionDate?: string | null;
   @IsOptional() @IsString() @MaxLength(30) installationDate?: string | null;
   @IsOptional() @IsString() @MaxLength(30) techOpenDate?: string | null;
+  @IsOptional() @IsObject() stageTasks?: Record<string, unknown>;
 }
 
 export class StoreQueryDto {
