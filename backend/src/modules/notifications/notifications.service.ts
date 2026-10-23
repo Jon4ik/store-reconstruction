@@ -209,32 +209,11 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
 
   async retryClosureRequest(projectId: string) {
     const delivery = await this.prisma.notificationDelivery.findFirst({
-      where: { projectId, rule: { channel: 'intradesk', eventType: 'closureDate' }, status: 'error' },
+      where: { projectId, rule: { channel: 'intradesk', eventType: 'closureDate', days: 1, offsetType: 'business_days' }, status: 'error' },
       orderBy: { sentAt: 'desc' },
     });
     if (!delivery) throw new NotFoundException('Не найдена ошибочная заявка SD для повторной отправки');
     return this.prisma.notificationDelivery.update({ where: { id: delivery.id }, data: { status: 'retry_requested', sentAt: new Date() } });
-  }
-
-  async getClosureRequestStatus(projectId: string) {
-    const delivery = await this.prisma.notificationDelivery.findFirst({
-      where: { projectId, rule: { channel: 'intradesk', eventType: 'closureDate' } },
-      orderBy: { sentAt: 'desc' },
-      select: { id: true, status: true, message: true, requestNumber: true, sentAt: true, ruleId: true, rule: { select: { name: true } } },
-    });
-    return delivery;
-  }
-
-  async retryClosureRequest(projectId: string) {
-    const delivery = await this.prisma.notificationDelivery.findFirst({
-      where: { projectId, rule: { channel: 'intradesk', eventType: 'closureDate' }, status: 'error' },
-      orderBy: { sentAt: 'desc' },
-    });
-    if (!delivery) throw new NotFoundException('Не найдена ошибочная заявка SD для повторной отправки');
-    return this.prisma.notificationDelivery.update({
-      where: { id: delivery.id },
-      data: { status: 'retry_requested', sentAt: new Date() },
-    });
   }
 
   private validate(input: any, partial = false) {
