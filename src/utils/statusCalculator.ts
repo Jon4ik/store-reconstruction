@@ -53,6 +53,7 @@ export function getStagesByWorkType(workType: WorkType): { name: string; dateKey
         { name: 'Запланировано', dateKey: '' },
         { name: 'Закрыт для покупателей', dateKey: 'closureDate' },
         { name: 'Демонтаж', dateKey: 'demolitionDate' },
+        { name: 'Работы завершены', dateKey: '' },
       ];
     case 'Реконструкция':
       return [
@@ -61,12 +62,14 @@ export function getStagesByWorkType(workType: WorkType): { name: string; dateKey
         { name: 'Демонтаж', dateKey: 'demolitionDate' },
         { name: 'Монтаж', dateKey: 'installationDate' },
         { name: 'Техническое открытие', dateKey: 'techOpenDate' },
+        { name: 'Работы завершены', dateKey: '' },
       ];
     case 'Открытие':
       return [
         { name: 'Запланировано', dateKey: '' },
         { name: 'Монтаж', dateKey: 'installationDate' },
         { name: 'Техническое открытие', dateKey: 'techOpenDate' },
+        { name: 'Работы завершены', dateKey: '' },
       ];
     default:
       return [];
@@ -103,6 +106,16 @@ export function calculateStages(project: StoreProject): StageInfo[] {
     }
     if (stage.name === 'Закрыт для покупателей' && stageTasks.buyersClosed?.completed === true) {
       return { name: stage.name, date: stage.date, status: 'completed', isOverdue: false, daysUntil: null, daysOverdue: null };
+    }
+    if (stage.name === 'Работы завершены') {
+      if (stageTasks.projectCompleted?.completed === true) {
+        return { name: stage.name, date: null, status: 'completed', isOverdue: false, daysUntil: null, daysOverdue: null };
+      }
+      if (stages.slice(0, index).every(previous => previous.name === 'Запланировано' ? plannedComplete : previous.status === 'completed')) {
+        foundCurrent = true;
+        return { name: stage.name, date: null, status: 'current', isOverdue: false, daysUntil: null, daysOverdue: null };
+      }
+      return { name: stage.name, date: null, status: 'planned', isOverdue: false, daysUntil: null, daysOverdue: null };
     }
     if (!plannedComplete) {
       return { name: stage.name, date: stage.date, status: 'planned', isOverdue: false, daysUntil: date ? differenceInDays(date, today) : null, daysOverdue: null };
