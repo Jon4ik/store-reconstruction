@@ -363,7 +363,7 @@ export default function StoreCard() {
                           )}
                         </div>
                       </div>
-                      {isEditing ? (
+                      {isEditing && getStageField(stage.name) ? (
                         <input
                           type="date"
                           value={toInputDate(editData?.[getStageField(stage.name)] || '')}
