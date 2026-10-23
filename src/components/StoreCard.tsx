@@ -64,17 +64,9 @@ export default function StoreCard() {
   if (!project || !isCardOpen) return null;
 
   const stageTasks = project.stageTasks || {};
-  const projectForStages = {
-    ...project,
-    stageTasks: {
-      ...stageTasks,
-      ...(closureRequest?.status === 'sent' ? {
-        sdRequest: { ...(stageTasks.sdRequest || {}), completed: true, requestNumber: closureRequest.requestNumber || stageTasks.sdRequest?.requestNumber, status: 'sent' },
-      } : {}),
-    },
-  };
-  const status = calculateProjectStatus(projectForStages);
-  const stages = calculateStages(projectForStages);
+  // Статус карточки и главной таблицы рассчитывается по одним и тем же сохранённым задачам.
+  const status = calculateProjectStatus(project);
+  const stages = calculateStages(project);
   const nearestEvent = getNearestEvent(project);
   const overdueInfo = getOverdueInfo(project);
   const tu = tus.find(t => t.id === project.tuId);
@@ -96,8 +88,12 @@ export default function StoreCard() {
       { id: 'ukmOperationalDaysClosed', label: 'В УКМ закрыты операционные дни' },
       { id: 'cashDelConfigured', label: 'Конфигурации касс изменены на cash_del' },
     ] },
-    { title: 'Демонтаж', tasks: [] as { id: string; label: string }[] },
-    { title: 'Оборудование демонтировано', tasks: [{ id: 'equipmentDismantled', label: 'Оборудование демонтировано' }] },
+    { title: 'Демонтаж', tasks: [
+      { id: 'equipmentDismantled', label: 'Оборудование демонтировано' },
+      { id: 'monitoringRemovalRequested', label: 'Отправлена заявка на снятие с мониторинга' },
+      { id: 'removedFromMailings', label: 'Магазин убран из рассылок' },
+      { id: 'deletedFromPrintstat', label: 'Магазин удален из printstat' },
+    ] },
     { title: 'Оборудование доставлено', tasks: [{ id: 'equipmentDelivered', label: 'Оборудование доставлено' }] },
     { title: 'Работы завершены', tasks: [{ id: 'projectCompleted', label: 'Работы завершены' }] },
   ];
