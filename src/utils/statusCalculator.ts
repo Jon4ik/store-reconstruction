@@ -50,11 +50,13 @@ export function getStagesByWorkType(workType: WorkType): { name: string; dateKey
   switch (workType) {
     case 'Закрытие':
       return [
+        { name: 'Запланировано', dateKey: '' },
         { name: 'Закрыт для покупателей', dateKey: 'closureDate' },
         { name: 'Демонтаж', dateKey: 'demolitionDate' },
       ];
     case 'Реконструкция':
       return [
+        { name: 'Запланировано', dateKey: '' },
         { name: 'Закрыт для покупателей', dateKey: 'closureDate' },
         { name: 'Демонтаж', dateKey: 'demolitionDate' },
         { name: 'Монтаж', dateKey: 'installationDate' },
@@ -62,6 +64,7 @@ export function getStagesByWorkType(workType: WorkType): { name: string; dateKey
       ];
     case 'Открытие':
       return [
+        { name: 'Запланировано', dateKey: '' },
         { name: 'Монтаж', dateKey: 'installationDate' },
         { name: 'Техническое открытие', dateKey: 'techOpenDate' },
       ];
@@ -84,6 +87,7 @@ export function calculateStages(project: StoreProject): StageInfo[] {
   return stages.map((stage, index) => {
     const date = parseDate(stage.date);
     let status: StageStatus;
+    if (stage.name === 'Запланировано') return { name: stage.name, date: null, status: 'completed', isOverdue: false, daysUntil: null, daysOverdue: null };
     let isOverdue = false;
     let daysUntil: number | null = null;
     let daysOverdue: number | null = null;
