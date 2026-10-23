@@ -111,7 +111,7 @@ export function calculateStages(project: StoreProject): StageInfo[] {
       if (stageTasks.projectCompleted?.completed === true) {
         return { name: stage.name, date: null, status: 'completed', isOverdue: false, daysUntil: null, daysOverdue: null };
       }
-      if (stages.slice(0, index).every(previous => previous.name === 'Запланировано' ? plannedComplete : previous.status === 'completed')) {
+      if (!foundCurrent) {
         foundCurrent = true;
         return { name: stage.name, date: null, status: 'current', isOverdue: false, daysUntil: null, daysOverdue: null };
       }
