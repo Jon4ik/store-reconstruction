@@ -4,6 +4,7 @@ export type StageStatus = 'completed' | 'current' | 'overdue' | 'planned' | 'not
 
 export type ProjectStatus = 
   | 'Запланирован'
+  | 'В работе'
   | 'Закрыт для покупателей'
   | 'Демонтаж'
   | 'Монтаж'

@@ -127,7 +127,7 @@ model StoreProject {
   comment          String    @default("")
   status           String    @default("Запланирован")
   manualStatus     String?
-  stageTasks       Json      @default("{}")
+  stageTasks       StoreStageTask[]
   isDeleted        Boolean   @default(false)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -135,6 +135,23 @@ model StoreProject {
   comments         Comment[]
   auditLogs        AuditLog[]
   @@map("store_projects")
+}
+
+
+model StoreStageTask {
+  id                 String       @id @default(uuid())
+  projectId          String
+  project            StoreProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  taskId             String
+  completed          Boolean      @default(false)
+  status             String?
+  requestNumber      String       @default("")
+  message            String       @default("") @db.Text
+  updatedAt          DateTime     @updatedAt
+  completedByUserId  String?
+  @@unique([projectId, taskId])
+  @@index([projectId])
+  @@map("store_stage_tasks")
 }
 
 model Comment {

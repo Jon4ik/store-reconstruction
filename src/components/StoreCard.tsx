@@ -323,6 +323,7 @@ export default function StoreCard() {
                     <div>
                       <label className="text-xs font-medium text-gray-500 mb-1 block">Ручная установка статуса</label>
                       <p className="mb-2 text-xs text-gray-500">Выберите «Автоматически», чтобы текущий статус рассчитывался по датам и выполненным этапам таймлайна.</p>
+                      <p className="mb-1 text-xs text-gray-500">«Автоматически» — статус рассчитывается по датам и выполненным этапам таймлайна. Ручной статус отключает автоматический расчёт.</p>
                       <select value={editData?.manualStatus || ''} onChange={e => setEditData({ ...editData, manualStatus: e.target.value || null })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">
                         <option value="">Автоматически</option>
                         <option value="Запланирован">Запланирован</option>
