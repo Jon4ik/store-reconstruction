@@ -64,23 +64,33 @@ export default function StoreCard() {
   if (!project || !isCardOpen) return null;
 
   const status = calculateProjectStatus(project);
-  const stages = calculateStages(project);
+  const stages = calculateStages(projectForStages);
   const nearestEvent = getNearestEvent(project);
   const overdueInfo = getOverdueInfo(project);
   const tu = tus.find(t => t.id === project.tuId);
   const projectAudit = auditLog.filter(l => l.storeId === project.id).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   const projectComments = getProjectComments(project.id);
   const stageTasks = project.stageTasks || {};
+  const projectForStages = {
+    ...project,
+    stageTasks: {
+      ...stageTasks,
+      ...(closureRequest?.status === 'sent' ? {
+        sdRequest: { ...(stageTasks.sdRequest || {}), completed: true, requestNumber: closureRequest.requestNumber || stageTasks.sdRequest?.requestNumber, status: 'sent' },
+      } : {}),
+    },
+  };
   const taskGroups = project.workType === 'Открытие' ? [
     { title: 'Запланировано', tasks: [] as { id: string; label: string }[] },
   ] : [
-    { title: 'Запланировано', tasks: [] as { id: string; label: string }[] },
-    { title: 'За 1 рабочий день до закрытия', tasks: [
+    { title: 'Запланировано', tasks: [
       { id: 'sdRequest', label: 'Заявка в SD создана' },
       { id: 'sberApplication', label: 'Заявка в Сбер сделана' },
       { id: 'lakshmiApplication', label: 'Заявка в Лакшми сделана' },
     ] },
-    { title: 'Закрыт для покупателей', tasks: [] as { id: string; label: string }[] },
+    { title: 'Закрыт для покупателей', tasks: [
+      { id: 'buyersClosed', label: 'Магазин закрыт для покупателей' },
+    ] },
     { title: 'За 1 рабочий день до демонтажа', tasks: [
       { id: 'ukmShiftsClosed', label: 'В УКМ закрыты смены' },
       { id: 'ukmOperationalDaysClosed', label: 'В УКМ закрыты операционные дни' },
@@ -99,8 +109,14 @@ export default function StoreCard() {
     }
   };
   const isStageTaskComplete = (group: { title: string; tasks: { id: string; label: string }[] }) => {
-    if (group.tasks.length > 0) return group.tasks.every(task => task.id === 'sdRequest' ? closureRequest?.status === 'sent' : stageTasks[task.id]?.completed === true);
-    if (group.title === 'Запланировано') return true;
+    if (group.tasks.length > 0) return group.tasks.every(task => task.id === 'sdRequest'
+      ? closureRequest?.status === 'sent' || stageTasks.sdRequest?.completed === true
+      : stageTasks[task.id]?.completed === true);
+    if (group.title === 'Запланировано') return project.workType === 'Открытие' || (
+      (closureRequest?.status === 'sent' || stageTasks.sdRequest?.completed === true) &&
+      stageTasks.sberApplication?.completed === true &&
+      stageTasks.lakshmiApplication?.completed === true
+    );
     const milestone = stages.find(stage => stage.name === group.title);
     return milestone?.status === 'completed';
   };
@@ -403,11 +419,19 @@ export default function StoreCard() {
                           <span className="font-medium text-gray-800">{task.label}</span>
                           <span className={closureRequest?.status === 'sent' ? "rounded-full bg-green-100 px-2 py-1 text-xs text-green-700" : closureRequest?.status === 'error' ? "rounded-full bg-red-100 px-2 py-1 text-xs text-red-700" : "rounded-full bg-gray-200 px-2 py-1 text-xs text-gray-700"}>{closureRequest?.status === 'sent' ? 'Успешно создана' : closureRequest?.status === 'error' ? 'Ошибка создания' : closureRequest?.status === 'retry_requested' || closureRequest?.status === 'sending' ? 'Отправляется' : 'Ожидает отправки по правилу уведомлений'}</span>
                         </div>
-                        {closureRequest?.requestNumber && <p className="text-gray-600">Номер заявки: <strong>{closureRequest.requestNumber}</strong></p>}
+                        {(closureRequest?.requestNumber || stageTasks.sdRequest?.requestNumber) && <p className="text-gray-600">Номер заявки: <strong>{closureRequest?.requestNumber || stageTasks.sdRequest?.requestNumber}</strong></p>}
                         {closureRequest?.status === 'error' && <><p className="text-red-700">{closureRequest.message}</p><button type="button" disabled={retryingClosureRequest} onClick={() => void retryClosureRequest()} className="self-start rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">{retryingClosureRequest ? 'Отправка…' : 'Повторить отправку'}</button></>}
                       </div> : <label key={task.id} className="flex items-start gap-3 text-sm text-gray-700">
                         <input type="checkbox" disabled={!previousTasksComplete} checked={stageTasks[task.id]?.completed === true} onChange={event => void toggleStageTask(task.id, event.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 disabled:opacity-40" />
-                        <span>{task.label}</span>
+                        <span className="flex-1">
+                          {task.label}
+                          {stageTasks[task.id]?.completed === true && (
+                            <span className="mt-1 block text-xs text-gray-500">
+                              Отметил: {users.find(user => user.id === stageTasks[task.id]?.completedByUserId)?.fullName || 'Пользователь не найден'}
+                              {stageTasks[task.id]?.updatedAt ? ` · ${new Date(stageTasks[task.id].updatedAt!).toLocaleString('ru-RU')}` : ''}
+                            </span>
+                          )}
+                        </span>
                       </label>)}
                     </div>}
                   </div>;
