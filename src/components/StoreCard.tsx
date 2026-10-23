@@ -50,6 +50,28 @@ export default function StoreCard() {
     }
   }, [selectedProjectId, isCardOpen, loadComments]);
 
+  // Успешно отправленная заявка SD должна стать сохранённой задачей этапа.
+  // Иначе UI показывает её выполненной по статусу интеграции, а таймлайн и общий
+  // статус продолжают считать этап «Запланировано» незавершённым.
+  useEffect(() => {
+    const currentProject = projects.find(p => p.id === selectedProjectId);
+    if (!selectedProjectId || !isCardOpen || closureRequest?.status !== 'sent' ||
+        currentProject?.stageTasks?.sdRequest?.completed === true) return;
+
+    void updateProject(selectedProjectId, {
+      stageTasks: {
+        ...(currentProject?.stageTasks || {}),
+        sdRequest: {
+          ...(currentProject?.stageTasks?.sdRequest || {}),
+          completed: true,
+          updatedAt: new Date().toISOString(),
+        },
+      },
+    }).catch((error) => {
+      console.error('Не удалось синхронизировать выполненную заявку SD с задачами этапа:', error);
+    });
+  }, [closureRequest?.status, selectedProjectId, isCardOpen, projects, updateProject]);
+
   const retryClosureRequest = async () => {
     if (!selectedProjectId) return;
     setRetryingClosureRequest(true);
