@@ -191,7 +191,25 @@ export class StoresService {
     }
     if (data.stageTasks !== undefined) {
       if (!data.stageTasks || typeof data.stageTasks !== 'object' || Array.isArray(data.stageTasks) || JSON.stringify(data.stageTasks).length > 20000) throw new BadRequestException('Некорректные задачи этапов');
-      clean.stageTasks = data.stageTasks;
+      const previousTasks = existing.stageTasks && typeof existing.stageTasks === 'object' && !Array.isArray(existing.stageTasks)
+        ? existing.stageTasks as Record<string, any>
+        : {};
+      const nextTasks: Record<string, any> = {};
+      for (const [taskId, value] of Object.entries(data.stageTasks as Record<string, any>)) {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) throw new BadRequestException('Некорректная задача этапа');
+        const previous = previousTasks[taskId] || {};
+        const next = { ...value };
+        if (next.completed === true) {
+          // ID пользователя берём из проверенного JWT, а не из тела запроса.
+          next.completedByUserId = previous.completed === true && previous.completedByUserId
+            ? previous.completedByUserId
+            : userId;
+        } else {
+          delete next.completedByUserId;
+        }
+        nextTasks[taskId] = next;
+      }
+      clean.stageTasks = nextTasks;
     }
     if (data.tuId !== undefined) {
       if (typeof data.tuId !== 'string') throw new BadRequestException('Некорректный ТУ');
