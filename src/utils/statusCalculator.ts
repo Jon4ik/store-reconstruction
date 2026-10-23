@@ -87,10 +87,26 @@ export function calculateStages(project: StoreProject): StageInfo[] {
   return stages.map((stage, index) => {
     const date = parseDate(stage.date);
     let status: StageStatus;
-    if (stage.name === 'Запланировано') return { name: stage.name, date: null, status: 'completed', isOverdue: false, daysUntil: null, daysOverdue: null };
     let isOverdue = false;
     let daysUntil: number | null = null;
     let daysOverdue: number | null = null;
+    const stageTasks = project.stageTasks || {};
+    const plannedComplete = project.workType === 'Открытие' || (
+      stageTasks.sdRequest?.completed === true &&
+      stageTasks.sberApplication?.completed === true &&
+      stageTasks.lakshmiApplication?.completed === true
+    );
+    if (stage.name === 'Запланировано') {
+      if (plannedComplete) return { name: stage.name, date: null, status: 'completed', isOverdue: false, daysUntil: null, daysOverdue: null };
+      foundCurrent = true;
+      return { name: stage.name, date: null, status: 'current', isOverdue: false, daysUntil: null, daysOverdue: null };
+    }
+    if (stage.name === 'Закрыт для покупателей' && stageTasks.buyersClosed?.completed === true) {
+      return { name: stage.name, date: stage.date, status: 'completed', isOverdue: false, daysUntil: null, daysOverdue: null };
+    }
+    if (!plannedComplete) {
+      return { name: stage.name, date: stage.date, status: 'planned', isOverdue: false, daysUntil: date ? differenceInDays(date, today) : null, daysOverdue: null };
+    }
 
     if (!date) {
       status = 'not_started';

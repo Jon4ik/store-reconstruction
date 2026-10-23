@@ -67,6 +67,32 @@ export class StoresService {
     return value.trim();
   }
 
+  private async withStageTaskUserNames<T extends { stageTasks?: unknown }>(stores: T[]): Promise<T[]> {
+    const userIds = [...new Set(stores.flatMap((store) => {
+      const tasks = store.stageTasks && typeof store.stageTasks === 'object' && !Array.isArray(store.stageTasks)
+        ? store.stageTasks as Record<string, any>
+        : {};
+      return Object.values(tasks)
+        .map((task: any) => task?.completedByUserId)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0);
+    }))];
+    if (!userIds.length) return stores;
+    const users = await this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, fullName: true } });
+    const names = new Map(users.map(user => [user.id, user.fullName]));
+    return stores.map((store) => {
+      const tasks = store.stageTasks && typeof store.stageTasks === 'object' && !Array.isArray(store.stageTasks)
+        ? store.stageTasks as Record<string, any>
+        : {};
+      const stageTasks = Object.fromEntries(Object.entries(tasks).map(([taskId, task]) => [
+        taskId,
+        task && typeof task === 'object' && task.completedByUserId
+          ? { ...task, completedByUserName: names.get(task.completedByUserId) || 'Пользователь удалён' }
+          : task,
+      ]));
+      return { ...store, stageTasks } as T;
+    });
+  }
+
   async findAll(query: any) {
     const page = Number(query.page ?? 1);
     const limit = Number(query.limit ?? 50);
@@ -97,7 +123,8 @@ export class StoresService {
       }),
       this.prisma.storeProject.count({ where }),
     ]);
-    return { data: data.map((store) => this.withShopFields(store)), total, page, limit };
+    const storesWithTaskUsers = await this.withStageTaskUserNames(data);
+    return { data: storesWithTaskUsers.map((store) => this.withShopFields(store)), total, page, limit };
   }
 
   private withShopFields<T extends { storeNumber: string; shop?: { shopNumber: string; address: string; city: string } | null }>(store: T) {
@@ -117,7 +144,8 @@ export class StoresService {
       },
     });
     if (!store) throw new NotFoundException('Объект не найден');
-    return this.withShopFields(store);
+    const [storeWithTaskUsers] = await this.withStageTaskUserNames([store]);
+    return this.withShopFields(storeWithTaskUsers);
   }
 
   async create(data: any, userId: string, userName: string) {
@@ -191,7 +219,30 @@ export class StoresService {
     }
     if (data.stageTasks !== undefined) {
       if (!data.stageTasks || typeof data.stageTasks !== 'object' || Array.isArray(data.stageTasks) || JSON.stringify(data.stageTasks).length > 20000) throw new BadRequestException('Некорректные задачи этапов');
-      clean.stageTasks = data.stageTasks;
+      const previousTasks = existing.stageTasks && typeof existing.stageTasks === 'object' && !Array.isArray(existing.stageTasks)
+        ? existing.stageTasks as Record<string, any>
+        : {};
+      const nextTasks: Record<string, any> = {};
+      for (const [taskId, value] of Object.entries(data.stageTasks as Record<string, any>)) {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) throw new BadRequestException('Некорректная задача этапа');
+        const previous = previousTasks[taskId] || {};
+        const next = { ...value };
+        // Имя всегда вычисляется из таблицы users и не принимается от клиента.
+        delete next.completedByUserName;
+        if (next.completed === true) {
+          // ID пользователя берём из проверенного JWT, а не из тела запроса.
+          if (previous.completed === true) {
+            if (previous.completedByUserId) next.completedByUserId = previous.completedByUserId;
+            else delete next.completedByUserId;
+          } else {
+            next.completedByUserId = userId;
+          }
+        } else {
+          delete next.completedByUserId;
+        }
+        nextTasks[taskId] = next;
+      }
+      clean.stageTasks = nextTasks;
     }
     if (data.tuId !== undefined) {
       if (typeof data.tuId !== 'string') throw new BadRequestException('Некорректный ТУ');

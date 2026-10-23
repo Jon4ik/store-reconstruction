@@ -137,7 +137,23 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
               let data: any = null; try { data = responseText ? JSON.parse(responseText) : null; } catch {}
               const apiError = data && typeof data === 'object' ? (data.ErrorMessage || data.errorMessage || data.error || data.Error) : null;
               if (!response.ok || apiError) throw new Error('IntraDesk HTTP ' + response.status + (apiError ? ': ' + String(apiError) : '') + (responseText ? ' — ' + responseText : ''));
-              const number = data?.Number ?? data?.number ?? data?.TaskNumber ?? data?.taskNumber ?? data?.TaskID ?? data?.task_id ?? data?.RequestNumber ?? data?.requestNumber ?? data?.data?.Number ?? data?.data?.number ?? data?.data?.id ?? data?.Id ?? data?.id;
+              const findRequestNumber = (value: any, depth = 0): unknown => {
+                if (!value || typeof value !== 'object' || depth > 5) return undefined;
+                for (const key of ['RequestNumber', 'requestNumber', 'TaskNumber', 'taskNumber', 'Number', 'number', 'TaskID', 'task_id']) {
+                  const candidate = value[key];
+                  if (candidate !== undefined && candidate !== null && (typeof candidate === 'string' || typeof candidate === 'number') && String(candidate).trim()) return candidate;
+                }
+                for (const nested of Object.values(value)) {
+                  const found = findRequestNumber(nested, depth + 1);
+                  if (found !== undefined) return found;
+                }
+                for (const key of ['Id', 'ID', 'id']) {
+                  const candidate = value[key];
+                  if (candidate !== undefined && candidate !== null && (typeof candidate === 'string' || typeof candidate === 'number') && String(candidate).trim()) return candidate;
+                }
+                return undefined;
+              };
+              const number = findRequestNumber(data);
               requestNumber = number == null ? '' : String(number);
             } else if (rule.channel === 'pachca') {
               if (!integrations.pachcaApiGateway || !integrations.pachcaApiKeyEncrypted) throw new Error('Интеграция Pachca включена, но API-шлюз или API KEY не настроен');
@@ -174,6 +190,15 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
               requestNumber = String(result.messageId || '');
             }
             await this.prisma.notificationDelivery.update({ where: { id: delivery.id }, data: { status: 'sent', message, requestNumber, sentAt: new Date() } });
+            if (rule.channel === 'intradesk' && rule.eventType === 'closureDate' && rule.days === 1 && rule.offsetType === 'business_days') {
+              const previousTasks = project.stageTasks && typeof project.stageTasks === 'object' && !Array.isArray(project.stageTasks)
+                ? project.stageTasks as Record<string, any>
+                : {};
+              await this.prisma.storeProject.update({
+                where: { id: project.id },
+                data: { stageTasks: { ...previousTasks, sdRequest: { ...(previousTasks.sdRequest || {}), completed: true, requestNumber, status: 'sent', updatedAt: new Date().toISOString() } } },
+              });
+            }
             this.logger.log(`Уведомление отправлено: ruleId=${rule.id}, channel=${rule.channel}, projectId=${project.id}, shop=${shopNumber}${requestNumber ? ', номер/ID=' + requestNumber : ''}`);
             await this.auditDelivery({ ruleId: rule.id, ruleName: rule.name, projectId: project.id, shopNumber, eventType: rule.eventType, eventDate, outcome: 'success', message: rule.channel + ' принял уведомление' + (requestNumber ? ' №/ID ' + requestNumber : '') });
           } catch (error: any) {
