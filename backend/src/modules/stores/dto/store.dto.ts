@@ -16,6 +16,7 @@ export class CreateStoreDto {
   @IsOptional() @IsString() @MaxLength(30) demolitionDate?: string | null;
   @IsOptional() @IsString() @MaxLength(30) installationDate?: string | null;
   @IsOptional() @IsString() @MaxLength(30) techOpenDate?: string | null;
+  @IsOptional() stageTasks?: Record<string, unknown>;
 }
 
 export class UpdateStoreDto {
