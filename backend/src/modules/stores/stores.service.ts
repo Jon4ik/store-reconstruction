@@ -189,6 +189,10 @@ export class StoresService {
       if (typeof data.comment !== 'string' || data.comment.length > 5000) throw new BadRequestException('Комментарий слишком длинный');
       clean.comment = data.comment;
     }
+    if (data.stageTasks !== undefined) {
+      if (!data.stageTasks || typeof data.stageTasks !== 'object' || Array.isArray(data.stageTasks) || JSON.stringify(data.stageTasks).length > 20000) throw new BadRequestException('Некорректные задачи этапов');
+      clean.stageTasks = data.stageTasks;
+    }
     if (data.tuId !== undefined) {
       if (typeof data.tuId !== 'string') throw new BadRequestException('Некорректный ТУ');
       const tu = await this.prisma.tU.findFirst({ where: { id: data.tuId, isActive: true }, select: { id: true } });
