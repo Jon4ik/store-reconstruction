@@ -30,7 +30,7 @@ const pluralize = (value: number, forms: [string, string, string]) => {
 };
 const eventOffsetLabel = (offsetType: Rule['offsetType'], days: number) =>
   offsetType === 'business_days'
-    ? `За ${days} ${pluralize(days, ['рабочий день', 'рабочих дня', 'рабочих дней']} до события`
+    ? `За ${days} ${pluralize(days, ['рабочий день', 'рабочих дня', 'рабочих дней'])} до события`
     : `За ${days} ${pluralize(days, ['день', 'дня', 'дней'])} до события`;
 
 export default function NotificationsPage() {
