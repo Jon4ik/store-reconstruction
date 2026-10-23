@@ -68,26 +68,29 @@ export class StoresService {
   }
 
   private async withStageTaskUserNames<T extends { stageTasks?: unknown }>(stores: T[]): Promise<T[]> {
-    const userIds = [...new Set(stores.flatMap((store) => {
-      const tasks = store.stageTasks && typeof store.stageTasks === 'object' && !Array.isArray(store.stageTasks)
-        ? store.stageTasks as Record<string, any>
-        : {};
-      return Object.values(tasks)
-        .map((task: any) => task?.completedByUserId)
-        .filter((id): id is string => typeof id === 'string' && id.length > 0);
-    }))];
-    if (!userIds.length) return stores;
-    const users = await this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, fullName: true } });
+    const allTasks = stores.flatMap((store) => Array.isArray(store.stageTasks) ? store.stageTasks as any[] : []);
+    const userIds = [...new Set(allTasks
+      .map((task: any) => task?.completedByUserId)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0))];
+    const users = userIds.length
+      ? await this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, fullName: true } })
+      : [];
     const names = new Map(users.map(user => [user.id, user.fullName]));
     return stores.map((store) => {
-      const tasks = store.stageTasks && typeof store.stageTasks === 'object' && !Array.isArray(store.stageTasks)
-        ? store.stageTasks as Record<string, any>
-        : {};
-      const stageTasks = Object.fromEntries(Object.entries(tasks).map(([taskId, task]) => [
-        taskId,
-        task && typeof task === 'object' && task.completedByUserId
-          ? { ...task, completedByUserName: names.get(task.completedByUserId) || 'Пользователь удалён' }
-          : task,
+      const records = Array.isArray(store.stageTasks) ? store.stageTasks as any[] : [];
+      const stageTasks = Object.fromEntries(records.map((task: any) => [
+        task.taskId,
+        {
+          completed: task.completed,
+          status: task.status || undefined,
+          requestNumber: task.requestNumber || undefined,
+          message: task.message || undefined,
+          updatedAt: task.updatedAt instanceof Date ? task.updatedAt.toISOString() : task.updatedAt,
+          ...(task.completedByUserId ? {
+            completedByUserId: task.completedByUserId,
+            completedByUserName: names.get(task.completedByUserId) || 'Пользователь удалён',
+          } : {}),
+        },
       ]));
       return { ...store, stageTasks } as T;
     });
@@ -118,7 +121,7 @@ export class StoresService {
 
     const [data, total] = await Promise.all([
       this.prisma.storeProject.findMany({
-        where, include: { tu: true, shop: true },
+        where, include: { tu: true, shop: true, stageTasks: true },
         skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' },
       }),
       this.prisma.storeProject.count({ where }),
@@ -137,6 +140,7 @@ export class StoresService {
       include: {
         tu: true,
         shop: true,
+        stageTasks: true,
         comments: {
           include: { user: { select: { id: true, username: true, fullName: true } } },
           orderBy: { createdAt: 'desc' },
@@ -186,7 +190,7 @@ export class StoresService {
   }
 
   async update(id: string, data: any, userId: string, userName: string) {
-    const existing = await this.prisma.storeProject.findFirst({ where: { id, isDeleted: false }, include: { tu: true, shop: true } });
+    const existing = await this.prisma.storeProject.findFirst({ where: { id, isDeleted: false }, include: { tu: true, shop: true, stageTasks: true } });
     if (!existing) throw new NotFoundException('Объект не найден');
 
     const clean: any = {};
@@ -219,8 +223,8 @@ export class StoresService {
     }
     if (data.stageTasks !== undefined) {
       if (!data.stageTasks || typeof data.stageTasks !== 'object' || Array.isArray(data.stageTasks) || JSON.stringify(data.stageTasks).length > 20000) throw new BadRequestException('Некорректные задачи этапов');
-      const previousTasks = existing.stageTasks && typeof existing.stageTasks === 'object' && !Array.isArray(existing.stageTasks)
-        ? existing.stageTasks as Record<string, any>
+      const previousTasks = Array.isArray(existing.stageTasks)
+        ? Object.fromEntries((existing.stageTasks as any[]).map(task => [task.taskId, task]))
         : {};
       const nextTasks: Record<string, any> = {};
       for (const [taskId, value] of Object.entries(data.stageTasks as Record<string, any>)) {
@@ -262,13 +266,38 @@ export class StoresService {
     this.validateDates({ ...existing, ...clean });
 
     return this.prisma.$transaction(async (tx) => {
+      const stageTasksToSave = clean.stageTasks as Record<string, any> | undefined;
+      delete clean.stageTasks;
       const store = await tx.storeProject.update({ where: { id }, data: clean, include: { tu: true, shop: true } });
+      if (stageTasksToSave) {
+        for (const [taskId, task] of Object.entries(stageTasksToSave)) {
+          await tx.storeStageTask.upsert({
+            where: { projectId_taskId: { projectId: id, taskId } },
+            create: {
+              projectId: id, taskId, completed: task.completed === true,
+              status: typeof task.status === 'string' ? task.status : null,
+              requestNumber: typeof task.requestNumber === 'string' ? task.requestNumber : '',
+              message: typeof task.message === 'string' ? task.message : '',
+              ...(task.updatedAt ? { updatedAt: new Date(task.updatedAt) } : {}),
+              completedByUserId: typeof task.completedByUserId === 'string' ? task.completedByUserId : null,
+            },
+            update: {
+              completed: task.completed === true,
+              status: typeof task.status === 'string' ? task.status : null,
+              requestNumber: typeof task.requestNumber === 'string' ? task.requestNumber : '',
+              message: typeof task.message === 'string' ? task.message : '',
+              ...(task.updatedAt ? { updatedAt: new Date(task.updatedAt) } : {}),
+              completedByUserId: typeof task.completedByUserId === 'string' ? task.completedByUserId : null,
+            },
+          });
+        }
+      }
       // Цвет строки — отдельное событие аудита. Не дублируем его как обычное изменение поля.
       if (clean.rowColor !== undefined && existing.rowColor !== clean.rowColor) {
         await tx.auditLog.create({ data: { storeId: id, userId, userName, action: 'change_color', field: 'rowColor', oldValue: existing.rowColor || '', newValue: clean.rowColor, details: 'Изменён цвет строки объекта' } });
       }
       for (const [field, newValue] of Object.entries(clean)) {
-        if (field === 'rowColor') continue;
+        if (field === 'rowColor' || field === 'stageTasks') continue;
         const oldValue = field === 'storeNumber' ? existing.shop?.shopNumber : (existing as any)[field];
         const auditNewValue = field === 'storeNumber' ? store.shop?.shopNumber : newValue;
         const isDateField = (DATE_FIELDS as readonly string[]).includes(field);
@@ -283,7 +312,9 @@ export class StoresService {
           },
         });
       }
-      return this.withShopFields(store);
+      const updatedTasks = stageTasksToSave ? Object.entries(stageTasksToSave).map(([taskId, task]) => ({ taskId, ...task, updatedAt: task.updatedAt ? new Date(task.updatedAt) : new Date() })) : [];
+      const [withTasks] = await this.withStageTaskUserNames([{ ...store, stageTasks: updatedTasks }]);
+      return this.withShopFields(withTasks);
     });
   }
 
