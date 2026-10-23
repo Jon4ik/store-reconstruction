@@ -54,8 +54,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     return `${result.getUTCFullYear()}-${String(result.getUTCMonth() + 1).padStart(2, '0')}-${String(result.getUTCDate()).padStart(2, '0')}`;
   }
 
-  private renderTemplate(template: string, project: any, days?: number) {
-    const pluralDays = (value: number) => { const n = Math.abs(value) % 100; const last = n % 10; return n > 10 && n < 20 ? 'дней' : last > 1 && last < 5 ? 'дня' : last === 1 ? 'день' : 'дней'; };
+  private renderTemplate(template: string, project: any) {
     const values: Record<string, string> = {
       shopNumber: String(project.shop?.shopNumber || project.storeNumber || ''),
       address: String(project.shop?.address || ''),
@@ -111,7 +110,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
           if (String(existing?.status || '').toLowerCase() === 'sent') continue;
           let delivery: any;
           const shopNumber = String(project.shop?.shopNumber || project.storeNumber || '');
-          const message = this.renderTemplate(rule.messageTemplate, project, rule.days);
+          const message = this.renderTemplate(rule.messageTemplate, project);
           let requestNumber = '';
           try {
             delivery = existing || await this.prisma.notificationDelivery.create({ data: { ruleId: rule.id, projectId: project.id, eventDate, status: 'sending' } });
@@ -203,7 +202,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
 
   async getClosureRequestStatus(projectId: string) {
     return this.prisma.notificationDelivery.findFirst({
-      where: { projectId, rule: { channel: 'intradesk', eventType: 'closureDate' } },
+      where: { projectId, rule: { channel: 'intradesk', eventType: 'closureDate', days: 1, offsetType: 'business_days' } },
       orderBy: { sentAt: 'desc' },
       select: { id: true, status: true, message: true, requestNumber: true, sentAt: true, ruleId: true, rule: { select: { name: true } } },
     });
