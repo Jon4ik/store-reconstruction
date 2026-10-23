@@ -427,7 +427,7 @@ export default function StoreCard() {
                           {task.label}
                           {stageTasks[task.id]?.completed === true && (
                             <span className="mt-1 block text-xs text-gray-500">
-                              Отметил: {users.find(user => user.id === stageTasks[task.id]?.completedByUserId)?.fullName || 'Пользователь не найден'}
+                              Отметил: {stageTasks[task.id]?.completedByUserName || users.find(user => user.id === stageTasks[task.id]?.completedByUserId)?.fullName || 'Пользователь не найден'}
                               {stageTasks[task.id]?.updatedAt ? ` · ${new Date(stageTasks[task.id].updatedAt!).toLocaleString('ru-RU')}` : ''}
                             </span>
                           )}
