@@ -176,6 +176,7 @@ export function calculateProjectStatus(project: StoreProject): ProjectStatus {
       case 'Демонтаж': return 'Демонтаж';
       case 'Монтаж': return 'Монтаж';
       case 'Техническое открытие': return 'Техническое открытие';
+      case 'Работы завершены': return 'В работе';
     }
   }
 
