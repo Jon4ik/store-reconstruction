@@ -61,8 +61,6 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       address: String(project.shop?.address || ''),
       tuFio: String(project.tu?.fullName || ''),
       tuPhone: String(project.tu?.phone || ''),
-      days: days === undefined ? '' : String(days),
-      daysText: days === undefined ? '' : `${days} ${pluralDays(days)}`,
     };
     for (const key of EVENT_TYPES) {
       const value = project[key];
