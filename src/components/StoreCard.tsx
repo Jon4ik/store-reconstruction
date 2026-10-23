@@ -52,6 +52,35 @@ export default function StoreCard() {
   const tu = tus.find(t => t.id === project.tuId);
   const projectAudit = auditLog.filter(l => l.storeId === project.id).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   const projectComments = getProjectComments(project.id);
+  const stageTasks = project.stageTasks || {};
+  const taskGroups = project.workType === 'Открытие' ? [
+    { title: 'Запланировано', tasks: [] as { id: string; label: string }[] },
+  ] : [
+    { title: 'Запланировано', tasks: [] as { id: string; label: string }[] },
+    { title: 'За 1 рабочий день до закрытия', tasks: [
+      { id: 'sdRequest', label: 'Заявка в SD создана' },
+      { id: 'sberApplication', label: 'Заявка в Сбер сделана' },
+      { id: 'lakshmiApplication', label: 'Заявка в Лакшми сделана' },
+    ] },
+    { title: 'Закрыт для покупателей', tasks: [] as { id: string; label: string }[] },
+    { title: 'За 1 рабочий день до демонтажа', tasks: [
+      { id: 'ukmShiftsClosed', label: 'В УКМ закрыты смены' },
+      { id: 'ukmOperationalDaysClosed', label: 'В УКМ закрыты операционные дни' },
+      { id: 'cashDelConfigured', label: 'Конфигурации касс изменены на cash_del' },
+    ] },
+    { title: 'Демонтаж', tasks: [] as { id: string; label: string }[] },
+    { title: 'Оборудование демонтировано', tasks: [{ id: 'equipmentDismantled', label: 'Оборудование демонтировано' }] },
+    { title: 'Оборудование доставлено', tasks: [{ id: 'equipmentDelivered', label: 'Оборудование доставлено' }] },
+    { title: 'Завершено', tasks: [{ id: 'projectCompleted', label: 'Работы завершены' }] },
+  ];
+  const toggleStageTask = async (taskId: string, completed: boolean) => {
+    try {
+      await updateProject(project.id, { stageTasks: { ...stageTasks, [taskId]: { ...(stageTasks[taskId] || {}), completed, updatedAt: new Date().toISOString() } } });
+    } catch (error) {
+      alert((error as Error).message || 'Не удалось сохранить задачу этапа');
+    }
+  };
+  const isStageTaskComplete = (group: { tasks: { id: string; label: string }[] }) => group.tasks.length > 0 && group.tasks.every(task => stageTasks[task.id]?.completed === true);
 
   const handleStartEdit = () => {
     setEditData({
@@ -335,6 +364,24 @@ export default function StoreCard() {
                   </div>
                 ))}
               </div>
+              <section className="mt-8 space-y-4">
+                <h3 className="font-semibold text-gray-900">Задачи этапов</h3>
+                {taskGroups.map((group, index) => {
+                  const completed = isStageTaskComplete(group);
+                  return <div key={group.title} className="rounded-lg border border-gray-200 p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <h4 className="font-medium text-gray-900">{index + 1}. {group.title}</h4>
+                      <span className={completed ? "rounded-full px-2.5 py-1 text-xs font-medium bg-green-100 text-green-700" : "rounded-full px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-600"}>{group.tasks.length === 0 ? 'Этап' : completed ? 'Все задачи выполнены' : 'Выполняется'}</span>
+                    </div>
+                    {group.tasks.length === 0 ? <p className="text-sm text-gray-500">Этап определяется датой и завершением задач предыдущего этапа.</p> : <div className="space-y-3">
+                      {group.tasks.map(task => <label key={task.id} className="flex items-start gap-3 text-sm text-gray-700">
+                        <input type="checkbox" checked={stageTasks[task.id]?.completed === true} onChange={event => void toggleStageTask(task.id, event.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600" />
+                        <span>{task.label}</span>
+                      </label>)}
+                    </div>}
+                  </div>;
+                })}
+              </section>
             </div>
           )}
 
