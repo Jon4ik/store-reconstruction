@@ -92,7 +92,6 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       const nowMoscow = this.getMoscowDateTime(new Date());
       const projects = await this.prisma.storeProject.findMany({ where: { isDeleted: false }, include: { shop: true, tu: true } });
       for (const rule of rules) {
-        if (rule.sendTime !== nowMoscow.time) continue;
         const enabled = rule.channel === 'intradesk' ? integrations.intraDeskEnabled : rule.channel === 'pachca' ? integrations.pachcaEnabled : integrations.smtpEnabled;
         if (!enabled) {
           this.logger.warn(`Пропуск уведомления «${rule.name}»: интеграция ${rule.channel} выключена`);
@@ -106,7 +105,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
           const dueDateKey = this.subtractDateDays(eventDateKey, rule.days, rule.offsetType === 'business_days');
           const unique = { ruleId_projectId_eventDate: { ruleId: rule.id, projectId: project.id, eventDate } };
           const existing = await this.prisma.notificationDelivery.findUnique({ where: unique });
-          if (dueDateKey !== nowMoscow.dateKey && existing?.status !== 'retry_requested') continue;
+          if (existing?.status !== 'retry_requested' && (dueDateKey !== nowMoscow.dateKey || rule.sendTime !== nowMoscow.time)) continue;
           if (String(existing?.status || '').toLowerCase() === 'sent') continue;
           let delivery: any;
           const shopNumber = String(project.shop?.shopNumber || project.storeNumber || '');
