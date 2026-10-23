@@ -95,7 +95,7 @@ export default function StoreCard() {
       alert((error as Error).message || 'Не удалось сохранить задачу этапа');
     }
   };
-  const isStageTaskComplete = (group: { tasks: { id: string; label: string }[] }) => group.tasks.length > 0 && group.tasks.every(task => stageTasks[task.id]?.completed === true);
+  const isStageTaskComplete = (group: { tasks: { id: string; label: string }[] }) => group.tasks.length > 0 && group.tasks.every(task => task.id === 'sdRequest' ? closureRequest?.status === 'sent' : stageTasks[task.id]?.completed === true);
 
   const handleStartEdit = () => {
     setEditData({
@@ -383,6 +383,7 @@ export default function StoreCard() {
                 <h3 className="font-semibold text-gray-900">Задачи этапов</h3>
                 {taskGroups.map((group, index) => {
                   const completed = isStageTaskComplete(group);
+                  const previousTasksComplete = taskGroups.slice(0, index).every(previous => previous.tasks.length === 0 || isStageTaskComplete(previous));
                   return <div key={group.title} className="rounded-lg border border-gray-200 p-4">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <h4 className="font-medium text-gray-900">{index + 1}. {group.title}</h4>
@@ -397,7 +398,7 @@ export default function StoreCard() {
                         {closureRequest?.requestNumber && <p className="text-gray-600">Номер заявки: <strong>{closureRequest.requestNumber}</strong></p>}
                         {closureRequest?.status === 'error' && <><p className="text-red-700">{closureRequest.message}</p><button type="button" disabled={retryingClosureRequest} onClick={() => void retryClosureRequest()} className="self-start rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">{retryingClosureRequest ? 'Отправка…' : 'Повторить отправку'}</button></>}
                       </div> : <label key={task.id} className="flex items-start gap-3 text-sm text-gray-700">
-                        <input type="checkbox" checked={stageTasks[task.id]?.completed === true} onChange={event => void toggleStageTask(task.id, event.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600" />
+                        <input type="checkbox" disabled={!previousTasksComplete} checked={stageTasks[task.id]?.completed === true} onChange={event => void toggleStageTask(task.id, event.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 disabled:opacity-40" />
                         <span>{task.label}</span>
                       </label>)}
                     </div>}
