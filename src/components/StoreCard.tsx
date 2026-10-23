@@ -4,12 +4,15 @@ import { calculateProjectStatus, calculateStages, getNearestEvent, getOverdueInf
 import { X, Edit3, Check, AlertTriangle, Clock, MapPin, User, Calendar, MessageSquare, History, ChevronDown, ChevronUp, Send, Palette } from 'lucide-react';
 import { validateDate } from '../utils/validation';
 import { formatDate } from '../utils/format';
+import { apiClient } from '../api/client';
 
 export default function StoreCard() {
   const { selectedProjectId, isCardOpen, closeCard, projects, tus, users, auditLog, updateProject, deleteProject, currentUser, isEditing, setEditing, hasPermission, addComment, getProjectComments, loadComments } = useStore();
   const [editData, setEditData] = useState<any>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [newComment, setNewComment] = useState('');
+  const [closureRequest, setClosureRequest] = useState<any>(null);
+  const [retryingClosureRequest, setRetryingClosureRequest] = useState(false);
   const [activeTab, setActiveTab] = useState<'main' | 'stages' | 'comments' | 'delete'>('main');
 
   const project = projects.find(p => p.id === selectedProjectId);
@@ -40,8 +43,20 @@ export default function StoreCard() {
   useEffect(() => {
     if (selectedProjectId && isCardOpen) {
       loadComments(selectedProjectId);
+      apiClient.getClosureRequestStatus(selectedProjectId).then(setClosureRequest).catch(() => setClosureRequest(null));
     }
   }, [selectedProjectId, isCardOpen, loadComments]);
+
+  const retryClosureRequest = async () => {
+    if (!selectedProjectId) return;
+    setRetryingClosureRequest(true);
+    try {
+      await apiClient.retryClosureRequest(selectedProjectId);
+      const status = await apiClient.getClosureRequestStatus(selectedProjectId);
+      setClosureRequest(status);
+    } catch (error) { alert((error as Error).message || 'Не удалось повторно отправить заявку SD'); }
+    finally { setRetryingClosureRequest(false); }
+  };
   
   if (!project || !isCardOpen) return null;
 
@@ -374,7 +389,14 @@ export default function StoreCard() {
                       <span className={completed ? "rounded-full px-2.5 py-1 text-xs font-medium bg-green-100 text-green-700" : "rounded-full px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-600"}>{group.tasks.length === 0 ? 'Этап' : completed ? 'Все задачи выполнены' : 'Выполняется'}</span>
                     </div>
                     {group.tasks.length === 0 ? <p className="text-sm text-gray-500">Этап определяется датой и завершением задач предыдущего этапа.</p> : <div className="space-y-3">
-                      {group.tasks.map(task => <label key={task.id} className="flex items-start gap-3 text-sm text-gray-700">
+                      {group.tasks.map(task => task.id === 'sdRequest' ? <div key={task.id} className="flex flex-col gap-2 rounded-md bg-gray-50 p-3 text-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-medium text-gray-800">{task.label}</span>
+                          <span className={closureRequest?.status === 'sent' ? "rounded-full bg-green-100 px-2 py-1 text-xs text-green-700" : closureRequest?.status === 'error' ? "rounded-full bg-red-100 px-2 py-1 text-xs text-red-700" : "rounded-full bg-gray-200 px-2 py-1 text-xs text-gray-700"}>{closureRequest?.status === 'sent' ? 'Успешно создана' : closureRequest?.status === 'error' ? 'Ошибка создания' : closureRequest?.status === 'retry_requested' || closureRequest?.status === 'sending' ? 'Отправляется' : 'Ожидает отправки по правилу уведомлений'}</span>
+                        </div>
+                        {closureRequest?.requestNumber && <p className="text-gray-600">Номер заявки: <strong>{closureRequest.requestNumber}</strong></p>}
+                        {closureRequest?.status === 'error' && <><p className="text-red-700">{closureRequest.message}</p><button type="button" disabled={retryingClosureRequest} onClick={() => void retryClosureRequest()} className="self-start rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">{retryingClosureRequest ? 'Отправка…' : 'Повторить отправку'}</button></>}
+                      </div> : <label key={task.id} className="flex items-start gap-3 text-sm text-gray-700">
                         <input type="checkbox" checked={stageTasks[task.id]?.completed === true} onChange={event => void toggleStageTask(task.id, event.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600" />
                         <span>{task.label}</span>
                       </label>)}
