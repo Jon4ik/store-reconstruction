@@ -116,6 +116,8 @@ class ApiClient {
   async createNotificationRule(data: any) { return this.request<any>('/notifications', { method: 'POST', body: JSON.stringify(data) }); }
   async updateNotificationRule(id: string, data: any) { return this.request<any>(`/notifications/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) }); }
   async deleteNotificationRule(id: string) { return this.request<any>(`/notifications/${encodeURIComponent(id)}`, { method: 'DELETE' }); }
+  async getClosureRequestStatus(projectId: string) { return this.request<any>(`/notifications/projects/${encodeURIComponent(projectId)}/closure-request`); }
+  async retryClosureRequest(projectId: string) { return this.request<any>(`/notifications/projects/${encodeURIComponent(projectId)}/closure-request/retry`, { method: 'POST' }); }
 
   // Scheduler
   async getSchedulerTasks() {
