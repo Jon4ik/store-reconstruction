@@ -229,9 +229,12 @@ export class StoresService {
         const next = { ...value };
         if (next.completed === true) {
           // ID пользователя берём из проверенного JWT, а не из тела запроса.
-          next.completedByUserId = previous.completed === true && previous.completedByUserId
-            ? previous.completedByUserId
-            : userId;
+          if (previous.completed === true) {
+            if (previous.completedByUserId) next.completedByUserId = previous.completedByUserId;
+            else delete next.completedByUserId;
+          } else {
+            next.completedByUserId = userId;
+          }
         } else {
           delete next.completedByUserId;
         }
