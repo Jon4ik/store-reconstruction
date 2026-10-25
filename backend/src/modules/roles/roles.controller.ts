@@ -16,6 +16,10 @@ export class RolesController {
     return this.rolesService.findAll();
   }
 
+  @Get('lookup')
+  @RequirePermissions('manage_users')
+  lookup() { return this.rolesService.lookup(); }
+
   @Post()
   @RequirePermissions('manage_roles')
   create(@Body() body: CreateRoleDto, @Request() req) {

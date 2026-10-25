@@ -1,10 +1,12 @@
+import { storeRight } from '../utils/permissions';
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { calculateProjectStatus, calculateStages, getNearestEvent, getOverdueInfo } from '../utils/statusCalculator';
-import { X, Edit3, Check, AlertTriangle, Clock, MapPin, User, Calendar, MessageSquare, History, ChevronDown, ChevronUp, Send, Palette } from 'lucide-react';
+import { X, Edit3, Check, AlertTriangle, Clock, MapPin, User, Calendar, MessageSquare, History, ChevronDown, ChevronUp, Send, Palette, Lock } from 'lucide-react';
 import { validateDate } from '../utils/validation';
 import { formatDate } from '../utils/format';
 import { apiClient } from '../api/client';
+import TUSelect from './TUSelect';
 
 export default function StoreCard() {
   const { selectedProjectId, isCardOpen, closeCard, projects, tus, users, auditLog, updateProject, deleteProject, currentUser, isEditing, setEditing, hasPermission, addComment, getProjectComments, loadComments } = useStore();
@@ -16,6 +18,11 @@ export default function StoreCard() {
   const [activeTab, setActiveTab] = useState<'main' | 'stages' | 'comments' | 'delete'>('main');
 
   const project = projects.find(p => p.id === selectedProjectId);
+  const canEdit = !!project && hasPermission(storeRight(project.workType, 'edit'));
+  const canDelete = !!project && hasPermission(storeRight(project.workType, 'delete'));
+  const manualStatusActive = Boolean(project?.manualStatus || (isEditing && editData?.manualStatus));
+  const canMarkStages = canEdit && !manualStatusActive;
+  const canView = !!project && hasPermission(storeRight(project.workType, 'view'));
   
   // Конвертация из DD.MM.YYYY в YYYY-MM-DD для input type="date"
   const toInputDate = (dateStr: string): string => {
@@ -39,41 +46,29 @@ export default function StoreCard() {
     return '';
   };
   
-  // Загружаем комментарии при открытии карточки
+  // Reset request data between cards and ignore late responses from a previous object.
   useEffect(() => {
-    if (selectedProjectId && isCardOpen) {
-      loadComments(selectedProjectId);
-      const refreshClosureRequest = () => apiClient.getClosureRequestStatus(selectedProjectId).then(setClosureRequest).catch(() => setClosureRequest(null));
-      void refreshClosureRequest();
-      const timer = window.setInterval(() => void refreshClosureRequest(), 10000);
-      return () => window.clearInterval(timer);
-    }
-  }, [selectedProjectId, isCardOpen, loadComments]);
+    setClosureRequest(null);
+    setActiveTab('main');
+    if (!selectedProjectId || !isCardOpen || !canView) return;
+    let active = true;
+    const refresh = async () => {
+      try { const result = await apiClient.getClosureRequestStatus(selectedProjectId); if (active) setClosureRequest(result); }
+      catch { if (active) setClosureRequest(null); }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 10000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [selectedProjectId, isCardOpen, canView]);
 
-  // Успешно отправленная заявка SD должна стать сохранённой задачей этапа.
-  // Иначе UI показывает её выполненной по статусу интеграции, а таймлайн и общий
-  // статус продолжают считать этап «Запланировано» незавершённым.
+
   useEffect(() => {
-    const currentProject = projects.find(p => p.id === selectedProjectId);
-    if (!selectedProjectId || !isCardOpen || closureRequest?.status !== 'sent' ||
-        currentProject?.stageTasks?.sdRequest?.completed === true) return;
-
-    void updateProject(selectedProjectId, {
-      stageTasks: {
-        ...(currentProject?.stageTasks || {}),
-        sdRequest: {
-          ...(currentProject?.stageTasks?.sdRequest || {}),
-          completed: true,
-          updatedAt: new Date().toISOString(),
-        },
-      },
-    }).catch((error) => {
-      console.error('Не удалось синхронизировать выполненную заявку SD с задачами этапа:', error);
-    });
-  }, [closureRequest?.status, selectedProjectId, isCardOpen, projects, updateProject]);
-
+    if (!selectedProjectId || !isCardOpen || activeTab !== 'comments') return;
+    void loadComments(selectedProjectId);
+    void useStore.getState().loadAuditLog();
+  }, [selectedProjectId, isCardOpen, activeTab, loadComments]);
   const retryClosureRequest = async () => {
-    if (!selectedProjectId) return;
+    if (!canEdit || !selectedProjectId) return;
     setRetryingClosureRequest(true);
     try {
       await apiClient.retryClosureRequest(selectedProjectId);
@@ -83,7 +78,9 @@ export default function StoreCard() {
     finally { setRetryingClosureRequest(false); }
   };
   
-  if (!project || !isCardOpen) return null;
+  useEffect(() => { if (!canEdit && isEditing) setEditing(false); }, [canEdit, isEditing, setEditing]);
+
+  if (!project || !isCardOpen || !canView) return null;
 
   const stageTasks = project.stageTasks || {};
   // Статус карточки и главной таблицы рассчитывается по одним и тем же сохранённым задачам.
@@ -92,9 +89,9 @@ export default function StoreCard() {
   const nearestEvent = getNearestEvent(project);
   const overdueInfo = getOverdueInfo(project);
   const tu = tus.find(t => t.id === project.tuId);
-  const projectAudit = auditLog.filter(l => l.storeId === project.id).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  const projectComments = getProjectComments(project.id);
-  const taskGroups = project.workType === 'Открытие' ? [
+  const projectAudit = (hasPermission('view_audit') ? auditLog : []).filter(l => l.storeId === project.id).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const projectComments = hasPermission('view_comments') ? getProjectComments(project.id) : [];
+  const baseTaskGroups = project.workType === 'Открытие' ? [
     { title: 'Запланировано', tasks: [] as { id: string; label: string }[] },
   ] : [
     { title: 'Запланировано', tasks: [
@@ -119,9 +116,15 @@ export default function StoreCard() {
     { title: 'Оборудование доставлено', tasks: [{ id: 'equipmentDelivered', label: 'Оборудование доставлено' }] },
     { title: 'Работы завершены', tasks: [{ id: 'projectCompleted', label: 'Работы завершены' }] },
   ];
+  const taskGroups = project.workType === 'Открытие'
+    ? [...baseTaskGroups, ...stages.filter(stage => stage.name !== 'Запланировано').map(stage => ({ title: stage.name, tasks: stage.name === 'Работы завершены' ? [{ id: 'projectCompleted', label: 'Работы завершены' }] : [] as { id: string; label: string }[] }))]
+    : baseTaskGroups.flatMap(group => group.title === 'Работы завершены' && project.workType === 'Реконструкция'
+      ? [...stages.filter(stage => ['Монтаж', 'Техническое открытие'].includes(stage.name)).map(stage => ({ title: stage.name, tasks: [] as { id: string; label: string }[] })), group]
+      : [group]);
   const toggleStageTask = async (taskId: string, completed: boolean) => {
+    if (!canMarkStages) return;
     try {
-      await updateProject(project.id, { stageTasks: { ...stageTasks, [taskId]: { ...(stageTasks[taskId] || {}), completed, updatedAt: new Date().toISOString() } } });
+      await updateProject(project.id, { stageTasks: { [taskId]: { ...(stageTasks[taskId] || {}), completed, updatedAt: new Date().toISOString() } } });
     } catch (error) {
       alert((error as Error).message || 'Не удалось сохранить задачу этапа');
     }
@@ -151,8 +154,13 @@ export default function StoreCard() {
   };
 
   const handleSave = () => {
-    if (!editData) return;
+    if (!canEdit || !editData) return;
     
+    if (!editData.tuId || !tus.some(t => t.id === editData.tuId && t.isActive)) {
+      alert('Выберите активного ТУ из справочника.');
+      return;
+    }
+
     // Валидация дат
     const dateFields = [
       { value: editData.closureDate, name: 'Закрытие для покупателей' },
@@ -209,7 +217,7 @@ export default function StoreCard() {
             <h2 className="text-xl font-bold text-gray-900">Магазин №{project.storeNumber}</h2>
           </div>
           <div className="flex items-center gap-2">
-            {!isEditing && hasPermission('edit') && (
+            {!isEditing && canEdit && (
               <button onClick={handleStartEdit} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100">
                 <Edit3 size={14} /> Редактировать
               </button>
@@ -251,12 +259,12 @@ export default function StoreCard() {
             >
               Комментарии и история
             </button>
-            {(hasPermission('delete_closures') || hasPermission('delete_openings')) && <button onClick={() => setActiveTab('delete')} className={`py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'delete' ? 'border-red-600 text-red-600' : 'border-transparent text-gray-500 hover:text-red-600'}`}>Удаление события</button>}
+            {canDelete && <button onClick={() => setActiveTab('delete')} className={`py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'delete' ? 'border-red-600 text-red-600' : 'border-transparent text-gray-500 hover:text-red-600'}`}>Удаление события</button>}
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          {activeTab === 'delete' && (
+          {activeTab === 'delete' && canDelete && (
             <div className="max-w-2xl mx-auto rounded-xl border border-red-200 bg-red-50 p-6 space-y-4">
               <div className="flex items-start gap-3"><AlertTriangle className="text-red-600 mt-1" size={24}/><div><h3 className="text-lg font-semibold text-red-900">Удаление события магазина №{project.storeNumber}</h3><p className="text-sm text-red-800 mt-1">Событие магазина будет скрыто из активных таблиц. Запись и история сохранятся, действие попадёт в аудит.</p></div></div>
               <p className="text-sm text-gray-700">Адрес: <strong>{project.address}</strong></p>
@@ -280,7 +288,7 @@ export default function StoreCard() {
                       <span className="text-sm font-medium text-red-800">Просрочка: {overdueInfo.days} дн.</span>
                     </div>
                   )}
-                  {nearestEvent && !overdueInfo && (
+                  {!project.manualStatus && nearestEvent && !overdueInfo && (
                     <div className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-lg">
                       <Clock size={16} />
                       <span className="text-sm font-medium dark-readable-event">{nearestEvent.daysUntil === 0 ? 'Сегодня' : `Через ${nearestEvent.daysUntil} дн.`}: {nearestEvent.name}</span>
@@ -300,9 +308,7 @@ export default function StoreCard() {
                   <div>
                     <label className="text-xs font-medium text-gray-500 mb-1 block">ТУ (Территориальный управляющий)</label>
                     {isEditing ? (
-                      <select value={editData?.tuId || project.tuId} onChange={e => setEditData({ ...editData, tuId: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">
-                        {tus.filter(t => t.isActive).map(t => <option key={t.id} value={t.id}>{t.fullName}</option>)}
-                      </select>
+                      <TUSelect value={editData?.tuId ?? project.tuId} tus={tus} onChange={tuId => setEditData({ ...editData, tuId })} />
                     ) : (
                       <div className="bg-gray-50 px-3 py-2 rounded-lg">
                         <p className="text-sm font-medium text-gray-900">{tu?.fullName || '—'}</p>
@@ -344,8 +350,7 @@ export default function StoreCard() {
                   {isEditing && (
                     <div>
                       <label className="text-xs font-medium text-gray-500 mb-1 block">Ручная установка статуса</label>
-                      <p className="mb-2 text-xs text-gray-500">Выберите «Автоматически», чтобы текущий статус рассчитывался по датам и выполненным этапам таймлайна.</p>
-                      <p className="mb-1 text-xs text-gray-500">«Автоматически» — статус рассчитывается по датам и выполненным этапам таймлайна. Ручной статус отключает автоматический расчёт.</p>
+                      <p className="mb-2 text-xs text-gray-500">В автоматическом режиме статус определяется датами и выполнением этапов. При выборе ручного статуса отметки задач этапов блокируются.</p>
                       <select value={editData?.manualStatus || ''} onChange={e => setEditData({ ...editData, manualStatus: e.target.value || null })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">
                         <option value="">Автоматически</option>
                         <option value="Запланирован">Запланирован</option>
@@ -367,82 +372,39 @@ export default function StoreCard() {
           {/* Tab: Stages (Timeline) */}
           {activeTab === 'stages' && (
             <div>
-              <h3 className="font-semibold text-gray-900 mb-6 flex items-center gap-2"><Clock size={18} className="text-blue-600" />Таймлайн этапов</h3>
-              <div className="space-y-0">
-                {stages.map((stage, idx) => (
-                  <div key={idx} className="flex items-start gap-4">
-                    <div className="flex flex-col items-center">
-                      <div className={`w-4 h-4 rounded-full border-2 ${
-                        stage.status === 'completed' ? 'bg-green-500 border-green-500' :
-                        stage.status === 'current' ? 'bg-yellow-500 border-yellow-500 animate-pulse' :
-                        stage.status === 'overdue' ? 'bg-red-500 border-red-500' :
-                        stage.status === 'planned' ? 'bg-blue-500 border-blue-500' :
-                        'bg-white border-gray-300'
-                      }`} />
-                      {idx < stages.length - 1 && (
-                        <div className={`w-0.5 h-16 ${stage.status === 'completed' ? 'bg-green-300' : 'bg-gray-200'}`} />
-                      )}
-                    </div>
-                    <div className="flex-1 pb-8">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className={`text-sm font-medium ${
-                          stage.status === 'current' ? 'text-gray-900' :
-                          stage.status === 'overdue' ? 'text-red-700' :
-                          'text-gray-600'
-                        }`}>
-                          {stage.name}
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${
-                            stage.status === 'completed' ? 'bg-green-100 text-green-700' :
-                            stage.status === 'current' ? 'bg-yellow-100 text-yellow-700' :
-                            stage.status === 'overdue' ? 'bg-red-100 text-red-700' :
-                            stage.status === 'planned' ? 'bg-blue-100 text-blue-700' :
-                            'bg-gray-100 text-gray-500'
-                          }`}>
-                            {getStatusLabel(stage.status)}
-                          </span>
-                          {stage.daysOverdue !== null && (
-                            <span className="text-xs text-red-600 font-medium">+{stage.daysOverdue} дн.</span>
-                          )}
-                        </div>
-                      </div>
-                      {isEditing && getStageField(stage.name) ? (
-                        <input
-                          type="date"
-                          value={toInputDate(editData?.[getStageField(stage.name)] || '')}
-                          onChange={e => setEditData({ ...editData, [getStageField(stage.name)]: fromInputDate(e.target.value) })}
-                          className="text-sm border border-gray-200 rounded px-2 py-1 w-40"
-                        />
-                      ) : (
-                        <p className={`text-sm ${stage.date ? 'text-gray-700' : 'text-gray-400 italic'}`}>
-                          {stage.name === 'Запланировано' ? 'Этап создан' : formatDate(stage.date) || 'Не назначено'}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              <div className="workflow-heading">
+                <div><span className="workflow-eyebrow">Ход работ</span><h3>Этапы и задачи</h3><p>Раскройте этап, чтобы посмотреть или выполнить задачи.</p></div>
+                <div className="workflow-count"><strong>{taskGroups.filter(isStageTaskComplete).length}<span> / {taskGroups.length}</span></strong><span>этапов завершено</span></div>
               </div>
-              <section className="mt-8 space-y-4">
-                <h3 className="font-semibold text-gray-900">Задачи этапов</h3>
+              <progress className="workflow-progress" aria-label="Завершённые этапы" value={taskGroups.filter(isStageTaskComplete).length} max={taskGroups.length} />
+              <section className="workflow-list">
+                {manualStatusActive && <p className="workflow-lock-note"><Lock size={15}/>Установлен ручной статус. Чтобы отмечать задачи этапов, выберите «Автоматически» и сохраните карточку.</p>}
                 {taskGroups.map((group, index) => {
                   const completed = isStageTaskComplete(group);
                   const previousTasksComplete = taskGroups.slice(0, index).every(previous => isStageTaskComplete(previous));
-                  return <div key={group.title} className="rounded-lg border border-gray-200 p-4">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <h4 className="font-medium text-gray-900">{index + 1}. {group.title}</h4>
-                      <span className={completed ? "rounded-full px-2.5 py-1 text-xs font-medium bg-green-100 text-green-700" : "rounded-full px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-600"}>{group.tasks.length === 0 ? completed ? 'Завершён' : 'Ожидает этапа' : completed ? 'Все задачи выполнены' : 'Выполняется'}</span>
-                    </div>
-                    {group.tasks.length === 0 ? <p className="text-sm text-gray-500">Этап определяется датой и завершением задач предыдущего этапа.</p> : <div className="space-y-3">
-                      {group.tasks.map(task => task.id === 'sdRequest' ? <div key={task.id} className="flex flex-col gap-2 rounded-md bg-gray-50 p-3 text-sm">
+                  const milestone = stages.find(stage => stage.name === group.title);
+                  const dateField = getStageField(group.title);
+                  const done = group.tasks.filter(task => task.id === 'sdRequest' ? closureRequest?.status === 'sent' || stageTasks.sdRequest?.completed : stageTasks[task.id]?.completed).length;
+                  return <details key={`${group.title}-${isEditing}`} className={`workflow-stage ${completed ? 'is-complete' : previousTasksComplete ? 'is-current' : ''}`} open={isEditing || (!completed && previousTasksComplete)}>
+                    <summary className="workflow-stage-summary">
+                      <span className="workflow-stage-number">{completed ? <Check size={15}/> : index + 1}</span>
+                      <span className="workflow-stage-title">{group.title}<small>{group.tasks.length ? `${done} из ${group.tasks.length} задач выполнено` : 'Контрольная дата'}</small></span>
+                      <span className="workflow-stage-date">{milestone?.date ? formatDate(milestone.date) : group.title === 'Запланировано' ? 'Начало работ' : 'Без даты'}</span>
+                      <span className={`workflow-stage-status ${completed ? 'done' : previousTasksComplete ? 'current' : ''}`}>{completed ? 'Завершён' : previousTasksComplete ? 'В работе' : 'Ожидает'}</span>
+                      <ChevronDown size={16} className="workflow-chevron"/>
+                    </summary>
+                    <div className="workflow-stage-body">
+                      {isEditing && dateField && <label className="workflow-date-editor">Дата этапа<input type="date" value={toInputDate(editData?.[dateField] || '')} onChange={e => setEditData({ ...editData, [dateField]: fromInputDate(e.target.value) })} className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm"/></label>}
+                    {group.tasks.length === 0 ? <p className="text-sm text-gray-500">Этап определяется датой и завершением задач предыдущего этапа.</p> : <div className="space-y-2">
+                      {group.tasks.map(task => task.id === 'sdRequest' ? <div key={task.id} className="flex flex-col gap-1 rounded-md bg-gray-50 p-2 text-sm">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="font-medium text-gray-800">{task.label}</span>
-                          <span className={closureRequest?.status === 'sent' ? "rounded-full bg-green-100 px-2 py-1 text-xs text-green-700" : closureRequest?.status === 'error' ? "rounded-full bg-red-100 px-2 py-1 text-xs text-red-700" : "rounded-full bg-gray-200 px-2 py-1 text-xs text-gray-700"}>{closureRequest?.status === 'sent' ? 'Успешно создана' : closureRequest?.status === 'error' ? 'Ошибка создания' : closureRequest?.status === 'retry_requested' || closureRequest?.status === 'sending' ? 'Отправляется' : 'Ожидает отправки по правилу уведомлений'}</span>
+                          <span className={(closureRequest?.status === 'sent' || stageTasks.sdRequest?.completed) ? "rounded-full bg-green-100 px-2 py-1 text-xs text-green-700" : closureRequest?.status === 'error' ? "rounded-full bg-red-100 px-2 py-1 text-xs text-red-700" : "rounded-full bg-gray-200 px-2 py-1 text-xs text-gray-700"}>{(closureRequest?.status === 'sent' || stageTasks.sdRequest?.completed) ? 'Успешно создана' : closureRequest?.status === 'error' ? 'Ошибка создания' : closureRequest?.status === 'retry_requested' || closureRequest?.status === 'sending' ? 'Отправляется' : 'Ожидает отправки по правилу уведомлений'}</span>
                         </div>
                         {(closureRequest?.requestNumber || stageTasks.sdRequest?.requestNumber) && <p className="text-gray-600">Номер заявки: <strong>{closureRequest?.requestNumber || stageTasks.sdRequest?.requestNumber}</strong></p>}
-                        {closureRequest?.status === 'error' && <><p className="text-red-700">{closureRequest.message}</p><button type="button" disabled={retryingClosureRequest} onClick={() => void retryClosureRequest()} className="self-start rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">{retryingClosureRequest ? 'Отправка…' : 'Повторить отправку'}</button></>}
+                        {closureRequest?.status === 'error' && canEdit && <><p className="text-red-700">{closureRequest.message}</p><button type="button" disabled={retryingClosureRequest} onClick={() => void retryClosureRequest()} className="self-start rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">{retryingClosureRequest ? 'Отправка…' : 'Повторить отправку'}</button></>}
                       </div> : <label key={task.id} className="flex items-start gap-3 text-sm text-gray-700">
-                        <input type="checkbox" disabled={!previousTasksComplete} checked={stageTasks[task.id]?.completed === true} onChange={event => void toggleStageTask(task.id, event.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 disabled:opacity-40" />
+                        <input type="checkbox" disabled={!canMarkStages || !previousTasksComplete} checked={stageTasks[task.id]?.completed === true} onChange={event => void toggleStageTask(task.id, event.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 disabled:opacity-40" />
                         <span className="flex-1">
                           {task.label}
                           {stageTasks[task.id]?.completed === true && (
@@ -454,19 +416,20 @@ export default function StoreCard() {
                         </span>
                       </label>)}
                     </div>}
-                  </div>;
+                    </div>
+                  </details>;
                 })}
               </section>
             </div>
           )}
 
           {/* Tab: Comments and History */}
-          {activeTab === 'comments' && (
+          {activeTab === 'comments' && (hasPermission('view_comments') || hasPermission('view_audit') || hasPermission('add_comments')) && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
                 <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><MessageSquare size={18} className="text-blue-600" />Комментарии ({projectComments.length})</h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto mb-3">
-                  {projectComments.length === 0 ? (
+                  {!hasPermission('view_comments') ? <p className="text-sm text-gray-400">Нет права на просмотр комментариев</p> : projectComments.length === 0 ? (
                     <p className="text-sm text-gray-400 italic">Нет комментариев</p>
                   ) : projectComments.map(c => {
                     const user = users.find(u => u.id === c.userId);
@@ -476,12 +439,12 @@ export default function StoreCard() {
                           <span className="text-xs font-medium text-gray-700">{user?.fullName || c.userName}</span>
                           <span className="text-xs text-gray-400">{new Date(c.createdAt).toLocaleString('ru-RU')}</span>
                         </div>
-                        <p className="text-sm text-gray-700">{c.text}</p>
+                        <p className="whitespace-pre-wrap break-words text-sm text-gray-700">{c.text}</p>
                       </div>
                     );
                   })}
                 </div>
-                {hasPermission('add_comments') || hasPermission('edit') ? (
+                {hasPermission('add_comments') ? (
                   <div className="flex items-center gap-2">
                     <input type="text" value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Добавить комментарий..." className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       onKeyDown={e => e.key === 'Enter' && handleAddComment()} />
@@ -495,7 +458,7 @@ export default function StoreCard() {
                 <button onClick={() => setShowHistory(!showHistory)} className="text-sm text-blue-600 hover:text-blue-700 mb-2">
                   {showHistory ? 'Скрыть' : `Показать (${projectAudit.length})`}
                 </button>
-                {showHistory && (
+                {showHistory && hasPermission('view_audit') && (
                   <div className="space-y-2 max-h-96 overflow-y-auto">
                     {projectAudit.length === 0 ? <p className="text-sm text-gray-400 italic">Нет записей</p> :
                       projectAudit.map(log => {
@@ -506,9 +469,10 @@ export default function StoreCard() {
                               <span className="text-xs font-medium text-gray-700">{user?.fullName || log.userName}</span>
                               <span className="text-xs text-gray-400">{new Date(log.timestamp).toLocaleString('ru-RU')}</span>
                             </div>
-                            <p className="text-sm"><span className="font-medium">{log.details}:</span>{' '}
-                              <span className="text-red-600 line-through">{log.oldValue}</span>{' → '}<span className="text-green-600">{log.newValue}</span>
-                            </p>
+                            <div className="break-words text-sm text-gray-700">
+                              <p className="font-medium">{log.details}</p>
+                              {log.action === 'update' || log.action === 'change_color' ? <p className="mt-1"><span className="text-gray-500">{log.oldValue || 'Не задано'}</span>{' → '}<span className="font-medium text-gray-900">{log.newValue || 'Не задано'}</span></p> : (log.action === 'add_comment' || log.action === 'delete_comment') && <p className="mt-1 whitespace-pre-wrap">{log.newValue || log.oldValue}</p>}
+                            </div>
                           </div>
                         );
                       })

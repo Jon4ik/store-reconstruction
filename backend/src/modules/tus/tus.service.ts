@@ -35,7 +35,7 @@ export class TUsService {
       const tu = await tx.tU.create({ data: clean });
       if (userId) {
         await tx.auditLog.create({
-          data: { userId, userName: userName || 'Система', action: 'create_tu', field: 'tu', newValue: tu.fullName, details: `Создан ТУ ${tu.fullName}` },
+          data: { userId, action: 'create_tu', field: 'tu', newValue: tu.fullName, details: `Создан ТУ ${tu.fullName}` },
         });
       }
       return tu;
@@ -74,7 +74,7 @@ export class TUsService {
         for (const field of Object.keys(clean)) {
           if (String((existing as any)[field] ?? '') !== String((tu as any)[field] ?? '')) {
             await tx.auditLog.create({
-              data: { userId, userName: userName || 'Система', action: 'update_tu', field, oldValue: String((existing as any)[field] ?? ''), newValue: String((tu as any)[field] ?? ''), details: `Изменено поле "${field}" ТУ ${tu.fullName}` },
+              data: { userId, action: 'update_tu', field, oldValue: String((existing as any)[field] ?? ''), newValue: String((tu as any)[field] ?? ''), details: `Изменено поле "${field}" ТУ ${tu.fullName}` },
             });
           }
         }
@@ -90,7 +90,7 @@ export class TUsService {
       const tu = await tx.tU.update({ where: { id }, data: { isActive: false } });
       if (userId) {
         await tx.auditLog.create({
-          data: { userId, userName: userName || 'Система', action: 'disable_tu', field: 'tu', oldValue: existing.fullName, details: `Отключён ТУ ${existing.fullName}; история объектов сохранена` },
+          data: { userId, action: 'disable_tu', field: 'tu', oldValue: existing.fullName, details: `Отключён ТУ ${existing.fullName}; история объектов сохранена` },
         });
       }
       return tu;

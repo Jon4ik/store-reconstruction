@@ -223,22 +223,22 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
-        <div className="mb-2 flex items-center gap-2 font-semibold text-blue-950 dark:text-slate-100"><Info size={17}/>Ключи для подстановки в текст</div>
-        <p className="mb-2 text-blue-900 dark:text-slate-300">Значения автоматически берутся из справочника магазинов, ТУ и дат объекта.</p>
+      <div className="notification-template-help mt-4 rounded-lg border p-4 text-sm">
+        <div className="mb-2 flex items-center gap-2 font-semibold"><Info size={17}/>Ключи для подстановки в текст</div>
+        <p className="mb-2">Значения автоматически берутся из справочника магазинов, ТУ и дат объекта.</p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <p><code className="rounded bg-white px-1.5 py-0.5 text-slate-900 dark:bg-slate-700 dark:text-slate-100">{'{shopNumber}'}</code> — номер магазина из shop_directory</p>
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{address}'}</code> — адрес магазина из shop_directory</p>
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{tuFio}'}</code> — ФИО ТУ из tus.fullName</p>
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{tuPhone}'}</code> — телефон ТУ из tus.phone</p>
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{closureDate}'}</code> — дата закрытия для покупателей</p>
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{demolitionDate}'}</code> — дата демонтажа</p>
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{installationDate}'}</code> — дата монтажа</p>
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{techOpenDate}'}</code> — дата технического открытия</p>
+          <p><code className="rounded px-1.5 py-0.5">{'{shopNumber}'}</code> — номер магазина из shop_directory</p>
+          <p><code className="rounded px-1.5 py-0.5">{'{address}'}</code> — адрес магазина из shop_directory</p>
+          <p><code className="rounded px-1.5 py-0.5">{'{tuFio}'}</code> — ФИО ТУ из tus.fullName</p>
+          <p><code className="rounded px-1.5 py-0.5">{'{tuPhone}'}</code> — телефон ТУ из tus.phone</p>
+          <p><code className="rounded px-1.5 py-0.5">{'{closureDate}'}</code> — дата закрытия для покупателей</p>
+          <p><code className="rounded px-1.5 py-0.5">{'{demolitionDate}'}</code> — дата демонтажа</p>
+          <p><code className="rounded px-1.5 py-0.5">{'{installationDate}'}</code> — дата монтажа</p>
+          <p><code className="rounded px-1.5 py-0.5">{'{techOpenDate}'}</code> — дата технического открытия</p>
         </div>
       </div>
       <div className="mt-5 flex flex-wrap justify-end gap-2">
-        <button onClick={cancel} className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Отмена</button>
+        <button onClick={cancel} className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">Отмена</button>
         <button onClick={()=>void save()} disabled={saving || Boolean(editingId && !canEdit) || (!editingId && !canCreate)} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">{saving?<Loader2 className="animate-spin" size={16}/>:<Save size={16}/>}Сохранить</button>
       </div>
     </section>}

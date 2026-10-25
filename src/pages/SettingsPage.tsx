@@ -25,7 +25,7 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
   const noticeVariant: 'success' | 'error' = /ошиб|не удалось|не пройдена/i.test(noticeMessage) ? 'error' : 'success';
 
   useEffect(() => {
-    if (mode !== 'ldap' || (!hasPermission('manage_ldap') && !hasPermission('settings'))) { setLoading(false); return; }
+    if (mode !== 'ldap' || (!hasPermission('manage_ldap'))) { setLoading(false); return; }
     apiClient.getLdapSettings().then(settings => {
       setForm(current => ({ ...current, url: settings.url || '', baseDN: settings.baseDN || '', bindDN: settings.bindDN || '' }));
       setPasswordConfigured(Boolean(settings.passwordConfigured));
@@ -35,7 +35,7 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
   }, [mode, hasPermission]);
 
   useEffect(() => {
-    if (mode !== 'integrations' || (!hasPermission('manage_integrations') && !hasPermission('settings'))) return;
+    if (mode !== 'integrations' || (!hasPermission('manage_integrations'))) return;
     Promise.all([apiClient.getIntraDeskSettings(), apiClient.getPachcaSettings(), apiClient.getSmtpSettings()]).then(([intra, p, s]) => {
       setIntegration(current => ({...current, enabled: intra.enabled, apiGateway: intra.apiGateway, apiKeyConfigured: intra.apiKeyConfigured}));
       setPachca(current => ({...current,enabled:p.enabled,apiGateway:p.apiGateway,apiKeyConfigured:p.apiKeyConfigured}));
@@ -43,7 +43,7 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
     }).catch(error => setIntegrationMessage('Не удалось загрузить настройки интеграций: ' + (error as Error).message));
   }, [mode, hasPermission]);
 
-  if (!hasPermission('manage_ldap') && !hasPermission('manage_integrations') && !hasPermission('settings')) {
+  if (!hasPermission('manage_ldap') && !hasPermission('manage_integrations')) {
     return <div className="text-center py-12 text-gray-500">Нет доступа к этой странице</div>;
   }
 
@@ -94,7 +94,7 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
 
 
       <div className={mode === 'ldap' || mode === 'integrations' ? 'grid w-full grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 items-start' : 'contents'}>
-      {mode === 'ldap' && (hasPermission('manage_ldap') || hasPermission('settings')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+      {mode === 'ldap' && (hasPermission('manage_ldap')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
         <div className="flex items-center gap-3">
           <Server size={22} className="text-blue-600" />
           <h2 className="text-lg font-semibold text-gray-900">Подключение к каталогу</h2>
@@ -139,7 +139,7 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
         )}
       </section>}
 
-      {mode === 'integrations' && (hasPermission('manage_integrations') || hasPermission('settings')) && <div className="md:col-span-2 space-y-3">
+      {mode === 'integrations' && (hasPermission('manage_integrations')) && <div className="md:col-span-2 space-y-3">
         <div className="grid grid-cols-1 gap-3">
           <section className="rounded-xl border border-gray-200 bg-white p-4">
             <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold text-gray-900">IntraDesk</h2><p className="text-sm text-gray-500">Создание заявок и получение их идентификаторов</p></div><div className="flex items-center gap-3"><span className={integration.enabled?'text-xs font-medium text-green-700':'text-xs text-gray-500'}>{integration.enabled?'Включена':'Выключена'}</span><button onClick={()=>setExpandedIntegration(expandedIntegration==='intra'?'':'intra')} className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm">{expandedIntegration==='intra'?'Свернуть':'Настроить'}</button></div></div>
@@ -176,7 +176,7 @@ export default function SettingsPage({ mode = 'ldap' }: { mode?: 'ldap' | 'integ
         </div>
       </div>}
 
-      {mode === 'ldap' && (hasPermission('manage_ldap') || hasPermission('settings')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
+      {mode === 'ldap' && (hasPermission('manage_ldap')) && <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
         <div className="flex items-center gap-3">
           <ShieldCheck size={22} className="text-green-600" />
           <h2 className="text-lg font-semibold text-gray-900">Защита данных</h2>

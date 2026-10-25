@@ -14,13 +14,13 @@ export class NotificationsController {
   findAll() { return this.notifications.findAll(); }
 
   @Get('projects/:projectId/closure-request')
-  @RequirePermissions('view')
+  @RequirePermissions('store:view')
   getClosureRequestStatus(@Param('projectId') projectId: string) {
     return this.notifications.getClosureRequestStatus(projectId);
   }
 
   @Post('projects/:projectId/closure-request/retry')
-  @RequirePermissions('edit')
+  @RequirePermissions('store:edit')
   retryClosureRequest(@Param('projectId') projectId: string) {
     return this.notifications.retryClosureRequest(projectId);
   }

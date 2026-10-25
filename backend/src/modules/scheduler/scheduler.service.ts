@@ -100,7 +100,6 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
       await this.prisma.auditLog.create({
         data: {
           userId: actor?.id ?? null,
-          userName: actor?.name ?? 'Система',
           action: 'scheduler_run',
           field: SHOP_TASK_ID,
           oldValue: '',

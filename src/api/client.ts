@@ -133,8 +133,8 @@ class ApiClient {
   }
 
   // TUs
-  async getTUs() {
-    return this.request<any[]>('/tus');
+  async getTUs(lookup = false) {
+    return this.request<any[]>(lookup ? '/tus/lookup' : '/tus');
   }
 
   async createTU(data: any) {
@@ -211,8 +211,8 @@ class ApiClient {
   }
 
   // Roles
-  async getRoles() {
-    return this.request<any[]>('/roles');
+  async getRoles(lookup = false) {
+    return this.request<any[]>(lookup ? '/roles/lookup' : '/roles');
   }
 
   async createRole(data: any) {

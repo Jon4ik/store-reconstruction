@@ -1,3 +1,5 @@
+import ThemeToggle from './ThemeToggle';
+import { canAccessPage } from '../utils/permissions';
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { LayoutDashboard, Table2, CalendarDays, LogOut, Menu, X, User, Users, Shield, UserCheck, FileText, Settings } from 'lucide-react';
@@ -52,20 +54,20 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
         </div>
         
         <nav className="p-4 space-y-1 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 180px)' }}>
-          {mainNavItems.filter(item => hasPermission(item.permission)).map(item => (
+          {mainNavItems.filter(item => canAccessPage(currentUser?.permissions, item.id)).map(item => (
             <button key={item.id} onClick={() => { onNavigate(item.id); setSidebarOpen(false); }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentPage === item.id ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>
               <item.icon size={18} /><span>{item.label}</span>
             </button>
           ))}
           
-          {adminGroups.some(group => group.items.some(item => hasPermission(item.permission))) && <>
+          {adminGroups.some(group => group.items.some(item => canAccessPage(currentUser?.permissions, item.id))) && <>
             <div className="pt-4 mt-4 border-t border-gray-200"><p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-3 mb-2">Администрирование</p></div>
-            {adminGroups.filter(group => group.items.some(item => hasPermission(item.permission))).map(group => <div key={group.id} className="space-y-1">
+            {adminGroups.filter(group => group.items.some(item => canAccessPage(currentUser?.permissions, item.id))).map(group => <div key={group.id} className="space-y-1">
               <button onClick={()=>setOpenGroups(current=>({...current,[group.id]:!current[group.id]}))} aria-expanded={Boolean(openGroups[group.id])} className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-100">
                 <span className="flex items-center gap-3"><group.icon size={18}/>{group.label}</span><span className="text-xs">{openGroups[group.id]?'−':'+'}</span>
               </button>
-              {openGroups[group.id] && group.items.filter(item=>hasPermission(item.permission)).map(item=><button key={item.id} onClick={()=>{onNavigate(item.id);setSidebarOpen(false)}} className={`w-full pl-10 pr-3 py-2 rounded-lg text-left text-sm font-medium transition-colors ${currentPage===item.id?'bg-blue-50 text-blue-700':'text-gray-600 hover:bg-gray-100'}`}>{item.label}</button>)}
+              {openGroups[group.id] && group.items.filter(item=>canAccessPage(currentUser?.permissions, item.id)).map(item=><button key={item.id} onClick={()=>{onNavigate(item.id);setSidebarOpen(false)}} className={`w-full pl-10 pr-3 py-2 rounded-lg text-left text-sm font-medium transition-colors ${currentPage===item.id?'bg-blue-50 text-blue-700':'text-gray-600 hover:bg-gray-100'}`}>{item.label}</button>)}
             </div>)}
           </>}
         </nav>
@@ -89,18 +91,12 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
       {sidebarOpen && <div className="fixed inset-0 z-40 bg-black/30 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
       {/* Main */}
-      <div className="flex-1 lg:ml-64">
+      <div className="flex-1 min-w-0 lg:ml-64">
         <header className="sticky top-0 z-30 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-6">
           <div className="flex items-center gap-3">
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-gray-600"><Menu size={24} /></button>
           </div>
-          <button 
-            onClick={() => onNavigate('profile')}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <User size={18} />
-            <span className="hidden sm:inline">Профиль</span>
-          </button>
+          <div className="header-account-actions"><ThemeToggle/><span className="header-account-divider"/><button onClick={() => onNavigate('profile')} className={`header-profile-button ${currentPage==='profile'?'active':''}`} aria-label="Открыть профиль" title="Мой профиль"><span className="header-profile-avatar">{currentUser?.fullName.split(' ').filter(Boolean).slice(0,2).map(part=>part[0]).join('')}</span><span className="header-profile-info"><strong>{currentUser?.fullName}</strong><small>{displayedRole || 'Мой профиль'}</small></span><User size={17}/></button></div>
         </header>
         <main className="p-4 lg:p-6">{children}</main>
       </div>

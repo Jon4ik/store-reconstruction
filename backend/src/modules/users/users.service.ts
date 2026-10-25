@@ -57,7 +57,7 @@ export class UsersService {
       if (actorId) {
         await tx.auditLog.create({
           data: {
-            userId: actorId, userName: actorName || 'Система', action: 'create_user',
+            userId: actorId, action: 'create_user',
             field: 'user', newValue: user.username, details: `Создан пользователь ${user.fullName}`,
           },
         });
@@ -113,7 +113,7 @@ export class UsersService {
           if (data[field] !== undefined && String((existing as any)[field] ?? '') !== String((user as any)[field] ?? '')) {
             await tx.auditLog.create({
               data: {
-                userId: actorId, userName: actorName || 'Система', action: 'update_user', field,
+                userId: actorId, action: 'update_user', field,
                 oldValue: String((existing as any)[field] ?? ''),
                 newValue: String((user as any)[field] ?? ''),
                 details: `Изменено поле "${field}" пользователя ${user.fullName}`,
@@ -123,7 +123,7 @@ export class UsersService {
         }
         if (data.password !== undefined) {
           await tx.auditLog.create({
-            data: { userId: actorId, userName: actorName || 'Система', action: 'reset_password', field: 'password', details: `Сменён пароль пользователя ${user.username}` },
+            data: { userId: actorId, action: 'reset_password', field: 'password', details: `Сменён пароль пользователя ${user.username}` },
           });
         }
       }
@@ -147,7 +147,7 @@ export class UsersService {
       if (actorId) {
         await tx.auditLog.create({
           data: {
-            userId: actorId, userName: actorName || 'Система', action: 'disable_user',
+            userId: actorId, action: 'disable_user',
             field: 'user', oldValue: existing.username, details: `Отключён пользователь ${existing.fullName}`,
           },
         });

@@ -1,3 +1,5 @@
+import { allowedWorkTypes, hasRight } from '../auth/permission-model';
+import { STORE_FIELD_LABELS, STAGE_TASK_LABELS } from '../audit/store-labels';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 
@@ -96,13 +98,13 @@ export class StoresService {
     });
   }
 
-  async findAll(query: any) {
+  async findAll(query: any, permissions: string[] = []) {
     const page = Number(query.page ?? 1);
     const limit = Number(query.limit ?? 50);
     if (!Number.isInteger(page) || page < 1 || page > 100000) throw new BadRequestException('Некорректная страница');
     if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new BadRequestException('limit должен быть от 1 до 200');
 
-    const where: any = { isDeleted: false };
+    const where: any = { isDeleted: false, workType: { in: allowedWorkTypes(permissions) } };
     if (query.search) {
       const search = String(query.search).slice(0, 200);
       where.OR = [
@@ -113,7 +115,7 @@ export class StoresService {
     }
     if (query.workType) {
       if (!WORK_TYPES.includes(String(query.workType))) throw new BadRequestException('Некорректный тип работ');
-      where.workType = String(query.workType);
+      where.AND = [{ workType: String(query.workType) }];
     }
     if (query.status) where.status = String(query.status).slice(0, 80);
     if (query.tuId) where.tuId = String(query.tuId);
@@ -134,17 +136,17 @@ export class StoresService {
     return { ...store, storeNumber: store.shop?.shopNumber ?? store.storeNumber, address: store.shop?.address ?? '', city: store.shop?.city ?? '' };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, permissions: string[] = []) {
     const store = await this.prisma.storeProject.findFirst({
       where: { id, isDeleted: false },
       include: {
         tu: true,
         shop: true,
         stageTasks: true,
-        comments: {
+        comments: hasRight(permissions, 'view_comments') ? {
           include: { user: { select: { id: true, username: true, fullName: true } } },
           orderBy: { createdAt: 'desc' },
-        },
+        } : false,
       },
     });
     if (!store) throw new NotFoundException('Объект не найден');
@@ -183,7 +185,7 @@ export class StoresService {
     return this.prisma.$transaction(async (tx) => {
       const store = await tx.storeProject.create({ data: clean, include: { tu: true, shop: true } });
       await tx.auditLog.create({
-        data: { storeId: store.id, userId, userName, action: 'create', field: 'project', newValue: directoryShop.shopNumber, details: `Создан объект №${directoryShop.shopNumber}` },
+        data: { storeId: store.id, userId, action: 'create', field: 'project', newValue: directoryShop.shopNumber, details: `Создан объект №${directoryShop.shopNumber}` },
       });
       return this.withShopFields(store);
     });
@@ -222,6 +224,7 @@ export class StoresService {
       clean.comment = data.comment;
     }
     if (data.stageTasks !== undefined) {
+      if (existing.manualStatus || data.manualStatus) throw new BadRequestException('При ручном статусе нельзя изменять задачи этапов. Сначала включите автоматический режим.');
       if (!data.stageTasks || typeof data.stageTasks !== 'object' || Array.isArray(data.stageTasks) || JSON.stringify(data.stageTasks).length > 20000) throw new BadRequestException('Некорректные задачи этапов');
       const previousTasks = Array.isArray(existing.stageTasks)
         ? Object.fromEntries((existing.stageTasks as any[]).map(task => [task.taskId, task]))
@@ -229,8 +232,9 @@ export class StoresService {
       const nextTasks: Record<string, any> = {};
       for (const [taskId, value] of Object.entries(data.stageTasks as Record<string, any>)) {
         if (!value || typeof value !== 'object' || Array.isArray(value)) throw new BadRequestException('Некорректная задача этапа');
+        if (taskId === 'sdRequest') continue; // SD data is written only after a successful server-side delivery.
         const previous = previousTasks[taskId] || {};
-        const next = { ...value };
+        const next = { ...previous, ...value };
         // Имя всегда вычисляется из таблицы users и не принимается от клиента.
         delete next.completedByUserName;
         if (next.completed === true) {
@@ -271,6 +275,15 @@ export class StoresService {
       const store = await tx.storeProject.update({ where: { id }, data: clean, include: { tu: true, shop: true } });
       if (stageTasksToSave) {
         for (const [taskId, task] of Object.entries(stageTasksToSave)) {
+          const previous = existing.stageTasks.find(record => record.taskId === taskId);
+          if ((previous?.completed === true) !== (task.completed === true)) {
+            await tx.auditLog.create({ data: {
+              storeId: id, userId, action: 'update', field: `stageTasks.${taskId}`,
+              oldValue: previous?.completed ? 'Выполнено' : 'Не выполнено',
+              newValue: task.completed ? 'Выполнено' : 'Не выполнено',
+              details: `Задача «${STAGE_TASK_LABELS[taskId] || 'Задача этапа'}»`,
+            } });
+          }
           await tx.storeStageTask.upsert({
             where: { projectId_taskId: { projectId: id, taskId } },
             create: {
@@ -294,21 +307,21 @@ export class StoresService {
       }
       // Цвет строки — отдельное событие аудита. Не дублируем его как обычное изменение поля.
       if (clean.rowColor !== undefined && existing.rowColor !== clean.rowColor) {
-        await tx.auditLog.create({ data: { storeId: id, userId, userName, action: 'change_color', field: 'rowColor', oldValue: existing.rowColor || '', newValue: clean.rowColor, details: 'Изменён цвет строки объекта' } });
+        await tx.auditLog.create({ data: { storeId: id, userId, action: 'change_color', field: 'rowColor', oldValue: existing.rowColor || '', newValue: clean.rowColor, details: 'Изменён цвет строки объекта' } });
       }
       for (const [field, newValue] of Object.entries(clean)) {
         if (field === 'rowColor' || field === 'stageTasks') continue;
-        const oldValue = field === 'storeNumber' ? existing.shop?.shopNumber : (existing as any)[field];
-        const auditNewValue = field === 'storeNumber' ? store.shop?.shopNumber : newValue;
+        const oldValue = field === 'storeNumber' ? existing.shop?.shopNumber : field === 'tuId' ? existing.tu?.fullName : (existing as any)[field];
+        const auditNewValue = field === 'storeNumber' ? store.shop?.shopNumber : field === 'tuId' ? store.tu?.fullName : newValue;
         const isDateField = (DATE_FIELDS as readonly string[]).includes(field);
         const normalizedOld = isDateField ? this.auditDate(oldValue) : oldValue instanceof Date ? oldValue.toISOString() : String(oldValue ?? '');
         const normalizedNew = isDateField ? this.auditDate(newValue) : auditNewValue instanceof Date ? auditNewValue.toISOString() : String(auditNewValue ?? '');
         if (normalizedOld === normalizedNew) continue;
         await tx.auditLog.create({
           data: {
-            storeId: id, userId, userName, action: 'update', field,
+            storeId: id, userId, action: 'update', field,
             oldValue: normalizedOld.slice(0, 500), newValue: normalizedNew.slice(0, 500),
-            details: `Изменено поле "${field}"`,
+            details: `Изменено поле «${STORE_FIELD_LABELS[field] || field}»`,
           },
         });
       }
@@ -324,7 +337,7 @@ export class StoresService {
       if (!existing) throw new NotFoundException('Объект не найден');
       const store = await tx.storeProject.update({ where: { id }, data: { isDeleted: true, status: 'Удален' } });
       await tx.auditLog.create({
-        data: { storeId: id, userId, userName, action: 'delete', field: 'project', oldValue: 'active', newValue: 'deleted', details: 'Объект удалён (soft delete)' },
+        data: { storeId: id, userId, action: 'delete', field: 'project', oldValue: 'active', newValue: 'deleted', details: 'Объект удалён (soft delete)' },
       });
       return store;
     });
@@ -337,14 +350,14 @@ export class StoresService {
       if (!existing.isDeleted) return existing;
       const store = await tx.storeProject.update({ where: { id }, data: { isDeleted: false, status: 'Запланирован' } });
       await tx.auditLog.create({
-        data: { storeId: id, userId, userName, action: 'restore', field: 'project', oldValue: 'deleted', newValue: 'active', details: 'Объект восстановлен' },
+        data: { storeId: id, userId, action: 'restore', field: 'project', oldValue: 'deleted', newValue: 'active', details: 'Объект восстановлен' },
       });
       return store;
     });
   }
 
-  async getDashboard() {
-    const projects = await this.prisma.storeProject.findMany({ where: { isDeleted: false } });
+  async getDashboard(permissions: string[] = []) {
+    const projects = await this.prisma.storeProject.findMany({ where: { isDeleted: false, workType: { in: allowedWorkTypes(permissions) } } });
     return {
       total: projects.length,
       closures: projects.filter(p => p.workType === 'Закрытие').length,
@@ -358,7 +371,8 @@ export class StoresService {
   async getComments(storeId: string) {
     const store = await this.prisma.storeProject.findFirst({ where: { id: storeId, isDeleted: false }, select: { id: true } });
     if (!store) throw new NotFoundException('Объект не найден');
-    return this.prisma.comment.findMany({ where: { storeId }, orderBy: { createdAt: 'desc' } });
+    const comments = await this.prisma.comment.findMany({ where: { storeId }, include: { user: { select: { fullName: true } } }, orderBy: { createdAt: 'desc' } });
+    return comments.map(({ user, ...comment }) => ({ ...comment, userName: user.fullName || comment.userName }));
   }
 
   async addComment(storeId: string, userId: string, userName: string, text: string) {
@@ -368,21 +382,10 @@ export class StoresService {
       if (!store) throw new NotFoundException('Объект не найден');
       const comment = await tx.comment.create({ data: { storeId, userId, userName, text: text.trim() } });
       await tx.auditLog.create({
-        data: { storeId, userId, userName, action: 'add_comment', field: 'comment', newValue: text.trim().slice(0, 50), details: 'Добавлен комментарий' },
+        data: { storeId, userId, action: 'add_comment', field: 'comment', newValue: text.trim(), details: 'Добавлен комментарий' },
       });
       return comment;
     });
   }
 
-  async deleteComment(commentId: string, userId: string, userName: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const comment = await tx.comment.findUnique({ where: { id: commentId } });
-      if (!comment) throw new NotFoundException('Комментарий не найден');
-      await tx.comment.delete({ where: { id: commentId } });
-      await tx.auditLog.create({
-        data: { storeId: comment.storeId, userId, userName, action: 'delete_comment', field: 'comment', oldValue: comment.text.slice(0, 50), details: 'Удалён комментарий' },
-      });
-      return { success: true };
-    });
-  }
 }

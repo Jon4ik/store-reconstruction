@@ -1,3 +1,4 @@
+import { extractSDRequestNumber } from './sd-request-number';
 import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { createDecipheriv } from 'node:crypto';
 import { PrismaService } from '../../prisma.service';
@@ -72,7 +73,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.prisma.auditLog.create({
         data: {
-          userId: null, userName: 'Система', action: 'notification_delivery', field: input.eventType, oldValue: '', newValue: input.outcome,
+          userId: null, action: 'notification_delivery', field: input.eventType, oldValue: '', newValue: input.outcome,
           details: JSON.stringify({ outcome: input.outcome, ruleId: input.ruleId, ruleName: input.ruleName, projectId: input.projectId, shopNumber: input.shopNumber, eventType: input.eventType, eventDate: input.eventDate.toISOString(), statusCode: input.statusCode, message: input.message.slice(0, 2000) }).slice(0, 4000),
         },
       });
@@ -133,28 +134,11 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
               };
               if (tags.length) blocks.tags = JSON.stringify({ value: tags });
               const response = await fetch(baseUrl + '/changes/v3/tasks?ApiKey=' + encodeURIComponent(apiKey), { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ blocks, Channel: 'web' }) });
-              const responseText = (await response.text()).slice(0, 4000);
+              const responseText = await response.text();
               let data: any = null; try { data = responseText ? JSON.parse(responseText) : null; } catch {}
               const apiError = data && typeof data === 'object' ? (data.ErrorMessage || data.errorMessage || data.error || data.Error) : null;
-              if (!response.ok || apiError) throw new Error('IntraDesk HTTP ' + response.status + (apiError ? ': ' + String(apiError) : '') + (responseText ? ' — ' + responseText : ''));
-              const findRequestNumber = (value: any, depth = 0): unknown => {
-                if (!value || typeof value !== 'object' || depth > 5) return undefined;
-                for (const key of ['RequestNumber', 'requestNumber', 'TaskNumber', 'taskNumber', 'Number', 'number', 'TaskID', 'task_id']) {
-                  const candidate = value[key];
-                  if (candidate !== undefined && candidate !== null && (typeof candidate === 'string' || typeof candidate === 'number') && String(candidate).trim()) return candidate;
-                }
-                for (const nested of Object.values(value)) {
-                  const found = findRequestNumber(nested, depth + 1);
-                  if (found !== undefined) return found;
-                }
-                for (const key of ['Id', 'ID', 'id']) {
-                  const candidate = value[key];
-                  if (candidate !== undefined && candidate !== null && (typeof candidate === 'string' || typeof candidate === 'number') && String(candidate).trim()) return candidate;
-                }
-                return undefined;
-              };
-              const number = findRequestNumber(data);
-              requestNumber = number == null ? '' : String(number);
+              if (!response.ok || apiError) throw new Error('IntraDesk HTTP ' + response.status + (apiError ? ': ' + String(apiError) : '') + (responseText ? ' — ' + responseText.slice(0, 4000) : ''));
+              requestNumber = extractSDRequestNumber(data);
             } else if (rule.channel === 'pachca') {
               if (!integrations.pachcaApiGateway || !integrations.pachcaApiKeyEncrypted) throw new Error('Интеграция Pachca включена, но API-шлюз или API KEY не настроен');
               const token = this.decryptApiKey(integrations.pachcaApiKeyEncrypted);
@@ -189,9 +173,10 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
               });
               requestNumber = String(result.messageId || '');
             }
-            await this.prisma.notificationDelivery.update({ where: { id: delivery.id }, data: { status: 'sent', message, requestNumber, sentAt: new Date() } });
+            await this.prisma.$transaction(async tx => {
+            await tx.notificationDelivery.update({ where: { id: delivery.id }, data: { status: 'sent', message, requestNumber, sentAt: new Date() } });
             if (rule.channel === 'intradesk' && rule.eventType === 'closureDate' && rule.days === 1 && rule.offsetType === 'business_days') {
-              await this.prisma.storeStageTask.upsert({
+              await tx.storeStageTask.upsert({
                 where: { projectId_taskId: { projectId: project.id, taskId: 'sdRequest' } },
                 create: {
                   projectId: project.id,
@@ -208,6 +193,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
                 },
               });
             }
+            });
             this.logger.log(`Уведомление отправлено: ruleId=${rule.id}, channel=${rule.channel}, projectId=${project.id}, shop=${shopNumber}${requestNumber ? ', номер/ID=' + requestNumber : ''}`);
             await this.auditDelivery({ ruleId: rule.id, ruleName: rule.name, projectId: project.id, shopNumber, eventType: rule.eventType, eventDate, outcome: 'success', message: rule.channel + ' принял уведомление' + (requestNumber ? ' №/ID ' + requestNumber : '') });
           } catch (error: any) {
@@ -234,11 +220,26 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getClosureRequestStatus(projectId: string) {
-    return this.prisma.notificationDelivery.findFirst({
-      where: { projectId, rule: { channel: 'intradesk', eventType: 'closureDate', days: 1, offsetType: 'business_days' } },
-      orderBy: { sentAt: 'desc' },
-      select: { id: true, status: true, message: true, requestNumber: true, sentAt: true, ruleId: true, rule: { select: { name: true } } },
-    });
+    const [savedTask, delivery] = await Promise.all([
+      this.prisma.storeStageTask.findUnique({ where: { projectId_taskId: { projectId, taskId: 'sdRequest' } } }),
+      this.prisma.notificationDelivery.findFirst({
+        where: { projectId, rule: { channel: 'intradesk', eventType: 'closureDate', days: 1, offsetType: 'business_days' } },
+        orderBy: { sentAt: 'desc' },
+        select: { id: true, status: true, message: true, requestNumber: true, sentAt: true, ruleId: true, rule: { select: { name: true } } },
+      }),
+    ]);
+    // A saved SD task survives deletion of its notification rule/delivery history.
+    if (savedTask?.completed && savedTask.requestNumber) return { ...delivery, status: 'sent', requestNumber: savedTask.requestNumber, sentAt: delivery?.sentAt || savedTask.updatedAt };
+    if (delivery?.status === 'sent') {
+      await this.prisma.storeStageTask.upsert({
+        where: { projectId_taskId: { projectId, taskId: 'sdRequest' } },
+        create: { projectId, taskId: 'sdRequest', completed: true, status: 'sent', requestNumber: delivery.requestNumber },
+        update: { completed: true, status: 'sent', ...(delivery.requestNumber ? { requestNumber: delivery.requestNumber } : {}) },
+      });
+      return { ...delivery, requestNumber: delivery.requestNumber || savedTask?.requestNumber || '' };
+    }
+    if (savedTask?.completed) return { ...delivery, status: 'sent', requestNumber: savedTask.requestNumber, sentAt: savedTask.updatedAt };
+    return delivery;
   }
 
   async retryClosureRequest(projectId: string) {

@@ -1,3 +1,5 @@
+import { usePageData } from './hooks/usePageData';
+import { canAccessPage } from './utils/permissions';
 import React, { useState, useEffect } from 'react';
 import { useStore } from './store/useStore';
 import Layout from './components/Layout';
@@ -31,16 +33,18 @@ const PAGE_PATHS: Record<string, string> = {
   profile: '/profile',
   settings: '/settings/ldap',
   integrations: '/settings/integrations',
-  notifications: '/notifications',
+  notifications: '/settings/notifications',
 };
 
 function getPageFromPath(): string {
+  if (window.location.pathname === '/notifications') return 'notifications';
   return Object.entries(PAGE_PATHS).find(([, path]) => path === window.location.pathname)?.[0] || 'dashboard';
 }
 
 export default function App() {
   const { currentUser, restoreSession, loadProjects, loadTUs, loadUsers, loadRoles, loadAuditLog, defaultWorkType } = useStore();
   const [currentPage, setCurrentPage] = useState(getPageFromPath);
+  usePageData(currentPage);
 
   const navigateToPage = (page: string) => {
     const nextPage = PAGE_PATHS[page] ? page : 'dashboard';
@@ -54,7 +58,11 @@ export default function App() {
     if (!Object.values(PAGE_PATHS).includes(window.location.pathname)) {
       window.history.replaceState({ page: currentPage }, '', PAGE_PATHS[currentPage] || PAGE_PATHS.dashboard);
     }
-    const handlePopState = () => setCurrentPage(getPageFromPath());
+    const handlePopState = () => {
+      const page = getPageFromPath();
+      if (window.location.pathname === '/notifications') window.history.replaceState({ page }, '', PAGE_PATHS.notifications);
+      setCurrentPage(page);
+    };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
@@ -120,15 +128,12 @@ export default function App() {
           localStorage.setItem('currentUser', JSON.stringify(merged));
           document.documentElement.dataset.theme = merged.theme || 'light';
 
-          // Reload protected lists according to the new permissions. Store loaders clear
-          // data when the corresponding view permission has been revoked.
-          // Each loader checks the latest permissions itself and clears cached data
-          // when access has been revoked.
-          await Promise.all([
-            useStore.getState().loadUsers(),
-            useStore.getState().loadRoles(),
-            useStore.getState().loadAuditLog(),
-          ]);
+          const state = useStore.getState();
+          if (!state.hasPermission('view_users')) useStore.setState({ users: [] });
+          if (!state.hasPermission('view_roles') && !state.hasPermission('manage_users')) useStore.setState({ roles: [] });
+          if (!state.hasPermission('view_audit')) useStore.setState({ auditLog: [] });
+          if (!state.hasPermission('view_comments')) useStore.setState({ comments: [] });
+          useStore.setState({ projects: state.projects.filter(project => state.hasPermission(project.workType === 'Открытие' ? 'view_openings' : 'view_closures')) });
         }
       } catch (error) {
         // Keep the current session intact on transient network errors; retry on the next poll/focus.
@@ -155,43 +160,6 @@ export default function App() {
     };
   }, [currentUser?.id]);
 
-  // Загружаем данные из API при входе
-  useEffect(() => {
-    if (currentUser) {
-      loadProjects();
-      loadTUs();
-      if (currentUser.permissions?.includes('view_users')) loadUsers();
-      if (currentUser.permissions?.includes('view_roles')) loadRoles();
-      if (currentUser.permissions?.includes('view_audit')) loadAuditLog();
-    }
-  }, [currentUser, loadProjects, loadTUs, loadUsers, loadRoles, loadAuditLog]);
-
-  // Обновляем данные в фоне и при возвращении во вкладку — без перезагрузки страницы.
-  useEffect(() => {
-    if (!currentUser) return;
-    let refreshInProgress = false;
-    const refreshData = async () => {
-      if (document.visibilityState === 'hidden' || refreshInProgress) return;
-      refreshInProgress = true;
-      try {
-        await Promise.all([loadProjects(), loadTUs(), loadUsers(), loadRoles(), loadAuditLog()]);
-      } finally {
-        refreshInProgress = false;
-      }
-    };
-    const intervalId = window.setInterval(() => { void refreshData(); }, 30_000);
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') void refreshData();
-    };
-    window.addEventListener('focus', refreshData);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener('focus', refreshData);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [currentUser?.id, loadProjects, loadTUs, loadUsers, loadRoles, loadAuditLog]);
-
   // Динамический title
   useEffect(() => {
     const titles: Record<string, string> = {
@@ -216,6 +184,7 @@ export default function App() {
   if (!currentUser) return <LoginPage />;
 
   const renderPage = () => {
+    if (!canAccessPage(currentUser.permissions, currentPage)) return <div className="roles-empty"><h2>Нет доступа к разделу</h2><p>Обратитесь к администратору для изменения прав вашей роли.</p></div>;
     switch (currentPage) {
       case 'dashboard': return <Dashboard />;
       case 'table': return <StoreTable />;

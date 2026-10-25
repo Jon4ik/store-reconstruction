@@ -222,6 +222,7 @@ export function calculateProjectStatus(project: StoreProject): ProjectStatus {
 }
 
 export function getNearestEvent(project: StoreProject): { name: string; date: Date; daysUntil: number } | null {
+  if (project.manualStatus) return null;
   const today = startOfDay(new Date());
   const dates: { name: string; date: Date }[] = [];
   getStagesByWorkType(project.workType).forEach(stage => {

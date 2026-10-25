@@ -1,177 +1,46 @@
-import React, { useEffect, useState } from 'react';
-import { useStore } from '../store/useStore';
-import { apiClient } from '../api/client';
-import { User, Lock, Palette, Save } from 'lucide-react';
-import { SystemUser } from '../types';
-
-export default function ProfilePage() {
-  const { currentUser } = useStore();
-  const [username, setUsername] = useState(currentUser?.username || '');
-  const [fullName, setFullName] = useState(currentUser?.fullName || '');
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(currentUser?.theme || 'light');
-  const [oldPassword, setOldPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [loadingProfile, setLoadingProfile] = useState(true);
-
-  const handleThemeChange = (nextTheme: 'light' | 'dark' | 'system') => {
-    setTheme(nextTheme);
-    const user = useStore.getState().currentUser;
-    if (user) {
-      const updatedUser = { ...user, theme: nextTheme };
-      useStore.setState({ currentUser: updatedUser });
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-    }
-  };
-
-  useEffect(() => {
-    let active = true;
-    apiClient.getProfile().then((profile: any) => {
-      if (!active) return;
-      setUsername(profile.username || '');
-      setFullName(profile.fullName || '');
-      setTheme(profile.theme || 'light');
-      const mergedUser = { ...(useStore.getState().currentUser || {}), ...profile } as SystemUser;
-      useStore.setState({ currentUser: mergedUser });
-      localStorage.setItem('currentUser', JSON.stringify(mergedUser));
-    }).catch(error => {
-      console.error('Failed to load profile:', error);
-    }).finally(() => {
-      if (active) setLoadingProfile(false);
-    });
-    return () => { active = false; };
-  }, []);
-
-  if (!currentUser) {
-    return <div className="text-center py-12 text-gray-500">Необходимо войти в систему</div>;
+import React,{useState} from 'react';
+import { UserRound, ShieldCheck, KeyRound, Save, Check, AlertCircle, Eye, EyeOff, Loader2, ChevronDown } from 'lucide-react';
+import {useStore} from '../store/useStore';
+import {apiClient} from '../api/client';
+import {applyCurrentUser} from '../utils/currentUser';
+function PasswordField({label,value,onChange,autoComplete}:{label:string;value:string;onChange:(value:string)=>void;autoComplete:string}) {
+  const [visible,setVisible]=useState(false);
+  return <label className="profile-field">{label}<div className="profile-password-input"><input type={visible?'text':'password'} value={value} onChange={event=>onChange(event.target.value)} autoComplete={autoComplete} maxLength={128}/><button type="button" aria-label={`${visible?'Скрыть':'Показать'}: ${label}`} onClick={()=>setVisible(!visible)}>{visible?<EyeOff size={17}/>:<Eye size={17}/>}</button></div></label>;
+}
+export default function ProfilePage(){
+  const {currentUser}=useStore();
+  const [username,setUsername]=useState(currentUser?.username || ''),[fullName,setFullName]=useState(currentUser?.fullName || '');
+  const [oldPassword,setOldPassword]=useState(''),[newPassword,setNewPassword]=useState(''),[confirm,setConfirm]=useState('');
+  const [saving,setSaving]=useState(false),[changing,setChanging]=useState(false);
+  const [error,setError]=useState(''),[success,setSuccess]=useState(''),[passwordError,setPasswordError]=useState(''),[passwordSuccess,setPasswordSuccess]=useState('');
+  if(!currentUser)return null;
+  const initials=currentUser.fullName.split(' ').filter(Boolean).slice(0,2).map(word=>word[0]).join('').toUpperCase() || currentUser.username[0].toUpperCase();
+  const dirty=username.trim()!==currentUser.username || fullName.trim()!==currentUser.fullName;
+  async function save(event:React.FormEvent){
+    event.preventDefault();setError('');setSuccess('');
+    if(!/^[a-zA-Z0-9._-]{3,64}$/.test(username.trim()))return setError('Логин: 3–64 символа, латинские буквы, цифры, точка, дефис или подчёркивание.');
+    if(fullName.trim().length<2)return setError('Укажите имя: не менее двух символов.');
+    setSaving(true);
+    try{const profile=await apiClient.updateMyProfile({username:username.trim(),fullName:fullName.trim()});applyCurrentUser(profile);setUsername(profile.username);setFullName(profile.fullName);setSuccess('Изменения сохранены.');}
+    catch(e){setError((e as Error).message);}finally{setSaving(false);}
   }
-
-  const handleSaveProfile = async () => {
-    const normalizedUsername = username.trim();
-    if (normalizedUsername.length < 3) {
-      alert('Логин должен содержать минимум 3 символа');
-      return;
-    }
-    setSaving(true);
-    try {
-      const profile = await apiClient.updateMyProfile({
-        username: normalizedUsername,
-        fullName,
-        theme,
-      });
-      const mergedUser = { ...(useStore.getState().currentUser || currentUser), ...profile } as SystemUser;
-      useStore.setState({ currentUser: mergedUser });
-      localStorage.setItem('currentUser', JSON.stringify(mergedUser));
-      alert('Профиль сохранён в базе данных');
-    } catch (error) {
-      console.error('Failed to update profile:', error);
-      alert('Не удалось сохранить профиль: ' + (error as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleChangePassword = async () => {
-    if (!oldPassword || !newPassword || !confirmPassword) {
-      alert('Заполните все поля пароля');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      alert('Новые пароли не совпадают');
-      return;
-    }
-    if (newPassword.length < 12 || newPassword.length > 128) {
-      alert('Пароль должен содержать от 12 до 128 символов');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const response = await apiClient.changeMyPassword(oldPassword, newPassword);
-      apiClient.setToken(response.access_token);
-      localStorage.setItem('token', response.access_token);
-      const mergedUser = { ...(useStore.getState().currentUser || currentUser), ...response.user } as SystemUser;
-      useStore.setState({ currentUser: mergedUser });
-      localStorage.setItem('currentUser', JSON.stringify(mergedUser));
-      setOldPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      alert('Пароль изменён в базе данных');
-    } catch (error) {
-      console.error('Failed to change password:', error);
-      alert('Не удалось изменить пароль: ' + (error as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Профиль пользователя</h1>
-        <p className="text-sm text-gray-500 mt-1">Настройки профиля сохраняются в базе данных</p>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <User size={24} className="text-blue-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Основная информация</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Логин</label>
-            <input type="text" value={username} onChange={e => setUsername(e.target.value)} minLength={3} maxLength={64} autoComplete="username" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">ФИО</label>
-            <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} maxLength={120} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="Иванов Иван Иванович" />
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <Palette size={24} className="text-purple-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Тема оформления</h2>
-        </div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">Выберите тему</label>
-        <select value={theme} onChange={e => handleThemeChange(e.target.value as 'light' | 'dark' | 'system')} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">
-          <option value="light">Светлая тема</option>
-          <option value="dark">Тёмная тема</option>
-          <option value="system">Системная тема</option>
-        </select>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <Lock size={24} className="text-red-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Смена пароля</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Текущий пароль</label>
-            <input type="password" value={oldPassword} onChange={e => setOldPassword(e.target.value)} autoComplete="current-password" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Новый пароль</label>
-            <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={12} maxLength={128} autoComplete="new-password" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Подтверждение пароля</label>
-            <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} minLength={12} maxLength={128} autoComplete="new-password" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-          </div>
-        </div>
-        <button onClick={handleChangePassword} disabled={saving || loadingProfile} className="mt-4 flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:bg-gray-400">
-          <Lock size={16} /> Изменить пароль
-        </button>
-      </div>
-
-      <div className="flex justify-end">
-        <button onClick={handleSaveProfile} disabled={saving || loadingProfile} className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:bg-gray-400">
-          <Save size={16} /> {saving ? 'Сохранение...' : 'Сохранить изменения'}
-        </button>
-      </div>
-    </div>
-  );
+  async function changePassword(event:React.FormEvent){
+    event.preventDefault();setPasswordError('');setPasswordSuccess('');
+    if(!oldPassword || !newPassword || !confirm)return setPasswordError('Заполните все поля.');
+    if(newPassword.length<12 || newPassword.length>128)return setPasswordError('Новый пароль должен содержать от 12 до 128 символов.');
+    if(newPassword!==confirm)return setPasswordError('Новые пароли не совпадают.');
+    setChanging(true);
+    try{const result=await apiClient.changeMyPassword(oldPassword,newPassword);apiClient.setToken(result.access_token);localStorage.setItem('token',result.access_token);applyCurrentUser(result.user);setOldPassword('');setNewPassword('');setConfirm('');setPasswordSuccess('Пароль изменён.');}
+    catch(e){setPasswordError((e as Error).message);}finally{setChanging(false);}
+  }
+  return <div className="profile-page">
+    <header className="profile-page-heading"><span className="roles-eyebrow">Личный кабинет</span><h1>Мой профиль</h1><p>Личные данные и безопасность вашей учётной записи.</p></header>
+    <div className="profile-layout"><aside className="profile-identity"><div className="profile-avatar">{initials}</div><h2>{currentUser.fullName}</h2><p>@{currentUser.username}</p><span className="profile-role"><ShieldCheck size={14}/>{currentUser.roleName || 'Пользователь'}</span><div className="profile-identity-foot"><span className="profile-status-dot"/>Учётная запись активна</div></aside>
+    <div className="profile-sections"><section className="profile-panel"><header><span className="profile-section-icon"><UserRound size={20}/></span><div><h2>Личные данные</h2><p>Как вас видят коллеги в системе.</p></div></header>
+      <form onSubmit={save}><fieldset disabled={saving}><div className="profile-form-grid"><label className="profile-field">Имя и фамилия<input value={fullName} onChange={event=>setFullName(event.target.value)} autoComplete="name" maxLength={120} placeholder="Иванов Иван Иванович" required/><small>Имя в комментариях и истории объектов.</small></label><label className="profile-field">Логин<input value={username} onChange={event=>setUsername(event.target.value)} autoComplete="username" minLength={3} maxLength={64} required/><small>Используется для входа в систему.</small></label></div></fieldset>
+      {(error || success) && <p role={error?'alert':'status'} className={`profile-feedback ${error?'error':'success'}`}>{error?<AlertCircle size={16}/>:<Check size={16}/>} {error || success}</p>}
+      <footer><span>{dirty?'Есть несохранённые изменения':'Данные актуальны'}</span><button className="roles-primary" disabled={!dirty || saving} type="submit">{saving?<Loader2 size={16} className="animate-spin"/>:<Save size={16}/>} {saving?'Сохранение…':'Сохранить изменения'}</button></footer></form>
+    </section>
+    <details className="profile-panel profile-security"><summary><span className="profile-section-icon"><KeyRound size={20}/></span><span><strong>Пароль и безопасность</strong><small>Измените пароль для входа в систему.</small></span><ChevronDown size={18}/></summary><form onSubmit={changePassword}><fieldset disabled={changing}><div className="profile-form-grid"><PasswordField label="Текущий пароль" value={oldPassword} onChange={setOldPassword} autoComplete="current-password"/><PasswordField label="Новый пароль" value={newPassword} onChange={setNewPassword} autoComplete="new-password"/><PasswordField label="Подтверждение пароля" value={confirm} onChange={setConfirm} autoComplete="new-password"/></div><p className="profile-password-hint">От 12 до 128 символов. Используйте уникальный пароль.</p></fieldset>{(passwordError || passwordSuccess) && <p role={passwordError?'alert':'status'} className={`profile-feedback ${passwordError?'error':'success'}`}>{passwordError || passwordSuccess}</p>}<footer><span>Изменение пароля завершит остальные сеансы.</span><button className="roles-secondary" type="submit" disabled={changing}>{changing?<Loader2 size={16} className="animate-spin"/>:<KeyRound size={16}/>}Изменить пароль</button></footer></form></details></div></div>
+  </div>;
 }

@@ -1,10 +1,11 @@
+import { normalizePermissions } from '../auth/permission-model';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 
 const ALLOWED_PERMISSIONS = new Set([
   'view', 'edit', 'view_closures', 'create_closures', 'edit_closures', 'delete_closures',
   'view_openings', 'create_openings', 'edit_openings', 'delete_openings', 'view_calendar',
-  'view_dashboard', 'import', 'export', 'view_comments', 'add_comments', 'delete_comments',
+  'view_dashboard', 'import', 'export', 'view_comments', 'add_comments',
   'view_users', 'manage_users', 'view_roles', 'manage_roles', 'view_tus', 'manage_tus',
   'view_audit', 'clear_audit', 'settings', 'manage_ldap', 'manage_integrations', 'manage_notifications', 'view_shops', 'manage_shops', 'manage_scheduler', 'view_notifications', 'create_notifications', 'edit_notifications', 'delete_notifications', 'delete_closures', 'delete_openings',
 ]);
@@ -13,9 +14,12 @@ const ALLOWED_PERMISSIONS = new Set([
 export class RolesService {
   constructor(private prisma: PrismaService) {}
 
-  findAll() {
-    return this.prisma.role.findMany({ orderBy: { createdAt: 'asc' } });
+  async findAll() {
+    const roles = await this.prisma.role.findMany({ orderBy: { createdAt: 'asc' } });
+    return roles.map(role => ({ ...role, permissions: normalizePermissions(role.permissions) }));
   }
+
+  lookup() { return this.prisma.role.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }); }
 
   private validate(data: any, partial = false) {
     const clean: any = {};
@@ -32,7 +36,7 @@ export class RolesService {
           data.permissions.some((permission: unknown) => typeof permission !== 'string' || !ALLOWED_PERMISSIONS.has(permission))) {
         throw new BadRequestException('Список разрешений содержит недопустимые значения');
       }
-      clean.permissions = [...new Set(data.permissions)];
+      clean.permissions = normalizePermissions(data.permissions);
     }
     // isSystem is intentionally not client-editable.
     return clean;
@@ -45,7 +49,7 @@ export class RolesService {
     return this.prisma.$transaction(async (tx) => {
       const role = await tx.role.create({ data: clean });
       if (userId) await tx.auditLog.create({
-        data: { userId, userName: userName || 'Система', action: 'create_role', field: 'role', newValue: role.name, details: `Создана роль ${role.name}` },
+        data: { userId, action: 'create_role', field: 'role', newValue: role.name, details: `Создана роль ${role.name}` },
       });
       return role;
     });
@@ -78,7 +82,7 @@ export class RolesService {
           const newValue = normalizeValue(field, (role as any)[field]);
           await tx.auditLog.create({
             data: {
-              userId, userName: userName || 'Система', action: 'update_role', field,
+              userId, action: 'update_role', field,
               oldValue: Array.isArray(oldValue) ? oldValue.join(', ') : String(oldValue ?? ''),
               newValue: Array.isArray(newValue) ? newValue.join(', ') : String(newValue ?? ''),
               details: `Изменено поле "${field}" роли ${role.name}`,
@@ -98,7 +102,7 @@ export class RolesService {
     return this.prisma.$transaction(async (tx) => {
       const role = await tx.role.delete({ where: { id } });
       if (userId) await tx.auditLog.create({
-        data: { userId, userName: userName || 'Система', action: 'delete_role', field: 'role', oldValue: existing.name, details: `Удалена роль ${existing.name}` },
+        data: { userId, action: 'delete_role', field: 'role', oldValue: existing.name, details: `Удалена роль ${existing.name}` },
       });
       return role;
     });

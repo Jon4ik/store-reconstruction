@@ -18,7 +18,7 @@ export class ShopsController {
   }
 
   @Get('lookup')
-  @RequirePermissions('view_shops')
+  @RequirePermissions('lookup_shops')
   lookup(@Query('number') number = '') {
     if (!/^\d{1,4}$/.test(number)) throw new BadRequestException('Укажите номер магазина от 1 до 4 цифр');
     return this.shopsService.lookupByNumber(number);
