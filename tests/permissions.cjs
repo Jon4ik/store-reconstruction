@@ -17,6 +17,16 @@ assert.ok(canAccessPage(['settings'],'settings'));
 assert.ok(!hasRight(['edit_closures'],'edit_closures'));
 assert.deepEqual(normalizePermissions(['view','view_openings']),['view_openings']);
 assert.deepEqual(toggleRight([], 'manage_roles'),['manage_roles','view_roles']);
+// Videorecorder actions require page access, including password reveal and import.
+assert.ok(canAccessPage(['view_videoregs'],'videoregs'));
+assert.ok(!canAccessPage(['manage_videoregs'],'videoregs'));
+for(const action of ['manage_videoregs','view_videoregs_passwords','import_videoregs']){
+ assert.ok(!hasRight([action],action));
+ assert.ok(hasRight(['view_videoregs',action],action));
+ assert.deepEqual(toggleRight([],action),[action,'view_videoregs']);
+ assert.deepEqual(toggleRight(['view_videoregs',action],'view_videoregs'),[]);
+}
+assert.equal(permissionModules.find(group=>group.key==='videoregs').permissions.length,4);
 const React = require('react');
 const {renderToStaticMarkup} = require('react-dom/server');
 const RolePermissions = require('../src/components/RolePermissions').default;

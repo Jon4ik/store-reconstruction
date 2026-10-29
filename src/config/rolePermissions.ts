@@ -1,4 +1,5 @@
 export const permissionModules = [
+ {name:'Видеорегистраторы',key:'videoregs',permissions:[{key:'view_videoregs',label:'Просмотр'},{key:'manage_videoregs',label:'Создание, редактирование и удаление'},{key:'view_videoregs_passwords',label:'Просмотр паролей'},{key:'import_videoregs',label:'Импорт SQLite'}]},
     {
       name: 'Объекты (Закрытия/Реконструкции)',
       key: 'closures',

@@ -40,6 +40,16 @@ async function main() {
   check(!await access(['view_shops'],closureEditor));
   check(await access(['lookup_tus'],closureEditor));
   check(!await access(['view_tus'],closureEditor));
+  // Enforce recorder dependencies through the actual API guard, not only the helper.
+  for(const action of ['manage_videoregs','view_videoregs_passwords','import_videoregs']){
+    check(!hasRight([action],action));
+    check(hasRight(['view_videoregs',action],action));
+    check(!await access([action],[action]));
+    check(await access([action],['view_videoregs',action]));
+    check(!await access([action],['view_videoregs']));
+    assert.deepEqual(toggleRight([],action),[action,'view_videoregs']); checks++;
+    assert.deepEqual(toggleRight(['view_videoregs',action],'view_videoregs'),[]); checks++;
+  }
   let captured;
   const service = new StoresService({storeProject:{findMany:async args=>{captured=args;return []},count:async()=>0}});
   await service.findAll({workType:'Закрытие'}, openingViewer);

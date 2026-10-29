@@ -1,3 +1,4 @@
+import VideoregsPage from './pages/VideoregsPage';
 import { usePageData } from './hooks/usePageData';
 import { canAccessPage } from './utils/permissions';
 import React, { useState, useEffect } from 'react';
@@ -21,6 +22,7 @@ import NotificationsPage from './pages/NotificationsPage';
 import { apiClient } from './api/client';
 
 const PAGE_PATHS: Record<string, string> = {
+  videoregs: '/videoregs',
   dashboard: '/dashboard',
   table: '/objects',
   calendar: '/calendar',
@@ -173,6 +175,7 @@ export default function App() {
       profile: 'Профиль',
       settings: 'Синхронизация с LDAP',
       integrations: 'Интеграции',
+      videoregs: 'Видеорегистраторы',
       notifications: 'Уведомления',
       shops: 'Справочник магазинов',
       scheduler: 'Планировщик (crontab)',
@@ -186,6 +189,7 @@ export default function App() {
   const renderPage = () => {
     if (!canAccessPage(currentUser.permissions, currentPage)) return <div className="roles-empty"><h2>Нет доступа к разделу</h2><p>Обратитесь к администратору для изменения прав вашей роли.</p></div>;
     switch (currentPage) {
+      case 'videoregs': return <VideoregsPage />;
       case 'dashboard': return <Dashboard />;
       case 'table': return <StoreTable />;
       case 'calendar': return <CalendarView />;
