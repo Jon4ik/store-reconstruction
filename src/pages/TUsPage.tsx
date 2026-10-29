@@ -1,285 +1,49 @@
-import React, { useEffect, useState } from 'react';
-import { useStore } from '../store/useStore';
-import { Plus, Edit2, Trash2, Phone, Mail, Check, RefreshCw } from 'lucide-react';
-import { validatePhone, validateEmail } from '../utils/validation';
+import React,{useEffect,useState} from 'react';
+import {Plus,Edit2,RefreshCw,UserX} from 'lucide-react';
+import {useStore} from '../store/useStore';
+import {apiClient} from '../api/client';
+import {validateEmail} from '../utils/validation';
+import {tuPayload} from '../utils/directoryForms';
 import PhoneInput from '../components/PhoneInput';
-import { apiClient } from '../api/client';
-
-export default function TUsPage() {
-  const { tus, projects, addTU, updateTU, deleteTU, loadTUs, loadAuditLog, hasPermission } = useStore();
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [addMessage, setAddMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [newTU, setNewTU] = useState({ fullName: '', position: 'Территориальный управляющий', phone: '', email: '', isActive: true });
-  const [editData, setEditData] = useState<any>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [ldapConfigured, setLdapConfigured] = useState(false);
-  const [syncingAD, setSyncingAD] = useState(false);
-
-  useEffect(() => {
-    apiClient.getLdapStatus().then(status => setLdapConfigured(status.configured)).catch(() => setLdapConfigured(false));
-  }, []);
-
-  const handleSyncAD = async () => {
-    setSyncingAD(true);
-    try {
-      const result = await apiClient.syncTUsFromAD();
-      await loadTUs();
-      alert(`Синхронизация AD завершена. Найдено: ${result.found}, добавлено: ${result.created}, обновлено: ${result.updated}, отключено: ${result.disabled}, пропущено: ${result.skipped}.`);
-    } catch (error) {
-      alert('Не удалось синхронизировать AD: ' + (error as Error).message);
-    } finally { setSyncingAD(false); }
-  };
-
-  if (!hasPermission('manage_tus')) {
-    return <div className="text-center py-12 text-gray-500">Нет доступа к этой странице</div>;
-  }
-
-  const filteredTUs = tus.filter(tu => 
-    tu.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    tu.position.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (tu.phone && tu.phone.includes(searchQuery)) ||
-    (tu.email && tu.email.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
-  const getProjectCount = (tuId: string) => projects.filter(p => p.tuId === tuId && !p.isDeleted).length;
-
-  const handleAdd = async () => {
-    if (!newTU.fullName.trim()) {
-      setAddMessage({ type: 'error', text: 'Укажите ФИО ТУ.' });
-      return;
-    }
-    if (!validateEmail(newTU.email)) {
-      setAddMessage({ type: 'error', text: 'Некорректный формат email. Пример: zotov@company.ru' });
-      return;
-    }
-
-    setAddMessage(null);
-    try {
-      await addTU({
-        ...newTU,
-        fullName: newTU.fullName.trim(),
-        position: newTU.position.trim(),
-        phone: newTU.phone.trim(),
-        email: newTU.email.trim(),
-      });
-      await Promise.all([loadTUs(), loadAuditLog()]);
-      setNewTU({ fullName: '', position: 'Территориальный управляющий', phone: '', email: '', isActive: true });
-      setShowAddForm(false);
-      setAddMessage({ type: 'success', text: `ТУ «${newTU.fullName.trim()}» успешно добавлен.` });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Неизвестная ошибка';
-      setAddMessage({ type: 'error', text: `Не удалось добавить ТУ: ${message}` });
-    }
-  };
-
-  const startEdit = (tu: any) => {
-    setEditingId(tu.id);
-    setEditData({ fullName: tu.fullName, position: tu.position, phone: tu.phone || '', email: tu.email || '', isActive: tu.isActive });
-  };
-
-  const saveEdit = () => {
-    if (editingId && editData) {
-      if (!editData.fullName) {
-        alert('Укажите ФИО');
-        return;
-      }
-      if (!validateEmail(editData.email)) {
-        alert('Некорректный формат email. Пример: zotov@company.ru');
-        return;
-      }
-      updateTU(editingId, editData);
-      setEditingId(null);
-      setEditData(null);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      const success = await deleteTU(id);
-      if (!success) {
-        alert('Нельзя удалить ТУ, который назначен на активные объекты');
-      }
-    } catch (error) {
-      console.error('Failed to delete TU:', error);
-      alert('Ошибка при удалении ТУ');
-    }
-    setDeleteConfirm(null);
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Справочник ТУ</h1>
-          <p className="text-sm text-gray-500 mt-1">Территориальные управляющие, назначаемые на объекты</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button onClick={handleSyncAD} disabled={!ldapConfigured || syncingAD} title={ldapConfigured ? 'Синхронизировать ТУ с Active Directory' : 'Сначала заполните настройки LDAP'} className="flex items-center gap-2 px-4 py-2 border border-blue-600 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed">
-            <RefreshCw size={16} className={syncingAD ? 'animate-spin' : ''} /> {syncingAD ? 'Синхронизация...' : 'Синхронизировать с AD'}
-          </button>
-          <button onClick={() => { setAddMessage(null); setShowAddForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
-            <Plus size={16} /> Добавить ТУ
-          </button>
-        </div>
-      </div>
-
-      {/* Поиск */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          placeholder="Поиск по ФИО, должности, телефону, email..."
-          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-
-      {addMessage && (
-        <div role={addMessage.type === 'error' ? 'alert' : 'status'} className={`rounded-lg border px-4 py-3 text-sm ${addMessage.type === 'success' ? 'border-green-200 bg-green-50 text-green-800' : 'border-red-200 bg-red-50 text-red-800'}`}>
-          {addMessage.text}
-        </div>
-      )}
-
-      {showAddForm && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Новый ТУ</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">ФИО *</label>
-              <input type="text" value={newTU.fullName} onChange={e => setNewTU({ ...newTU, fullName: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="Зотов Денис" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Должность</label>
-              <input type="text" value={newTU.position} onChange={e => setNewTU({ ...newTU, position: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Телефон</label>
-              <PhoneInput
-                value={newTU.phone}
-                onChange={value => setNewTU({ ...newTU, phone: value })}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Email</label>
-              <input type="email" value={newTU.email} onChange={e => setNewTU({ ...newTU, email: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="mail@mail.ru" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Статус</label>
-              <select value={newTU.isActive ? 'active' : 'inactive'} onChange={e => setNewTU({ ...newTU, isActive: e.target.value === 'active' })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">
-                <option value="active">Активен</option>
-                <option value="inactive">Неактивен</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 mt-4">
-            <button onClick={handleAdd} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">Создать</button>
-            <button onClick={() => setShowAddForm(false)} className="px-4 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50">Отмена</button>
-          </div>
-        </div>
-      )}
-
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">ФИО</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Должность</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Телефон</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Email</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Объектов</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Статус</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTUs.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                  {searchQuery ? 'Ничего не найдено' : 'Нет записей'}
-                </td>
-              </tr>
-            ) : filteredTUs.map(tu => {
-              const isEditing = false;
-              const projectCount = getProjectCount(tu.id);
-              return (
-                <tr key={tu.id} className="border-b border-gray-100 hover:bg-gray-50">
-                  {isEditing ? (
-                    <>
-                      <td className="px-4 py-3"><input type="text" value={editData.fullName} onChange={e => setEditData({ ...editData, fullName: e.target.value })} className="px-2 py-1 border border-gray-200 rounded text-sm w-full" /></td>
-                      <td className="px-4 py-3"><input type="text" value={editData.position} onChange={e => setEditData({ ...editData, position: e.target.value })} className="px-2 py-1 border border-gray-200 rounded text-sm w-full" /></td>
-                      <td className="px-4 py-3">
-                        <PhoneInput
-                          value={editData.phone}
-                          onChange={value => setEditData({ ...editData, phone: value })}
-                          className="px-2 py-1 border border-gray-200 rounded text-sm w-full"
-                        />
-                      </td>
-                      <td className="px-4 py-3"><input type="email" value={editData.email} onChange={e => setEditData({ ...editData, email: e.target.value })} className="px-2 py-1 border border-gray-200 rounded text-sm w-full" placeholder="mail@mail.ru" /></td>
-                      <td className="px-4 py-3 text-gray-500">{projectCount}</td>
-                      <td className="px-4 py-3">
-                        <select value={editData.isActive ? 'active' : 'inactive'} onChange={e => setEditData({ ...editData, isActive: e.target.value === 'active' })} className="px-2 py-1 border border-gray-200 rounded text-sm">
-                          <option value="active">Активен</option>
-                          <option value="inactive">Неактивен</option>
-                        </select>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button onClick={saveEdit} className="text-green-600 hover:bg-green-50 p-1 rounded text-xs font-medium">Сохранить</button>
-                          <button onClick={() => { setEditingId(null); setEditData(null); }} className="text-gray-600 hover:bg-gray-100 p-1 rounded text-xs">Отмена</button>
-                        </div>
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="px-4 py-3 font-medium text-gray-900">{tu.fullName}</td>
-                      <td className="px-4 py-3 text-gray-600">{tu.position}</td>
-                      <td className="px-4 py-3 text-gray-600">{tu.phone || '—'}</td>
-                      <td className="px-4 py-3 text-gray-600">{tu.email || '—'}</td>
-                      <td className="px-4 py-3"><span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{projectCount}</span></td>
-                      <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded ${tu.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                          {tu.isActive ? 'Активен' : 'Неактивен'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => startEdit(tu)} className="text-blue-600 hover:bg-blue-50 p-1.5 rounded"><Edit2 size={16} /></button>
-                          {deleteConfirm === tu.id ? (
-                            <div className="flex items-center gap-1">
-                              <button onClick={() => handleDelete(tu.id)} className="text-xs bg-red-600 text-white px-2 py-1 rounded">Да</button>
-                              <button onClick={() => setDeleteConfirm(null)} className="text-xs border border-gray-200 px-2 py-1 rounded">Нет</button>
-                            </div>
-                          ) : (
-                            <button onClick={() => setDeleteConfirm(tu.id)} className="text-red-600 hover:bg-red-50 p-1.5 rounded"><Trash2 size={16} /></button>
-                          )}
-                        </div>
-                      </td>
-                    </>
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      {editingId && editData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={e=>{if(e.target===e.currentTarget){setEditingId(null);setEditData(null)}}}>
-          <div role="dialog" aria-modal="true" aria-labelledby="edit-tu-title" className="w-full max-w-xl rounded-xl bg-white p-6 shadow-xl">
-            <h2 id="edit-tu-title" className="mb-5 text-lg font-semibold text-gray-900">Редактирование ТУ</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div><label className="mb-1 block text-xs font-medium text-gray-600">ФИО *</label><input value={editData.fullName} onChange={e=>setEditData({...editData,fullName:e.target.value})} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"/></div>
-              <div><label className="mb-1 block text-xs font-medium text-gray-600">Должность</label><input value={editData.position} onChange={e=>setEditData({...editData,position:e.target.value})} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"/></div>
-              <div><label className="mb-1 block text-xs font-medium text-gray-600">Телефон</label><PhoneInput value={editData.phone} onChange={value=>setEditData({...editData,phone:value})} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"/></div>
-              <div><label className="mb-1 block text-xs font-medium text-gray-600">Email</label><input type="email" value={editData.email} onChange={e=>setEditData({...editData,email:e.target.value})} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"/></div>
-              <div><label className="mb-1 block text-xs font-medium text-gray-600">Статус</label><select value={editData.isActive?'active':'inactive'} onChange={e=>setEditData({...editData,isActive:e.target.value==='active'})} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"><option value="active">Активен</option><option value="inactive">Отключён</option></select></div>
-            </div>
-            <div className="mt-6 flex justify-end gap-2"><button onClick={()=>{setEditingId(null);setEditData(null)}} className="rounded-lg border border-gray-200 px-4 py-2 text-sm">Отмена</button><button onClick={saveEdit} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white">Сохранить</button></div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+import DirectoryWorkspace,{DetailHeader,InfoGrid,Notice,EditorFooter,EmptyDetail} from '../components/DirectoryWorkspace';
+type Draft={fullName:string;position:string;phone:string;email:string;isActive:boolean};
+const blank:Draft={fullName:'',position:'Территориальный управляющий',phone:'',email:'',isActive:true};
+export default function TUsPage(){
+ const {tus,projects,loadTUs,loadAuditLog,deleteTU,hasPermission,openCard}=useStore();
+ const [query,setQuery]=useState('');const [status,setStatus]=useState('');const [selectedId,setSelectedId]=useState('');
+ const [mode,setMode]=useState<'new'|'edit'|null>(null);const [draft,setDraft]=useState<Draft>(blank);const [saving,setSaving]=useState(false);
+ const [error,setError]=useState('');const [message,setMessage]=useState('');const [confirmDisable,setConfirmDisable]=useState(false);
+ const [ldap,setLdap]=useState(false);const [syncing,setSyncing]=useState(false);const [tab,setTab]=useState<'info'|'projects'>('info');
+ const canManage=hasPermission('manage_tus');const canView=hasPermission('view_tus');
+ useEffect(()=>{if(!canManage)return;let active=true;apiClient.getLdapStatus().then(result=>{if(active)setLdap(result.configured);}).catch(()=>{});return()=>{active=false;};},[canManage]);
+ const matches=tus.filter(tu=>(!status || String(tu.isActive)===status) && `${tu.fullName} ${tu.position} ${tu.phone || ''} ${tu.email || ''}`.toLocaleLowerCase('ru').includes(query.trim().toLocaleLowerCase('ru')));
+ const tu=mode==='edit' ? tus.find(item=>item.id===selectedId):matches.find(item=>item.id===selectedId) || matches[0];
+ const linked=projects.filter(project=>project.tuId===tu?.id && !project.isDeleted);
+ const begin=(next:'new'|'edit')=>{if(next==='edit' && !tu)return;setSelectedId(tu?.id || '');setDraft(next==='new' ? {...blank}:{fullName:tu!.fullName,position:tu!.position,phone:tu!.phone || '',email:tu!.email || '',isActive:tu!.isActive});setMode(next);setError('');setMessage('');setConfirmDisable(false);};
+ const save=async()=>{
+  if(!canManage || saving)return;
+  if(draft.fullName.trim().length<2)return setError('Укажите ФИО: не менее двух символов.');
+  if(!validateEmail(draft.email.trim()))return setError('Укажите корректный email.');
+  if(draft.phone && !/^[+0-9() .-]{5,40}$/.test(draft.phone.trim()))return setError('Проверьте номер телефона.');
+  setSaving(true);setError('');
+  try{const data=tuPayload(draft);
+   if(mode==='new'){const added=await apiClient.createTU(data);setSelectedId(added.id);setQuery('');setStatus('');}else if(tu)await apiClient.updateTU(tu.id,data);
+   await Promise.all([loadTUs(),loadAuditLog()]);setMode(null);setTab('info');setMessage(mode==='new' ? 'ТУ добавлен в справочник.':'Данные ТУ сохранены.');
+  }catch(e){setError((e as Error).message);}finally{setSaving(false);}
+ };
+ const sync=async()=>{if(!canManage || syncing)return;setSyncing(true);setError('');setMessage('');try{const result=await apiClient.syncTUsFromAD();await Promise.all([loadTUs(),loadAuditLog()]);setMessage(`Синхронизация завершена. Найдено: ${result.found}, добавлено: ${result.created}, обновлено: ${result.updated}, отключено: ${result.disabled}, пропущено: ${result.skipped}.`);}catch(e){setError((e as Error).message);}finally{setSyncing(false);}};
+ const disable=async()=>{if(!tu || !canManage || saving)return;setSaving(true);setError('');try{if(!await deleteTU(tu.id))throw new Error('Не удалось отключить ТУ. Проверьте связанные события.');setConfirmDisable(false);setMessage('ТУ отключён. История событий сохранена.');}catch(e){setError((e as Error).message);}finally{setSaving(false);}};
+ if(!canView && !canManage)return <div className="roles-empty">Нет доступа к справочнику ТУ</div>;
+ return <DirectoryWorkspace title="Справочник ТУ" eyebrow="Справочники" description="Контакты управляющих и связанные события магазинов." query={query} onQuery={setQuery} searchLabel="Поиск ТУ и контактов" selectedId={mode==='new' ? undefined:tu?.id} locked={!!mode || saving || syncing} onSelect={id=>{setSelectedId(id);setTab('info');setConfirmDisable(false);setError('');setMessage('');}} items={matches.map(item=>({id:item.id,title:item.fullName,subtitle:item.position,badge:item.isActive ? 'Активен':'Отключён',active:item.isActive}))} stats={[{label:'Всего ТУ',value:tus.length},{label:'Активных',value:tus.filter(item=>item.isActive).length},{label:'С контактами',value:tus.filter(item=>item.phone || item.email).length}]} actions={canManage && <><button className="roles-secondary" onClick={sync} disabled={!ldap || syncing || !!mode || saving} title={ldap ? 'Синхронизировать с Active Directory':'Подключите LDAP в настройках'}><RefreshCw size={15} className={syncing ? 'animate-spin':''}/>{syncing ? 'Синхронизация…':'Синхронизировать с AD'}</button><button className="roles-primary" onClick={()=>begin('new')} disabled={!!mode || saving || syncing}><Plus size={16}/>Добавить ТУ</button></>} filter={<select aria-label="Статус ТУ" value={status} disabled={!!mode || saving || syncing} onChange={e=>setStatus(e.target.value)}><option value="">Все статусы</option><option value="true">Активные</option><option value="false">Отключённые</option></select>}>
+  {!mode && <Notice error={!!error} message={error || message}/>}
+  {mode ? <><DetailHeader title={mode==='new' ? 'Новый ТУ':'Редактирование ТУ'} subtitle="Контактные данные и доступность для назначения на события." eyebrow="Территориальный управляющий"/>
+   <fieldset disabled={saving} className="directory-form"><label>ФИО *<input maxLength={120} value={draft.fullName} onChange={e=>setDraft({...draft,fullName:e.target.value})}/></label><label>Должность<input maxLength={120} value={draft.position} onChange={e=>setDraft({...draft,position:e.target.value})}/></label><label>Телефон<PhoneInput value={draft.phone} onChange={value=>setDraft({...draft,phone:value})}/></label><label>Email<input type="email" maxLength={254} value={draft.email} onChange={e=>setDraft({...draft,email:e.target.value})}/></label><label>Статус<select value={String(draft.isActive)} onChange={e=>setDraft({...draft,isActive:e.target.value==='true'})}><option value="true">Активен</option><option value="false">Отключён</option></select></label></fieldset>
+   <EditorFooter saving={saving} error={error} onCancel={()=>{setMode(null);setError('');}} onSave={save} label={mode==='new' ? 'Добавить ТУ':'Сохранить изменения'}/></>
+  :tu ? <><DetailHeader title={tu.fullName} subtitle={tu.position || 'Должность не указана'} eyebrow="Территориальный управляющий" actions={canManage && <><button className="roles-secondary" onClick={()=>begin('edit')} disabled={saving || syncing}><Edit2 size={14}/>Редактировать</button><button className="roles-icon-button" aria-label="Отключить ТУ" title={linked.length ? 'ТУ назначен на события':!tu.isActive ? 'ТУ уже отключён':'Отключить ТУ'} disabled={saving || syncing || !tu.isActive || linked.length>0} onClick={()=>setConfirmDisable(true)}><UserX size={16}/></button></>}/>
+   {confirmDisable && <div className="roles-delete-confirm"><p>Отключить ТУ «{tu.fullName}»? Запись и история сохранятся.</p><div><button className="roles-danger" disabled={saving} onClick={disable}>Отключить ТУ</button><button className="roles-secondary" disabled={saving} onClick={()=>setConfirmDisable(false)}>Отмена</button></div></div>}
+   <div className="role-detail-tabs"><button className={tab==='info' ? 'active':''} aria-pressed={tab==='info'} onClick={()=>setTab('info')}>Контакты и сведения</button><button className={tab==='projects' ? 'active':''} aria-pressed={tab==='projects'} onClick={()=>{setTab('projects');void useStore.getState().loadProjects();}}>Связанные события <span>{linked.length}</span></button></div>
+   {tab==='info' ? <><InfoGrid items={[{label:'Статус',value:<span className={tu.isActive ? 'directory-status-on':'directory-status-off'}>{tu.isActive ? 'Активен':'Отключён'}</span>},{label:'Источник записи',value:'adObjectGuid' in tu && tu.adObjectGuid ? 'Active Directory':'Локальный справочник'},{label:'Телефон',value:tu.phone ? <a href={`tel:${tu.phone}`}>{tu.phone}</a>:'Не указан'},{label:'Email',value:tu.email ? <a href={`mailto:${tu.email}`}>{tu.email}</a>:'Не указан'}]}/><section className="directory-section"><h3>Назначение на события</h3><p>{tu.isActive ? 'Управляющий доступен для выбора при создании и редактировании события.':'Управляющий не доступен для новых назначений. История событий сохраняется.'}</p><div className="directory-inline-facts"><span><strong>{linked.length}</strong> связанных событий в текущем списке</span></div></section></>
+   :<section className="directory-section"><h3>Связанные события</h3>{linked.length ? linked.map(project=><button key={project.id} className="directory-event" onClick={()=>openCard(project.id)}><span><strong>Магазин №{project.storeNumber}</strong><small>{project.address}</small></span><span>{project.workType}<small>{project.status}</small></span></button>):<p>В доступном списке нет событий, назначенных этому ТУ.</p>}</section>}
+  </>:<EmptyDetail message="Измените поиск или добавьте ТУ."/>}
+ </DirectoryWorkspace>;
 }

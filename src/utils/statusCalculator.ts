@@ -95,9 +95,10 @@ export function calculateStages(project: StoreProject): StageInfo[] {
     tasks.cashDelConfigured?.completed === true;
   const demolitionTaskIds = [
     'equipmentDismantled',
-    'monitoringRemovalRequested',
+    'sdDemolitionMonitoring',
+    'sdDemolitionInternet',
     'removedFromMailings',
-    'deletedFromPrintstat',
+    'sdDemolitionPrintstat',
   ];
   const demolitionComplete = demolitionTaskIds.every(taskId => tasks[taskId]?.completed === true);
 
@@ -222,6 +223,7 @@ export function calculateProjectStatus(project: StoreProject): ProjectStatus {
 }
 
 export function getNearestEvent(project: StoreProject): { name: string; date: Date; daysUntil: number } | null {
+  if (project.manualStatus) return null;
   const today = startOfDay(new Date());
   const dates: { name: string; date: Date }[] = [];
   getStagesByWorkType(project.workType).forEach(stage => {

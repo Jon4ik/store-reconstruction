@@ -1,0 +1,13 @@
+const fs=require('fs'),assert=require('node:assert/strict'),ts=require('typescript'),Module=require('module');
+require.extensions['.ts']=require.extensions['.tsx']=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.React,esModuleInterop:true,target:ts.ScriptTarget.ES2020}}).outputText,file);
+const React=require('react'),{renderToStaticMarkup:render}=require('react-dom/server'),load=Module._load;
+Module._load=function(name){if(name==='../store/useStore')return {useStore:()=>({hasPermission:()=>true})};return load.apply(this,arguments)};
+const Telegram=require('../src/components/TelegramSettings').default;
+let html=render(React.createElement(Telegram,{expanded:false,onToggle(){}}));assert.ok(html.includes('Настроить'));assert.ok(!html.includes('<details'));assert.ok(!html.includes('API-ключ бота'));
+html=render(React.createElement(Telegram,{expanded:true,onToggle(){}}));assert.ok(html.includes('Свернуть'));assert.ok(html.includes('API-ключ бота'));assert.ok(html.includes('HTTP-прокси'));
+const useState=React.useState;React.useState=initial=>useState(initial===undefined?null:initial);
+const Video=require('../src/pages/VideoregsPage').default;html=render(React.createElement(Video));assert.ok(html.includes('Новый регистратор'));assert.ok(html.includes('Торговый зал'));assert.ok(!html.includes('СРЛ'));assert.ok(!html.includes('Srl'));
+const task={id:'postgresql-export',name:'Экспорт PostgreSQL',enabled:false,cronExpression:'0 2 * * *',exportDirectory:'/db_logs',passwordConfigured:true,lastStatus:'success'};
+React.useState=initial=>useState(Array.isArray(initial)?[task]:initial==='shops-sync'?'postgresql-export':initial);
+const Scheduler=require('../src/pages/SchedulerPage').default;html=render(React.createElement(Scheduler));assert.ok(html.includes('Хранение резервных копий'));assert.ok(html.includes('DB_BACKUP_PASSWORD'));assert.ok(html.includes('Частота запуска'));assert.ok(!html.includes('>Настройки</span>'));
+React.useState=useState;console.log('PASS: unified Telegram controls, hall-only recorder editor, scheduler sections/password guidance');

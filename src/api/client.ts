@@ -13,7 +13,7 @@ class ApiClient {
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+      ...(options.body instanceof FormData ? {} : {'Content-Type':'application/json'}),
     };
 
     if (this.token) {
@@ -32,6 +32,18 @@ class ApiClient {
 
     return response.json();
   }
+
+  async getTelegramSettings(){return this.request<any>('/telegram/settings');}
+  async saveTelegramSettings(data:any){return this.request<any>('/telegram/settings',{method:'PUT',body:JSON.stringify(data)});}
+  async getNotificationChannels(){return this.request<any>('/notifications/channels');}
+  async getStageRequests(id:string){return this.request<any>(`/notifications/projects/${encodeURIComponent(id)}/sd-requests`);}
+  async retryStageRequest(id:string,taskId:string){return this.request<any>(`/notifications/projects/${encodeURIComponent(id)}/sd-requests/${encodeURIComponent(taskId)}/retry`,{method:'POST'});}
+  async getVideoregs(search='',page=1){return this.request<any>(`/videoregs?search=${encodeURIComponent(search)}&page=${page}&limit=50`);}
+  async createVideoreg(data:any){return this.request<any>('/videoregs',{method:'POST',body:JSON.stringify(data)});}
+  async updateVideoreg(id:string,data:any){return this.request<any>(`/videoregs/${id}`,{method:'PUT',body:JSON.stringify(data)});}
+  async deleteVideoreg(id:string){return this.request<any>(`/videoregs/${id}`,{method:'DELETE'});}
+  async getVideoregPasswords(id:string){return this.request<any>(`/videoregs/${id}/passwords`);}
+  async importVideoregs(file:File,legacyKey:string,overwrite:boolean){const body=new FormData();body.append('file',file);body.append('legacyKey',legacyKey);body.append('overwrite',String(overwrite));return this.request<any>('/videoregs/import',{method:'POST',body});}
 
   // Auth
   async login(username: string, password: string) {
@@ -124,7 +136,7 @@ class ApiClient {
     return this.request<any[]>('/scheduler/tasks');
   }
 
-  async updateSchedulerTask(id: string, data: { enabled?: boolean; cronExpression?: string }) {
+  async updateSchedulerTask(id: string, data: { enabled?: boolean; cronExpression?: string; exportDirectory?:string; backupFileName?:string }) {
     return this.request<any>(`/scheduler/tasks/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
   }
 
@@ -133,8 +145,8 @@ class ApiClient {
   }
 
   // TUs
-  async getTUs() {
-    return this.request<any[]>('/tus');
+  async getTUs(lookup = false) {
+    return this.request<any[]>(lookup ? '/tus/lookup' : '/tus');
   }
 
   async createTU(data: any) {
@@ -211,8 +223,8 @@ class ApiClient {
   }
 
   // Roles
-  async getRoles() {
-    return this.request<any[]>('/roles');
+  async getRoles(lookup = false) {
+    return this.request<any[]>(lookup ? '/roles/lookup' : '/roles');
   }
 
   async createRole(data: any) {

@@ -1,362 +1,91 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, Check, X, Search, ShieldCheck, LockKeyhole, Users, Loader2, AlertCircle } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { Plus, Edit2, Trash2, Check } from 'lucide-react';
-
+import type { Role } from '../types';
+import { permissionModules } from '../config/rolePermissions';
+import RolePermissions from '../components/RolePermissions';
+type Draft = Pick<Role,'name'|'description'|'permissions'>;
 export default function RolesPage() {
-  const { roles, users, addRole, updateRole, deleteRole, hasPermission } = useStore();
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [newRole, setNewRole] = useState({ name: '', description: '', permissions: [] as string[], isSystem: false });
-  const [editData, setEditData] = useState<any>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-
-  if (!hasPermission('manage_roles')) {
-    return <div className="text-center py-12 text-gray-500">Нет доступа к этой странице</div>;
-  }
-
-  // Модули и их права
-  const modules = [
-    {
-      name: 'Объекты (Закрытия/Реконструкции)',
-      key: 'closures',
-      permissions: [
-        { key: 'view_closures', label: 'Просмотр' },
-        { key: 'create_closures', label: 'Создание' },
-        { key: 'edit_closures', label: 'Редактирование' },
-        { key: 'delete_closures', label: 'Удаление' },
-      ]
-    },
-    {
-      name: 'Объекты (Открытия)',
-      key: 'openings',
-      permissions: [
-        { key: 'view_openings', label: 'Просмотр' },
-        { key: 'create_openings', label: 'Создание' },
-        { key: 'edit_openings', label: 'Редактирование' },
-        { key: 'delete_openings', label: 'Удаление' },
-      ]
-    },
-    {
-      name: 'Календарь',
-      key: 'calendar',
-      permissions: [
-        { key: 'view_calendar', label: 'Просмотр' },
-      ]
-    },
-    {
-      name: 'Dashboard',
-      key: 'dashboard',
-      permissions: [
-        { key: 'view_dashboard', label: 'Просмотр' },
-      ]
-    },
-    {
-      name: 'Экспорт',
-      key: 'export',
-      permissions: [ { key: 'export', label: 'Экспорт в Excel/CSV' } ]
-    },
-    {
-      name: 'Комментарии',
-      key: 'comments',
-      permissions: [
-        { key: 'view_comments', label: 'Просмотр' },
-        { key: 'add_comments', label: 'Добавление' },
-        { key: 'delete_comments', label: 'Удаление' },
-      ]
-    },
-    {
-      name: 'Пользователи',
-      key: 'users',
-      permissions: [
-        { key: 'view_users', label: 'Просмотр' },
-        { key: 'manage_users', label: 'Управление (создание, редактирование, удаление)' },
-      ]
-    },
-    {
-      name: 'Роли',
-      key: 'roles',
-      permissions: [
-        { key: 'view_roles', label: 'Просмотр' },
-        { key: 'manage_roles', label: 'Управление (создание, редактирование, удаление)' },
-      ]
-    },
-    {
-      name: 'Справочник ТУ',
-      key: 'tus',
-      permissions: [
-        { key: 'view_tus', label: 'Просмотр' },
-        { key: 'manage_tus', label: 'Управление (создание, редактирование, удаление)' },
-      ]
-    },
-    {
-      name: 'Справочник магазинов',
-      key: 'shops',
-      permissions: [
-        { key: 'view_shops', label: 'Просмотр справочника (открытие страницы)' },
-        { key: 'manage_shops', label: 'Ручная синхронизация справочника' },
-      ]
-    },
-    {
-      name: 'Планировщик',
-      key: 'scheduler',
-      permissions: [ { key: 'manage_scheduler', label: 'Настройка и запуск задач' } ]
-    },
-    {
-      name: 'Уведомления',
-      key: 'notifications',
-      permissions: [
-        { key: 'view_notifications', label: 'Просмотр страницы уведомлений' },
-        { key: 'create_notifications', label: 'Добавление уведомлений' },
-        { key: 'edit_notifications', label: 'Редактирование и включение/выключение' },
-        { key: 'delete_notifications', label: 'Полное удаление уведомлений' },
-      ]
-    },
-    {
-      name: 'Аудит',
-      key: 'audit',
-      permissions: [
-        { key: 'view_audit', label: 'Просмотр журнала' },
-        { key: 'clear_audit', label: 'Очистка журнала' },
-      ]
-    },
-    {
-      name: 'Настройки',
-      key: 'settings',
-      permissions: [
-        { key: 'manage_ldap', label: 'Настройки LDAP / Active Directory' },
-        { key: 'manage_integrations', label: 'Настройки интеграций' },
-        { key: 'manage_notifications', label: 'Настройки уведомлений' },
-      ]
-    },
-  ];
-
-  const allPermissions = modules.flatMap(m => m.permissions.map(p => p.key));
-  const permLabels: Record<string, string> = {};
-  modules.forEach(m => m.permissions.forEach(p => { permLabels[p.key] = p.label; }));
-
-  const handleAdd = async () => {
-    if (!newRole.name.trim()) {
-      alert('Укажите название роли');
-      return;
-    }
-    if (roles.find(r => r.name === newRole.name.trim())) {
-      alert(`Роль "${newRole.name}" уже существует`);
-      return;
-    }
-    if (newRole.permissions.length === 0) {
-      alert('Выберите хотя бы одно разрешение');
-      return;
-    }
-    try {
-      await addRole(newRole);
-      setNewRole({ name: '', description: '', permissions: [], isSystem: false });
-      setShowAddForm(false);
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Не удалось создать роль');
-    }
-  };
-
-  const startEdit = (role: any) => {
-    setEditingId(role.id);
-    setEditData({ name: role.name, description: role.description, permissions: [...role.permissions] });
-  };
-
-  const saveEdit = async () => {
-    if (editingId && editData) {
-      if (!editData.name.trim()) {
-        alert('Укажите название роли');
-        return;
-      }
-      // Проверяем уникальность имени (исключая текущую роль)
-      if (roles.find(r => r.name === editData.name.trim() && r.id !== editingId)) {
-        alert(`Роль "${editData.name}" уже существует`);
-        return;
-      }
-      if (editData.permissions.length === 0) {
-        alert('Выберите хотя бы одно разрешение');
-        return;
-      }
-      try {
-        await updateRole(editingId, editData);
-        setEditingId(null);
-        setEditData(null);
-      } catch (error) {
-        alert(error instanceof Error ? error.message : 'Не удалось сохранить роль');
-      }
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    const success = await deleteRole(id);
-    if (!success) alert('Нельзя удалить роль, которая используется пользователями или произошла ошибка');
-    setDeleteConfirm(null);
-  };
-
-  const togglePermission = (perm: string, target: 'new' | 'edit') => {
-    if (target === 'new') {
-      setNewRole(prev => ({ ...prev, permissions: prev.permissions.includes(perm) ? prev.permissions.filter(p => p !== perm) : [...prev.permissions, perm] }));
-    } else if (editData) {
-      setEditData({ ...editData, permissions: editData.permissions.includes(perm) ? editData.permissions.filter((p: string) => p !== perm) : [...editData.permissions, perm] });
-    }
-  };
-
-  const toggleModulePermissions = (modulePerms: string[], target: 'new' | 'edit') => {
-    if (target === 'new') {
-      const allSelected = modulePerms.every(p => newRole.permissions.includes(p));
-      if (allSelected) {
-        setNewRole(prev => ({ ...prev, permissions: prev.permissions.filter(p => !modulePerms.includes(p)) }));
-      } else {
-        setNewRole(prev => ({ ...prev, permissions: [...new Set([...prev.permissions, ...modulePerms])] }));
-      }
-    } else if (editData) {
-      const allSelected = modulePerms.every(p => editData.permissions.includes(p));
-      if (allSelected) {
-        setEditData({ ...editData, permissions: editData.permissions.filter((p: string) => !modulePerms.includes(p)) });
-      } else {
-        setEditData({ ...editData, permissions: [...new Set([...editData.permissions, ...modulePerms])] });
-      }
-    }
-  };
-
-  const getUserCount = (roleId: string) => users.filter(u => u.role === roleId).length;
-
-  const renderPermissionsForm = (target: 'new' | 'edit') => (
-    <div className="space-y-3">
-      {modules.map(module => {
-        const modulePermKeys = module.permissions.map(p => p.key);
-        const currentPerms = target === 'new' ? newRole.permissions : (editData?.permissions || []);
-        const allSelected = modulePermKeys.every(p => currentPerms.includes(p));
-        const someSelected = modulePermKeys.some(p => currentPerms.includes(p));
-        
-        return (
-          <div key={module.key} className="border border-gray-200 rounded-lg p-3">
-            <div className="flex items-center justify-between mb-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={allSelected} onChange={() => toggleModulePermissions(modulePermKeys, target)} className="w-4 h-4 text-blue-600 rounded" />
-                <span className="text-sm font-medium text-gray-900">{module.name}</span>
-                {someSelected && !allSelected && <span className="text-xs text-gray-400">(частично)</span>}
-              </label>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 ml-6">
-              {module.permissions.map(perm => (
-                <label key={perm.key} className="flex items-center gap-2 text-sm cursor-pointer p-1.5 rounded hover:bg-gray-50">
-                  <input type="checkbox" checked={currentPerms.includes(perm.key)} onChange={() => togglePermission(perm.key, target)} className="w-3.5 h-3.5 text-blue-600 rounded" />
-                  <span className="text-xs text-gray-700">{perm.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Роли и права доступа</h1>
-          <p className="text-sm text-gray-500 mt-1">Настройка прав для каждого модуля системы</p>
-        </div>
-        <button onClick={() => setShowAddForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
-          <Plus size={16} /> Добавить роль
-        </button>
-      </div>
-
-      {showAddForm && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Новая роль</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Название *</label>
-              <input type="text" value={newRole.name} onChange={e => setNewRole({ ...newRole, name: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="Менеджер" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Описание</label>
-              <input type="text" value={newRole.description} onChange={e => setNewRole({ ...newRole, description: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-            </div>
-          </div>
-          <div className="mb-4">
-            <label className="block text-xs font-medium text-gray-500 mb-2">Разрешения по модулям:</label>
-            {renderPermissionsForm('new')}
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={handleAdd} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">Создать</button>
-            <button onClick={() => setShowAddForm(false)} className="px-4 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50">Отмена</button>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-4">
-        {roles.map(role => {
-          const isEditing = editingId === role.id;
-          const userCount = getUserCount(role.id);
-          return (
-            <div key={role.id} className="bg-white rounded-xl border border-gray-200 p-6">
-              {isEditing ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Название</label>
-                      <input type="text" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Описание</label>
-                      <input type="text" value={editData.description} onChange={e => setEditData({ ...editData, description: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-2">Разрешения по модулям:</label>
-                    {renderPermissionsForm('edit')}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={saveEdit} className="flex items-center gap-1 px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"><Check size={14} />Сохранить</button>
-                    <button onClick={() => { setEditingId(null); setEditData(null); }} className="px-4 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50">Отмена</button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-gray-900">{role.name}</h3>
-                        {role.isSystem && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">Системная</span>}
-                      </div>
-                      <p className="text-sm text-gray-500 mt-1">{role.description}</p>
-                      <p className="text-xs text-gray-400 mt-1">Пользователей с этой ролью: {userCount}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => startEdit(role)} className="text-blue-600 hover:bg-blue-50 p-1.5 rounded"><Edit2 size={16} /></button>
-                      {deleteConfirm === role.id ? (
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => handleDelete(role.id)} className="text-xs bg-red-600 text-white px-2 py-1 rounded">Да</button>
-                          <button onClick={() => setDeleteConfirm(null)} className="text-xs border border-gray-200 px-2 py-1 rounded">Нет</button>
-                        </div>
-                      ) : (
-                        !role.isSystem && <button onClick={() => setDeleteConfirm(role.id)} className="text-red-600 hover:bg-red-50 p-1.5 rounded"><Trash2 size={16} /></button>
-                      )}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {modules.map(module => {
-                      const modulePerms = role.permissions.filter(p => module.permissions.map(mp => mp.key).includes(p));
-                      if (modulePerms.length === 0) return null;
-                      return (
-                        <div key={module.key}>
-                          <p className="text-xs font-medium text-gray-500 mb-1">{module.name}:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {modulePerms.map(p => <span key={p} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{permLabels[p] || p}</span>)}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+ const {roles,users,addRole,updateRole,deleteRole,hasPermission}=useStore();
+ const [selectedId,setSelectedId]=useState<string|null>(null);
+ const [mode,setMode]=useState<'new'|'edit'|null>(null);
+ const [draft,setDraft]=useState<Draft>({name:'',description:'',permissions:[]});
+ const [roleQuery,setRoleQuery]=useState('');
+ const [permissionQuery,setPermissionQuery]=useState('');
+ const [onlyEnabled,setOnlyEnabled]=useState(false);
+ const [tab,setTab]=useState<'permissions'|'users'>('permissions');
+ const [saving,setSaving]=useState(false);
+ const [deleting,setDeleting]=useState(false);
+ const [deleteConfirm,setDeleteConfirm]=useState(false);
+ const [error,setError]=useState('');
+ const [success,setSuccess]=useState('');
+ const canManage=hasPermission('manage_roles');
+ useEffect(()=>{if(!canManage){setMode(null);setDeleteConfirm(false);}},[canManage]);
+ if(!hasPermission('view_roles')) return <div className="roles-empty"><LockKeyhole size={28}/><h3>Нет доступа к управлению ролями</h3><p>Для просмотра этой страницы требуется соответствующее разрешение.</p></div>;
+ const role=roles.find(item=>item.id===selectedId) || roles[0];
+ const canViewUsers=hasPermission('view_users');
+ const roleUsers=role ? users.filter(user=>user.role===role.id):[];
+ const current=mode ? draft:role;
+ const permissions=current?.permissions || [];
+ const assignedModules=permissionModules.filter(module=>module.permissions.some(permission=>permissions.includes(permission.key))).length;
+ const filteredRoles=roles.filter(item=>`${item.name} ${item.description}`.toLocaleLowerCase('ru').includes(roleQuery.trim().toLocaleLowerCase('ru')));
+ const begin=(target:'new'|'edit')=>{
+  if(!canManage) return;
+  if(target==='edit' && !role) return;
+  setDraft(target==='new' ? {name:'',description:'',permissions:[]}:{name:role.name,description:role.description,permissions:[...role.permissions]});
+  if(role) setSelectedId(role.id);
+  setMode(target); setTab('permissions'); setPermissionQuery(''); setOnlyEnabled(false); setError(''); setSuccess(''); setDeleteConfirm(false);
+ };
+ const cancel=()=>{setMode(null);setError('');};
+ const save=async()=>{
+  if(!canManage) return;
+  const name=draft.name.trim();
+  if(name.length<2 || name.length>80) return setError('Название роли должно содержать от 2 до 80 символов.');
+  if(roles.some(item=>item.name===name && (mode==='new' || item.id!==role?.id))) return setError('Роль с таким названием уже существует.');
+  if(!draft.permissions.length) return setError('Выберите хотя бы одно разрешение.');
+  setSaving(true);setError('');
+  try {
+   const data={...draft,name,description:draft.description.trim()};
+   if(mode==='new') {await addRole({...data,isSystem:false});const added=useStore.getState().roles.find(item=>item.name===name);if(added)setSelectedId(added.id);}
+   else if(role) await updateRole(role.id,data);
+   setSuccess(mode==='new' ? 'Роль создана.':'Изменения роли сохранены.');setMode(null);
+  } catch(e) {setError(e instanceof Error ? e.message:'Не удалось сохранить роль.');} finally {setSaving(false);}
+ };
+ const remove=async()=>{
+  if(!canManage || !role || role.isSystem || deleting) return;
+  setDeleting(true);setError('');
+  try {const removed=await deleteRole(role.id);if(!removed)throw new Error('Не удалось удалить роль. Возможно, она назначена пользователям.');setSelectedId(null);setDeleteConfirm(false);setSuccess('Роль удалена.');}
+  catch(e){setError(e instanceof Error ? e.message:'Не удалось удалить роль.');} finally {setDeleting(false);}
+ };
+ return <div className="roles-page">
+  <header className="roles-page-heading"><div><span className="roles-eyebrow">Администрирование</span><h1>Роли и права доступа</h1><p>Определяйте доступ к разделам и действиям. Для действий автоматически выбирается просмотр раздела.</p></div><button className="roles-primary" onClick={()=>begin('new')} disabled={!canManage || !!mode || deleting}><Plus size={16}/>Добавить роль</button></header>
+  <div className="roles-stats"><div><ShieldCheck size={18}/><span>Всего ролей<strong>{roles.length}</strong></span></div><div><LockKeyhole size={18}/><span>Системных<strong>{roles.filter(item=>item.isSystem).length}</strong></span></div><div><Users size={18}/><span>{canViewUsers ? 'Пользователей с ролью':'Управление доступом'}<strong>{canViewUsers ? users.filter(user=>roles.some(item=>item.id===user.role)).length:'По разделам'}</strong></span></div></div>
+  {error && !mode && <div className="roles-notice error" role="alert"><AlertCircle size={16}/>{error}</div>}
+  {success && <div className="roles-notice success" role="status"><Check size={16}/>{success}</div>}
+  <div className="roles-workspace">
+   <aside className="roles-directory"><div className="roles-directory-heading"><h2>Роли</h2><span>{roles.length}</span></div><label className="roles-search"><Search size={15}/><input aria-label="Поиск ролей" placeholder="Найти роль…" value={roleQuery} onChange={e=>setRoleQuery(e.target.value)}/></label>
+    <div className="roles-list">{filteredRoles.map(item=>{
+     const count=users.filter(user=>user.role===item.id).length;
+     return <button key={item.id} className={`role-list-item ${role?.id===item.id && mode!=='new' ? 'selected':''}`} aria-pressed={role?.id===item.id && mode!=='new'} disabled={!!mode || deleting} onClick={()=>{setSelectedId(item.id);setPermissionQuery('');setDeleteConfirm(false);setError('');setSuccess('');}}>
+      <span className="role-list-icon">{item.isSystem ? <LockKeyhole size={17}/>:<ShieldCheck size={17}/>}</span><span className="role-list-text"><strong>{item.name}</strong><small>{item.isSystem ? 'Системная':'Пользовательская'}{canViewUsers && ` · Пользователей: ${count}`}</small></span><span className="role-list-count" title="Количество разрешений">{new Set(item.permissions).size}</span>
+     </button>;
+    })}{!filteredRoles.length && <p className="roles-directory-empty">Роли не найдены</p>}</div>
+    <p className="roles-directory-help">{mode ? 'Завершите редактирование или отмените изменения, чтобы выбрать другую роль.':'Выберите роль, чтобы изучить её права и назначенных пользователей.'}</p>
+   </aside>
+   <section className="roles-detail">
+    {current ? <>
+     <header className="role-detail-heading"><span className="role-detail-icon"><ShieldCheck size={23}/></span><div><span className="roles-eyebrow">{mode==='new' ? 'Новая роль':mode==='edit' ? 'Редактирование':role?.isSystem ? 'Системная роль':'Пользовательская роль'}</span><h2>{mode==='new' ? draft.name || 'Название новой роли':current.name}</h2><p>{mode ? 'Настройте название и набор разрешений.':current.description || 'Описание роли пока не добавлено.'}</p></div>{!mode && canManage && <div className="role-detail-actions"><button onClick={()=>begin('edit')} className="roles-secondary"><Edit2 size={14}/>Редактировать</button><button className="roles-icon-button" aria-label="Удалить роль" disabled={role?.isSystem || (canViewUsers && roleUsers.length>0) || deleting} title={role?.isSystem ? 'Системную роль удалить нельзя':canViewUsers && roleUsers.length ? 'Роль назначена пользователям':'Удалить роль'} onClick={()=>setDeleteConfirm(true)}><Trash2 size={16}/></button></div>}</header>
+     {deleteConfirm && <div className="roles-delete-confirm"><p>Удалить роль «{role?.name}»? Это действие нельзя отменить.</p><div><button onClick={remove} disabled={deleting} className="roles-danger">{deleting ? 'Удаление…':'Удалить роль'}</button><button onClick={()=>setDeleteConfirm(false)} disabled={deleting} className="roles-secondary">Отмена</button></div></div>}
+     {mode && <div className="role-identity-form"><label>Название роли <span>*</span><input value={draft.name} maxLength={80} onChange={e=>setDraft({...draft,name:e.target.value})} placeholder="Например, координатор реконструкций" disabled={saving}/></label><label>Описание<textarea rows={2} maxLength={300} value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})} placeholder="Для кого предназначена роль и какие задачи решает" disabled={saving}/></label></div>}
+     <div className="role-detail-summary"><span><strong>{new Set(permissions).size}</strong> разрешений</span><span><strong>{assignedModules}</strong> разделов с правами</span>{!mode && canViewUsers && <span><strong>{roleUsers.length}</strong> пользователей</span>}{!mode && role?.isSystem && <span className="role-system-note"><LockKeyhole size={12}/>Защищена от удаления</span>}</div>
+     {!mode && <div className="role-detail-tabs"><button className={tab==='permissions' ? 'active':''} onClick={()=>setTab('permissions')} aria-pressed={tab==='permissions'}>Права доступа</button><button className={tab==='users' ? 'active':''} onClick={()=>setTab('users')} aria-pressed={tab==='users'}>Пользователи{canViewUsers && <span>{roleUsers.length}</span>}</button></div>}
+     {(mode || tab==='permissions') ? <>
+      <div className="role-permission-toolbar"><label className="roles-search"><Search size={15}/><input aria-label="Поиск разрешений" placeholder="Найти раздел или разрешение…" value={permissionQuery} onChange={e=>setPermissionQuery(e.target.value)}/></label><label className="roles-enabled-filter"><input type="checkbox" checked={onlyEnabled} onChange={e=>setOnlyEnabled(e.target.checked)}/>Разделы с доступом</label></div>
+      <fieldset disabled={saving} className="role-permission-content"><RolePermissions permissions={permissions} editable={!!mode} query={permissionQuery} onlyEnabled={onlyEnabled} onChange={next=>setDraft({...draft,permissions:next})}/></fieldset>
+     </>:<div className="role-users">{!canViewUsers ? <div className="roles-empty"><LockKeyhole size={26}/><h3>Список пользователей недоступен</h3><p>Для просмотра требуется право «Просмотр пользователей».</p></div>:roleUsers.length ? roleUsers.map(user=><div className="role-user" key={user.id}><span className="role-user-avatar">{user.fullName.split(' ').filter(Boolean).slice(0,2).map(part=>part[0]).join('')}</span><div><strong>{user.fullName}</strong><small>{user.username}</small></div><span className={`role-user-status ${user.isActive ? 'active':''}`}>{user.isActive ? 'Активен':'Отключён'}</span></div>):<div className="roles-empty"><Users size={28}/><h3>Пользователей пока нет</h3><p>Эту роль ещё никому не назначили.</p></div>}</div>}
+     {mode && <footer className="role-editor-footer">{error && <div className="role-editor-error" role="alert"><AlertCircle size={14}/>{error}</div>}<p><strong>{draft.permissions.length}</strong> разрешений выбрано<span>Изменения применятся после сохранения.</span></p><div><button className="roles-secondary" onClick={cancel} disabled={saving}><X size={14}/>Отмена</button><button className="roles-primary" onClick={save} disabled={saving}>{saving ? <Loader2 size={15} className="animate-spin"/>:<Check size={15}/>}{saving ? 'Сохранение…':mode==='new' ? 'Создать роль':'Сохранить изменения'}</button></div></footer>}
+    </>:<div className="roles-empty"><ShieldCheck size={30}/><h3>Ролей пока нет</h3><p>Добавьте роль и настройте доступ к разделам.</p></div>}
+   </section>
+  </div>
+ </div>;
 }

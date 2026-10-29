@@ -13,14 +13,26 @@ export class NotificationsController {
   @RequirePermissions('view_notifications')
   findAll() { return this.notifications.findAll(); }
 
+  @Get('channels')
+  @RequirePermissions('view_notifications')
+  channels(){return this.notifications.getChannels();}
+
+  @Get('projects/:projectId/sd-requests')
+  @RequirePermissions('store:view')
+  stageRequests(@Param('projectId') id:string){return this.notifications.getStageRequests(id);}
+
+  @Post('projects/:projectId/sd-requests/:taskId/retry')
+  @RequirePermissions('store:edit')
+  retryStage(@Param('projectId') id:string,@Param('taskId') taskId:string){return this.notifications.retryStageRequest(id,taskId);}
+
   @Get('projects/:projectId/closure-request')
-  @RequirePermissions('view')
+  @RequirePermissions('store:view')
   getClosureRequestStatus(@Param('projectId') projectId: string) {
     return this.notifications.getClosureRequestStatus(projectId);
   }
 
   @Post('projects/:projectId/closure-request/retry')
-  @RequirePermissions('edit')
+  @RequirePermissions('store:edit')
   retryClosureRequest(@Param('projectId') projectId: string) {
     return this.notifications.retryClosureRequest(projectId);
   }

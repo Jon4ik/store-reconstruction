@@ -1,40 +1,47 @@
+import {matchShopTU} from '../utils/shopTU';
+import { storeRight } from '../utils/permissions';
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store/useStore';
 import { X, AlertCircle, Palette } from 'lucide-react';
 import { parseDateInput } from '../utils/statusCalculator';
 import { validateDate } from '../utils/validation';
 import { apiClient } from '../api/client';
+import TUSelect from './TUSelect';
 
 export default function AddStoreModal() {
-  const { isAddModalOpen, closeAddModal, addProject, tus, projects, defaultWorkType } = useStore();
+  const { isAddModalOpen, closeAddModal, addProject, tus, projects, defaultWorkType, hasPermission } = useStore();
   const [form, setForm] = useState({
     storeNumber: '', address: '', city: '', workType: defaultWorkType,
     closureDate: '', demolitionDate: '', installationDate: '', techOpenDate: '',
-    tuId: tus[0]?.id || '', comment: '', rowColor: '',
+    tuId: '', comment: '', rowColor: '',
   });
 
   const [errors, setErrors] = useState<string[]>([]);
+  const [selectedShop,setSelectedShop]=useState<any>(null);
+  useEffect(()=>{if(isAddModalOpen)setForm(current=>({...current,tuId:matchShopTU(selectedShop,tus)}));},[selectedShop,tus,isAddModalOpen]);
   const [shopMatches, setShopMatches] = useState<any[]>([]);
   const [shopSearchLoading, setShopSearchLoading] = useState(false);
 
   useEffect(() => {
-    if (isAddModalOpen) setForm(current => ({ ...current, workType: defaultWorkType }));
+    if (isAddModalOpen) {
+      setForm(current => ({ ...current, workType: defaultWorkType, tuId: '' }));
+    }
   }, [isAddModalOpen, defaultWorkType]);
 
-  // The modal can mount before TUs finish loading. Select an active TU once
-  // the list arrives, and never keep an inactive or missing TU selected.
+  // Clear a selection if its directory entry is removed or disabled.
   useEffect(() => {
     if (!isAddModalOpen) return;
     const activeTus = tus.filter(t => t.isActive);
     setForm(current => activeTus.some(t => t.id === current.tuId)
       ? current
-      : { ...current, tuId: activeTus[0]?.id || '' });
+      : { ...current, tuId: '' });
   }, [tus, isAddModalOpen]);
 
   useEffect(() => {
     const number = form.storeNumber.trim();
-    if (!isAddModalOpen || !number) { setShopMatches([]); setShopSearchLoading(false); setForm(current => ({ ...current, address: '', city: '' })); return; }
+    if (!isAddModalOpen || !number) { setSelectedShop(null); setShopMatches([]); setShopSearchLoading(false); setForm(current => ({ ...current, address: '', city: '' })); return; }
     let active = true;
+    setSelectedShop(null);
     setShopSearchLoading(true);
     setForm(current => ({ ...current, address: '', city: '' }));
     apiClient.searchShopByNumber(number).then((items: any[]) => {
@@ -42,6 +49,7 @@ export default function AddStoreModal() {
       setShopMatches(items);
       const normalized = number.padStart(3, '0');
       const match = items.find(item => String(item.shopNumber) === normalized || String(item.shopNumber) === number);
+      setSelectedShop(match||null);
       if (match) setForm(current => ({ ...current, address: match.address || '', city: match.city || '' }));
       else setForm(current => ({ ...current, address: '', city: '' }));
     }).catch(() => { if (active) { setShopMatches([]); setForm(current => ({ ...current, address: '', city: '' })); } })
@@ -55,6 +63,7 @@ export default function AddStoreModal() {
 
   const validate = (): string[] => {
     const errs: string[] = [];
+    if (!hasPermission(storeRight(form.workType, 'create'))) errs.push('Недостаточно прав для создания события этого типа.');
     if (!form.storeNumber.trim()) {
       errs.push('Укажите номер магазина');
     } else if (!/^\d{1,4}$/.test(form.storeNumber.trim())) {
@@ -85,7 +94,7 @@ export default function AddStoreModal() {
         tuId: form.tuId, rowColor: form.rowColor, comment: form.comment,
         manualStatus: null,
       });
-      setForm({ storeNumber: '', address: '', city: '', workType: 'Закрытие' as 'Закрытие' | 'Реконструкция' | 'Открытие', closureDate: '', demolitionDate: '', installationDate: '', techOpenDate: '', tuId: tus.find(t => t.isActive)?.id || '', comment: '', rowColor: '' });
+      setForm({ storeNumber: '', address: '', city: '', workType: 'Закрытие' as 'Закрытие' | 'Реконструкция' | 'Открытие', closureDate: '', demolitionDate: '', installationDate: '', techOpenDate: '', tuId: '', comment: '', rowColor: '' });
       closeAddModal();
     } catch (error) {
       console.error('Failed to add project:', error);
@@ -127,9 +136,9 @@ export default function AddStoreModal() {
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Тип работ <span className="text-red-500">*</span></label>
               <select value={form.workType} onChange={e => setForm({ ...form, workType: e.target.value as any })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="Закрытие">Закрытие</option>
-                <option value="Реконструкция">Реконструкция</option>
-                <option value="Открытие">Открытие</option>
+                {hasPermission('create_closures') && <option value="Закрытие">Закрытие</option>}
+                {hasPermission('create_closures') && <option value="Реконструкция">Реконструкция</option>}
+                {hasPermission('create_openings') && <option value="Открытие">Открытие</option>}
               </select>
             </div>
           </div>
@@ -137,16 +146,12 @@ export default function AddStoreModal() {
             <label className="block text-xs font-medium text-gray-600 mb-1">Адрес магазина <span className="text-red-500">*</span></label>
             <input type="text" value={form.address} readOnly aria-readonly="true" placeholder={shopSearchLoading ? "Поиск магазина…" : "Адрес заполнится по номеру из справочника"} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-700 cursor-not-allowed" />
             <p className="text-xs text-gray-500 mt-1">{shopSearchLoading ? 'Ищем магазин в справочнике…' : form.address ? 'Город: ' + (form.city || 'не указан') : 'Введите номер магазина, чтобы найти адрес в справочнике.'}</p>
-            {shopMatches.length > 1 && <div className="mt-2 rounded-lg border border-gray-200 divide-y divide-gray-100">{shopMatches.map((shop, index) => <button type="button" key={String(shop.shopNumber) + '-' + index} onClick={() => setForm(current => ({ ...current, storeNumber: String(shop.shopNumber), address: shop.address || '', city: shop.city || '' }))} className="w-full p-2 text-left text-sm hover:bg-gray-50"><span className="font-medium">№{shop.shopNumber}</span> — {shop.city}, {shop.address}</button>)}</div>}
+            {shopMatches.length > 1 && <div className="mt-2 rounded-lg border border-gray-200 divide-y divide-gray-100">{shopMatches.map((shop, index) => <button type="button" key={String(shop.shopNumber) + '-' + index} onClick={() => {setSelectedShop(shop);setForm(current => ({ ...current, storeNumber: String(shop.shopNumber), address: shop.address || '', city: shop.city || '' }));}} className="w-full p-2 text-left text-sm hover:bg-gray-50"><span className="font-medium">№{shop.shopNumber}</span> — {shop.city}, {shop.address}</button>)}</div>}
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">ТУ <span className="text-red-500">*</span></label>
   
-            <select value={form.tuId} onChange={e => setForm({ ...form, tuId: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                {tus.filter(t => t.isActive).length === 0
-                ? <option value="">Нет активных ТУ</option>
-                : tus.filter(t => t.isActive).map(t => <option key={t.id} value={t.id}>{t.fullName}</option>)}
-            </select>
+            <TUSelect value={form.tuId} tus={tus} onChange={tuId => setForm(current => ({ ...current, tuId }))} />
             {tus.filter(t => t.isActive).length === 0 && <p className="text-xs text-red-600 mt-1">Создайте или активируйте ТУ в справочнике, чтобы добавить событие.</p>}
           </div>
           <div className="border-t border-gray-100 pt-4">

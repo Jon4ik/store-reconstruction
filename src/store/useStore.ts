@@ -1,3 +1,4 @@
+import { hasRight, normalizePermissions, storeRight } from '../utils/permissions';
 import { create } from 'zustand';
 import { StoreProject, TU, SystemUser, Role, AuditLogEntry, Comment, Notification, FilterState, ProjectStatus, DatabaseConfig } from '../types';
 import { calculateProjectStatus, getNearestEvent } from '../utils/statusCalculator';
@@ -161,9 +162,10 @@ export const useStore = create<AppState>((set, get) => ({
 
   // Projects
   loadProjects: async () => {
+    if (!get().hasPermission('view')) { set({ projects: [], comments: [], isCardOpen: false }); return; }
     try {
       const response = await apiClient.getProjects();
-      set({ projects: response.data });
+      set({ projects: response.data.filter((project: StoreProject) => get().hasPermission(storeRight(project.workType, 'view'))) });
     } catch (error) {
       console.error('Failed to load projects:', error);
     }
@@ -222,8 +224,10 @@ export const useStore = create<AppState>((set, get) => ({
 
   // TUs
   loadTUs: async () => {
+    const has = get().hasPermission;
+    if (!has('view_tus') && !['create_closures','create_openings','edit_closures','edit_openings'].some(has)) { set({ tus: [] }); return; }
     try {
-      const tus = await apiClient.getTUs();
+      const tus = await apiClient.getTUs(!get().hasPermission('view_tus'));
       set({ tus });
     } catch (error) {
       console.error('Failed to load TUs:', error);
@@ -273,6 +277,7 @@ export const useStore = create<AppState>((set, get) => ({
       const normalizedUsers = users.map((user: any) => ({
         ...user,
         role: user.role?.id || user.roleId || '',
+        roleName: user.role?.name || user.roleName || '',
       }));
       set({ users: normalizedUsers });
     } catch (error) {
@@ -317,10 +322,10 @@ export const useStore = create<AppState>((set, get) => ({
 
   // Roles
   loadRoles: async () => {
-    if (!get().hasPermission('view_roles')) { set({ roles: [] }); return; }
+    if (!get().hasPermission('view_roles') && !get().hasPermission('manage_users')) { set({ roles: [] }); return; }
     try {
-      const roles = await apiClient.getRoles();
-      set({ roles });
+      const roles = await apiClient.getRoles(!get().hasPermission('view_roles'));
+      set({ roles: roles.map((role: Role) => ({ ...role, permissions: normalizePermissions(role.permissions) })) });
     } catch (error) {
       console.error('Failed to load roles:', error);
     }
@@ -362,6 +367,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   // Comments
   loadComments: async (storeId: string) => {
+    if (!get().hasPermission('view_comments')) { set({ comments: [] }); return; }
     try {
       const comments = await apiClient.getComments(storeId);
       set({ comments });
@@ -417,8 +423,7 @@ export const useStore = create<AppState>((set, get) => ({
   hasPermission: (permission: string) => {
     const user = get().currentUser;
     if (!user) return false;
-    if ((permission === 'manage_ldap' || permission === 'manage_integrations' || permission === 'manage_notifications') && user.permissions?.includes('settings')) return true; // legacy settings role compatibility
-    return user.permissions?.includes(permission) || false;
+    return hasRight(user.permissions, permission);
   },
 
   // Getters

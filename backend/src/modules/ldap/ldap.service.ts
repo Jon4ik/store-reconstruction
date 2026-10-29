@@ -226,7 +226,7 @@ export class LdapService {
       }
       const summary = { found: entries.length, created, updated, disabled, skipped };
       await this.prisma.auditLog.create({
-        data: { userId: actorId, userName: actorName || 'Система', action: 'sync_tus_ad', field: 'ldap', newValue: JSON.stringify(summary), details: 'Синхронизация справочника ТУ с Active Directory' },
+        data: { userId: actorId, action: 'sync_tus_ad', field: 'ldap', newValue: JSON.stringify(summary), details: 'Синхронизация справочника ТУ с Active Directory' },
       });
       return { success: true, ...summary };
     } catch (error: any) {

@@ -1,0 +1,13 @@
+const fs=require('node:fs'),assert=require('node:assert/strict'),ts=require('typescript');
+require.extensions['.ts']=require.extensions['.tsx']=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.React,esModuleInterop:true,target:ts.ScriptTarget.ES2020}}).outputText,file);
+const React=require('react'),{renderToStaticMarkup:render}=require('react-dom/server');
+const Telegram=require('../src/components/TelegramNotificationFields').default;
+const form={telegramTargetType:'direct',telegramChatId:'123',telegramThreadId:''};
+let html=render(React.createElement(Telegram,{form,setField(){}}));assert.ok(html.includes('ID пользователя'));assert.ok(!html.includes('ID темы'));
+html=render(React.createElement(Telegram,{form:{...form,telegramTargetType:'channel'},setField(){}}));assert.ok(html.includes('ID чата / канала'));assert.ok(html.includes('ID темы'));
+const {default:Task,SD_TASK_IDS}=require('../src/components/SDStageTask');assert.equal(new Set(SD_TASK_IDS).size,4);
+const props={label:'Снятие с мониторинга',saved:{completed:true,requestNumber:'SD-54321'},status:null,retrying:false,canRetry:true,onRetry(){}};
+html=render(React.createElement(Task,props));assert.ok(html.includes('SD-54321'));assert.ok(!html.includes('Повторить эту заявку'));assert.ok(!html.includes('checkbox'));
+html=render(React.createElement(Task,{...props,saved:null,status:{status:'error',message:'Нет доступа'}}));assert.ok(html.includes('Нет доступа'));assert.ok(html.includes('Повторить эту заявку'));
+html=render(React.createElement(Task,{...props,saved:null,status:{status:'error',message:'Нет доступа'},canRetry:false}));assert.ok(!html.includes('Повторить эту заявку'));
+console.log('PASS: Telegram recipient/topic rendering, four independent SD tasks, saved request number and retry access');

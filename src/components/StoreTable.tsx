@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { calculateProjectStatus, getNearestEvent, parseDate } from '../utils/statusCalculator';
 import { Search, Filter, Plus, Download } from 'lucide-react';
@@ -11,9 +11,15 @@ type TabType = 'closures' | 'openings';
 export default function StoreTable() {
   const { getFilteredProjects, tus, filters, setFilters, openCard, openAddModal, hasPermission } = useStore();
   const [showFilters, setShowFilters] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>('closures');
+  const [activeTab, setActiveTab] = useState<TabType>(hasPermission('view_closures') ? 'closures' : 'openings');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
+  const canViewClosures = hasPermission('view_closures');
+  const canViewOpenings = hasPermission('view_openings');
+  useEffect(() => {
+    if (activeTab === 'closures' && !canViewClosures && canViewOpenings) setActiveTab('openings');
+    if (activeTab === 'openings' && !canViewOpenings && canViewClosures) setActiveTab('closures');
+  }, [activeTab, canViewClosures, canViewOpenings]);
   const allFiltered = getFilteredProjects();
   
   // Фильтрация по вкладкам
@@ -90,7 +96,7 @@ export default function StoreTable() {
     <div className="space-y-4">
       {/* Tabs */}
       <div className="flex gap-2 border-b border-gray-200">
-        <button
+        {hasPermission('view_closures') && (        <button
           onClick={() => setActiveTab('closures')}
           className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
             activeTab === 'closures'
@@ -99,8 +105,8 @@ export default function StoreTable() {
           }`}
         >
           Закрытия / Реконструкции
-        </button>
-        <button
+        </button>)}
+        {hasPermission('view_openings') && (        <button
           onClick={() => setActiveTab('openings')}
           className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
             activeTab === 'openings'
@@ -109,7 +115,7 @@ export default function StoreTable() {
           }`}
         >
           Открытия
-        </button>
+        </button>)}
       </div>
 
       {/* Toolbar */}
@@ -132,14 +138,14 @@ export default function StoreTable() {
         >
           <Filter size={16} /> Фильтры
         </button>
-        <button
+        {hasPermission(activeTab === 'closures' ? 'create_closures' : 'create_openings') && (        <button
           onClick={() => openAddModal(activeTab === 'closures' ? 'Закрытие' : 'Открытие')}
           className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg text-sm font-medium ${
             activeTab === 'closures' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'
           }`}
         >
           <Plus size={16} /> Добавить событие
-        </button>
+        </button>)}
         {hasPermission('export') && (
           <button
             onClick={handleExport}

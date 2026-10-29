@@ -1,59 +1,30 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { RefreshCw, Search, Store, CheckCircle2, AlertTriangle } from 'lucide-react';
-import { apiClient } from '../api/client';
-import { useStore } from '../store/useStore';
-
-type Shop = { id: string; shopNumber: string; city: string; address: string; workHours: string; areaManager: string; areaManagerPhone: string; tu: string; directorate: string };
-
-export default function ShopsPage() {
-  const { hasPermission } = useStore();
-  const [shops, setShops] = useState<Shop[]>([]);
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await apiClient.getShops({ search: search.trim(), limit: 500 });
-      setShops(result.data || []);
-    } catch (e) {
-      setMessage('Не удалось загрузить справочник: ' + (e as Error).message);
-      setError(true);
-    } finally { setLoading(false); }
-  }, [search]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  const sync = async () => {
-    setSyncing(true); setMessage(''); setError(false);
-    try {
-      const result = await apiClient.syncShops();
-      setMessage('Синхронизация завершена. Источник: ' + result.sourceCount + ', добавлено: ' + result.created + ', обновлено: ' + result.updated + ', без изменений: ' + result.unchanged + '. Удалений: 0.');
-      await load();
-    } catch (e) { setMessage('Ошибка синхронизации: ' + (e as Error).message); setError(true); }
-    finally { setSyncing(false); }
-  };
-
-  if (!hasPermission('view_shops')) return <div className="py-12 text-center text-gray-500">Нет доступа к справочнику магазинов</div>;
-
-  return <div className="max-w-full space-y-5">
-    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <div><h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Store size={24}/>Справочник магазинов</h1><p className="mt-1 text-sm text-gray-500">Данные синхронизируются из SQL Server и хранятся в PostgreSQL.</p></div>
-      {hasPermission('manage_shops') && <button onClick={sync} disabled={syncing} className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"><RefreshCw size={16} className={syncing ? 'animate-spin' : ''}/>{syncing ? 'Синхронизация…' : 'Синхронизировать сейчас'}</button>}
-    </div>
-    {message && <div role="status" aria-live="polite" className={'rounded-lg border p-3 text-sm ' + (error ? 'border-red-300 bg-red-50 text-red-800' : 'border-green-300 bg-green-50 text-green-800')}>{error ? <AlertTriangle size={16} className="mr-2 inline"/> : <CheckCircle2 size={16} className="mr-2 inline"/>}{message}</div>}
-    <div className="rounded-xl border border-gray-200 bg-white p-4">
-      <label className="relative block max-w-xl"><Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск по номеру, городу, адресу, УМ или ТУ" className="w-full rounded-lg border border-gray-200 py-2 pl-9 pr-3 text-sm"/></label>
-      <div className="mt-4 text-xs text-gray-500">Найдено: {shops.length}{shops.length === 500 ? '+' : ''}</div>
-      <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[1050px] text-sm">
-          <thead><tr className="border-b border-gray-200 text-left text-xs uppercase text-gray-500"><th className="px-3 py-3">№ магазина</th><th className="px-3 py-3">Город</th><th className="px-3 py-3">Адрес</th><th className="px-3 py-3">Время работы</th><th className="px-3 py-3">УМ</th><th className="px-3 py-3">Телефон УМ</th><th className="px-3 py-3">ТУ</th><th className="px-3 py-3">Дирекция</th></tr></thead>
-          <tbody>{loading ? <tr><td colSpan={8} className="px-3 py-10 text-center text-gray-500">Загрузка…</td></tr> : shops.length === 0 ? <tr><td colSpan={8} className="px-3 py-10 text-center text-gray-500">Магазины не найдены. Проверьте поиск или выполните синхронизацию.</td></tr> : shops.map(shop=><tr key={shop.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50"><td className="px-3 py-3 font-semibold text-gray-900">{shop.shopNumber}</td><td className="px-3 py-3 text-gray-700">{shop.city || '—'}</td><td className="px-3 py-3 text-gray-700">{shop.address}</td><td className="px-3 py-3 text-gray-700">{shop.workHours || '—'}</td><td className="px-3 py-3 text-gray-700">{shop.areaManager || '—'}</td><td className="px-3 py-3 text-gray-700">{shop.areaManagerPhone || '—'}</td><td className="px-3 py-3 text-gray-700">{shop.tu || '—'}</td><td className="px-3 py-3 text-gray-700">{shop.directorate || '—'}</td></tr>)}</tbody>
-        </table>
-      </div>
-    </div>
-  </div>;
+import React,{useEffect,useState} from 'react';
+import {RefreshCw,Store,MapPin,Clock,Users} from 'lucide-react';
+import {apiClient} from '../api/client';
+import {useStore} from '../store/useStore';
+import DirectoryWorkspace,{DetailHeader,InfoGrid,Notice,EmptyDetail} from '../components/DirectoryWorkspace';
+type Shop={id:string;shopNumber:string;city:string;address:string;workHours:string;areaManager:string;areaManagerPhone:string;tu:string;directorate:string;updatedAt?:string};
+export default function ShopsPage(){
+ const {hasPermission,projects,openCard}=useStore();const canView=hasPermission('view_shops');
+ const [shops,setShops]=useState<Shop[]>([]);const [total,setTotal]=useState(0);const [search,setSearch]=useState('');const [selectedId,setSelectedId]=useState('');
+ const [loading,setLoading]=useState(true);const [syncing,setSyncing]=useState(false);const [reload,setReload]=useState(0);
+ const [error,setError]=useState('');const [message,setMessage]=useState('');const [tab,setTab]=useState<'info'|'contacts'|'projects'>('info');
+ useEffect(()=>{
+  if(!canView)return;let active=true;setLoading(true);
+  const timer=setTimeout(()=>{apiClient.getShops({search:search.trim(),limit:500}).then(result=>{if(!active)return;setShops(result.data || []);setTotal(result.total || 0);setError('');}).catch(e=>{if(active)setError('Не удалось загрузить справочник: '+e.message);}).finally(()=>{if(active)setLoading(false);});},250);
+  return()=>{active=false;clearTimeout(timer);};
+ },[search,reload,canView]);
+ const shop=shops.find(item=>item.id===selectedId) || shops[0];
+ const linked=projects.filter(project=>!project.isDeleted && String(project.storeNumber).padStart(3,'0')===String(shop?.shopNumber).padStart(3,'0'));
+ const sync=async()=>{if(syncing || !hasPermission('manage_shops'))return;setSyncing(true);setError('');setMessage('');try{const result=await apiClient.syncShops();setMessage(`Синхронизация завершена. Получено: ${result.sourceCount}, добавлено: ${result.created}, обновлено: ${result.updated}, без изменений: ${result.unchanged}.`);setReload(value=>value+1);}catch(e){setError((e as Error).message);}finally{setSyncing(false);}};
+ if(!canView)return <div className="roles-empty">Нет доступа к справочнику магазинов</div>;
+ return <DirectoryWorkspace title="Справочник магазинов" eyebrow="Справочники" description="Адреса, графики работы и ответственные по магазинам." query={search} onQuery={setSearch} searchLabel="Номер, город, адрес или ответственный" loading={loading} selectedId={shop?.id} onSelect={id=>{setSelectedId(id);setTab('info');}} items={shops.map(item=>({id:item.id,title:`№${item.shopNumber}`,subtitle:`${item.city || 'Город не указан'} · ${item.address}`}))} stats={[{label:'Найдено магазинов',value:total},{label:'Загружено записей',value:shops.length},{label:'Городов в выборке',value:new Set(shops.map(item=>item.city).filter(Boolean)).size}]} listNote={total>shops.length ? `Показано ${shops.length} из ${total}. Уточните поиск, чтобы найти нужный магазин.`:'Данные справочника доступны только для чтения.'} actions={<><button className="roles-secondary" aria-label="Обновить список магазинов" disabled={loading || syncing} onClick={()=>setReload(value=>value+1)}><RefreshCw size={15} className={loading ? 'animate-spin':''}/>Обновить список</button>{hasPermission('manage_shops') && <button className="roles-primary" onClick={sync} disabled={syncing}><RefreshCw size={15} className={syncing ? 'animate-spin':''}/>{syncing ? 'Синхронизация…':'Синхронизировать'}</button>}</>}>
+  <Notice error={!!error} message={error || message}/>
+  {shop ? <><DetailHeader title={`Магазин №${shop.shopNumber}`} subtitle={shop.address || 'Адрес не указан'} eyebrow="Карточка магазина" icon={<Store size={23}/>} actions={<span className="directory-readonly">Только просмотр</span>}/>
+   <div className="role-detail-tabs"><button className={tab==='info' ? 'active':''} aria-pressed={tab==='info'} onClick={()=>setTab('info')}>Сведения</button><button className={tab==='contacts' ? 'active':''} aria-pressed={tab==='contacts'} onClick={()=>setTab('contacts')}>Ответственные</button><button className={tab==='projects' ? 'active':''} aria-pressed={tab==='projects'} onClick={()=>{setTab('projects');void useStore.getState().loadProjects();}}>События <span>{linked.length}</span></button></div>
+   {tab==='info' ? <><InfoGrid items={[{label:'Номер магазина',value:shop.shopNumber},{label:'Город',value:shop.city},{label:'Адрес',value:shop.address},{label:'Режим работы',value:shop.workHours || 'Не указан'},{label:'Дирекция',value:shop.directorate},{label:'Данные обновлены',value:shop.updatedAt ? new Date(shop.updatedAt).toLocaleString('ru-RU'):'Не указано'}]}/><section className="directory-section"><h3><MapPin size={16}/>Единый справочник</h3><p>Адрес и сведения о магазине используются в событиях. Обновление выполняется при синхронизации с корпоративным справочником.</p></section></>
+   :tab==='contacts' ? <><InfoGrid items={[{label:'Управляющий (УМ)',value:shop.areaManager},{label:'Телефон УМ',value:shop.areaManagerPhone ? <a href={`tel:${shop.areaManagerPhone}`}>{shop.areaManagerPhone}</a>:'Не указан'},{label:'Территориальный управляющий',value:shop.tu},{label:'Дирекция',value:shop.directorate}]}/><section className="directory-section"><h3><Users size={16}/>Ответственные сотрудники</h3><p>Контактные данные обновляются вместе с магазином при синхронизации справочника.</p></section></>
+   :<section className="directory-section"><h3><Clock size={16}/>События магазина</h3>{linked.length ? linked.map(project=><button key={project.id} className="directory-event" onClick={()=>openCard(project.id)}><span><strong>{project.workType}</strong><small>{project.status}</small></span><span>Открыть событие →</span></button>):<p>В доступном списке нет событий этого магазина.</p>}</section>}
+  </>:<EmptyDetail message={loading ? 'Загружаем данные справочника…':error ? 'Не удалось загрузить данные. Повторите обновление списка.':'Измените поиск или синхронизируйте справочник.'}/>}
+ </DirectoryWorkspace>;
 }

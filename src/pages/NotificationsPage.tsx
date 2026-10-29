@@ -1,17 +1,18 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import TelegramNotificationFields from '../components/TelegramNotificationFields';
+import React, { useCallback,useRef, useEffect, useState } from 'react';
 import { BellRing, Plus, Pencil, Trash2, X, Save, Loader2, ToggleLeft, ToggleRight, Info } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { useStore } from '../store/useStore';
 
 type Rule = {
-  id: string; name: string; offsetType: 'calendar_days' | 'business_days'; eventType: string;
-  days: number; channel: 'intradesk' | 'pachca' | 'smtp'; enabled: boolean; sendTime: string;
+  id: string; systemTaskId?:string|null; telegramTargetType:'direct'|'channel';telegramChatId:string;telegramThreadId:string; name: string; offsetType: 'calendar_days' | 'business_days' | 'on_event'; eventType: string;
+  days: number; channel: 'intradesk' | 'pachca' | 'smtp' | 'telegram'; enabled: boolean; sendTime: string;
   messageTemplate: string; intradeskGroup: string; intradeskService: string; intradeskSubject: string; intradeskTaskType: string; intradeskTags: string;
   pachcaTargetType: 'channel' | 'direct'; pachcaEntityId: string; pachcaRecipientId: string; emailTo: string; emailSubject: string;
 };
-type FormData = Omit<Rule, 'id'>;
+type FormData = Omit<Rule, 'id'|'systemTaskId'>;
 const blankForm: FormData = {
-  name: '', offsetType: 'calendar_days', eventType: 'closureDate', days: 1,
+  telegramTargetType:'direct',telegramChatId:'',telegramThreadId:'',name: '', offsetType: 'calendar_days', eventType: 'closureDate', days: 1,
   channel: 'intradesk', enabled: true, sendTime: '09:00', messageTemplate: '',
   intradeskGroup: '', intradeskService: '', intradeskSubject: '', intradeskTaskType: '', intradeskTags: '',
   pachcaTargetType: 'channel', pachcaEntityId: '', pachcaRecipientId: '', emailTo: '', emailSubject: '',
@@ -29,7 +30,7 @@ const pluralize = (value: number, forms: [string, string, string]) => {
   return forms[2];
 };
 const eventOffsetLabel = (offsetType: Rule['offsetType'], days: number) =>
-  offsetType === 'business_days'
+  offsetType === 'on_event' ? 'В день события' : offsetType === 'business_days'
     ? `За ${days} ${pluralize(days, ['рабочий день', 'рабочих дня', 'рабочих дней'])} до события`
     : `За ${days} ${pluralize(days, ['день', 'дня', 'дней'])} до события`;
 
@@ -37,11 +38,14 @@ export default function NotificationsPage() {
   const { hasPermission } = useStore();
   const [rules, setRules] = useState<Rule[]>([]);
   const [form, setForm] = useState<FormData>(blankForm);
+  const formRef=useRef<HTMLElement>(null);
+  const [focusRequest,setFocusRequest]=useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [integrationEnabled, setIntegrationEnabled] = useState(false);
   const [pachcaEnabled, setPachcaEnabled] = useState(false);
   const [smtpEnabled, setSmtpEnabled] = useState(false);
+  const [telegramEnabled,setTelegramEnabled]=useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -60,21 +64,24 @@ export default function NotificationsPage() {
   useEffect(() => {
     if (!hasPermission('view_notifications')) { setLoading(false); return; }
     void load();
-    Promise.all([apiClient.getIntraDeskSettings(), apiClient.getPachcaSettings(), apiClient.getSmtpSettings()]).then(([intra,pachca,smtp]) => { setIntegrationEnabled(Boolean(intra.enabled)); setPachcaEnabled(Boolean(pachca.enabled)); setSmtpEnabled(Boolean(smtp.enabled)); }).catch(() => { setIntegrationEnabled(false); setPachcaEnabled(false); setSmtpEnabled(false); });
+    apiClient.getNotificationChannels().then(channels=>{setIntegrationEnabled(channels.intradesk);setPachcaEnabled(channels.pachca);setSmtpEnabled(channels.smtp);setTelegramEnabled(channels.telegram);}).catch(()=>{});
   }, [hasPermission, load]);
 
+  useEffect(()=>{if(!formOpen)return;formRef.current?.scrollIntoView({behavior:'smooth',block:'start'});formRef.current?.querySelector<HTMLInputElement>('input')?.focus({preventScroll:true});},[focusRequest,formOpen]);
+
   if (!hasPermission('view_notifications')) return <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-gray-500">Нет доступа к этой странице</div>;
+
 
   const canCreate = hasPermission('create_notifications');
   const canEdit = hasPermission('edit_notifications');
   const canDelete = hasPermission('delete_notifications');
   const setField = <K extends keyof FormData>(key: K, value: FormData[K]) => setForm(current => ({ ...current, [key]: value }));
 
-  const startCreate = () => { setEditingId(null); setForm({ ...blankForm, channel: 'intradesk' }); setFormOpen(true); setError(''); setSuccess(''); };
+  const startCreate = () => { setEditingId(null); setForm({ ...blankForm, channel: 'intradesk' }); setFormOpen(true); setFocusRequest(n=>n+1); setError(''); setSuccess(''); };
   const startEdit = (rule: Rule) => {
     setEditingId(rule.id);
-    setFormOpen(true);
-    const { id, ...values } = rule;
+    setFormOpen(true); setFocusRequest(n=>n+1);
+    const { id, systemTaskId, ...values } = rule;
     setForm(values);
     setError(''); setSuccess('');
   };
@@ -84,7 +91,7 @@ export default function NotificationsPage() {
     setError(''); setSuccess('');
     if (!form.name.trim()) return setError('Укажите название уведомления.');
     if (!form.messageTemplate.trim()) return setError('Заполните текст уведомления.');
-    if (form.channel === 'intradesk') {
+    if (form.channel === 'intradesk' && form.enabled) {
       if (!integrationEnabled) return setError('Подключите интеграцию IntraDesk в разделе «Настройки → Интеграции».');
       if (!form.intradeskGroup.trim() || !form.intradeskService.trim() || !form.intradeskSubject.trim() || !form.intradeskTaskType.trim()) return setError('Заполните группу исполнителей, сервис, тип и тему заявки IntraDesk.');
       if (!/^\d+$/.test(form.intradeskGroup.trim()) || !/^\d+$/.test(form.intradeskTaskType.trim())) return setError('Группа исполнителей и тип заявки должны содержать числовые ID.');
@@ -95,6 +102,7 @@ export default function NotificationsPage() {
       if (form.pachcaTargetType === 'channel' && !/^\d+$/.test(form.pachcaEntityId.trim())) return setError('Укажите числовой ID канала/чата Pachca.');
       if (form.pachcaTargetType === 'direct' && !/^\d+$/.test(form.pachcaRecipientId.trim())) return setError('Укажите числовой ID получателя Pachca.');
     }
+    if(form.channel==='telegram'){if(!telegramEnabled)return setError('Включите Telegram в настройках интеграций.');if(!/^-?\d{1,20}$/.test(form.telegramChatId))return setError('Укажите числовой ID Telegram.');if(form.telegramThreadId&&!/^[1-9]\d*$/.test(form.telegramThreadId))return setError('Проверьте ID темы.');}
     if (form.channel === 'smtp') {
       if (!smtpEnabled) return setError('Включите SMTP в разделе «Настройки → Интеграции».');
       if (!form.emailTo.trim() || !form.emailSubject.trim()) return setError('Для SMTP укажите адрес получателя и тему письма.');
@@ -144,7 +152,7 @@ export default function NotificationsPage() {
     {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
     {success && <div role="status" className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{success}</div>}
 
-    {(canCreate || canEdit) && formOpen && (editingId ? canEdit : canCreate) && <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    {(canCreate || canEdit) && formOpen && (editingId ? canEdit : canCreate) && <section ref={formRef} className="scroll-mt-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-5 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900">{editingId ? 'Редактирование уведомления' : 'Новое уведомление'}</h2>
         <button onClick={cancel} aria-label="Закрыть форму" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"><X size={18}/></button>
@@ -154,8 +162,8 @@ export default function NotificationsPage() {
           <input value={form.name} onChange={e=>setField('name',e.target.value)} maxLength={120} placeholder="Например, подготовка к закрытию магазина" className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" disabled={Boolean(editingId && !canEdit)}/>
         </label>
         <label className="block text-sm font-medium text-gray-700">Событие — срок
-          <select value={form.offsetType} onChange={e=>setField('offsetType',e.target.value as FormData['offsetType'])} className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm">
-            <option value="calendar_days">За N дней до событий</option>
+          <select value={form.offsetType} onChange={e=>setForm(current=>({...current,offsetType:e.target.value as FormData['offsetType'],...(e.target.value==='on_event'?{days:0,eventType:'demolitionDate'}:{})}))} className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm">
+            <option value="on_event">В день события</option><option value="calendar_days">За N дней до событий</option>
             <option value="business_days">За N рабочих дней до событий</option>
           </select>
         </label>
@@ -164,17 +172,17 @@ export default function NotificationsPage() {
             {Object.entries(events).map(([key,label])=><option key={key} value={key}>{label}</option>)}
           </select>
         </label>
-        <label className="block text-sm font-medium text-gray-700">Дней
+        {form.offsetType!=='on_event'&&<>        <label className="block text-sm font-medium text-gray-700">Дней
           <input type="number" min={0} max={365} value={form.days} onChange={e=>setField('days',Math.max(0,Math.min(365,Number(e.target.value))))} className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm"/>
-        </label>
+        </label></>}
         <label className="block text-sm font-medium text-gray-700">Время отправки
           <input type="time" value={form.sendTime} onChange={e=>setField('sendTime',e.target.value)} className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm"/>
         </label>
         <label className="block text-sm font-medium text-gray-700 md:col-span-2">Канал связи
-          <select value={form.channel} onChange={e=>setField('channel',e.target.value as FormData['channel'])} className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm">
+          <select disabled={Boolean(rules.find(rule=>rule.id===editingId)?.systemTaskId)} value={form.channel} onChange={e=>setField('channel',e.target.value as FormData['channel'])} className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm">
             <option value="intradesk" disabled={!integrationEnabled}>IntraDesk{!integrationEnabled?' — интеграция не подключена':''}</option>
             <option value="pachca" disabled={!pachcaEnabled}>Pachca{!pachcaEnabled?' — интеграция не подключена':''}</option>
-            <option value="smtp" disabled={!smtpEnabled}>SMTP / Email{!smtpEnabled?' — интеграция не подключена':''}</option>
+            <option value="telegram" disabled={!telegramEnabled}>Telegram{!telegramEnabled?' — интеграция не подключена':''}</option><option value="smtp" disabled={!smtpEnabled}>SMTP / Email{!smtpEnabled?' — интеграция не подключена':''}</option>
           </select>
         </label>
         {form.channel === 'intradesk' && <div className="grid grid-cols-1 gap-4 rounded-lg border border-blue-100 bg-blue-50/50 p-4 md:col-span-2 md:grid-cols-3">
@@ -214,6 +222,7 @@ export default function NotificationsPage() {
             <input value={form.emailSubject} onChange={e=>setField('emailSubject',e.target.value)} maxLength={1000} placeholder="Закрытие магазина №{shopNumber}" className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm"/>
           </label>
         </div>}
+        {form.channel==='telegram'&&<TelegramNotificationFields form={form} setField={setField}/>}
         <label className="block text-sm font-medium text-gray-700 md:col-span-2">Текст уведомления
           <textarea value={form.messageTemplate} onChange={e=>setField('messageTemplate',e.target.value)} rows={Math.min(20, Math.max(5, form.messageTemplate.split('\n').length + Math.floor(form.messageTemplate.length / 90)))} maxLength={10000} placeholder="Введите текст уведомления. Используйте ключи из подсказки ниже." className="mt-1.5 w-full resize-none overflow-hidden rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"/>
         </label>
@@ -223,22 +232,22 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
-        <div className="mb-2 flex items-center gap-2 font-semibold text-blue-950 dark:text-slate-100"><Info size={17}/>Ключи для подстановки в текст</div>
-        <p className="mb-2 text-blue-900 dark:text-slate-300">Значения автоматически берутся из справочника магазинов, ТУ и дат объекта.</p>
+      <div className="notification-template-help mt-4 rounded-lg border p-4 text-sm">
+        <div className="mb-2 flex items-center gap-2 font-semibold"><Info size={17}/>Ключи для подстановки в текст</div>
+        <p className="mb-2">Значения автоматически берутся из справочника магазинов, ТУ и дат объекта.</p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <p><code className="rounded bg-white px-1.5 py-0.5 text-slate-900 dark:bg-slate-700 dark:text-slate-100">{'{shopNumber}'}</code> — номер магазина из shop_directory</p>
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{address}'}</code> — адрес магазина из shop_directory</p>
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{tuFio}'}</code> — ФИО ТУ из tus.fullName</p>
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{tuPhone}'}</code> — телефон ТУ из tus.phone</p>
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{closureDate}'}</code> — дата закрытия для покупателей</p>
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{demolitionDate}'}</code> — дата демонтажа</p>
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{installationDate}'}</code> — дата монтажа</p>
-          <p><code className="rounded bg-white px-1.5 py-0.5">{'{techOpenDate}'}</code> — дата технического открытия</p>
+          <p><code className="rounded px-1.5 py-0.5">{'{shopNumber}'}</code> — номер магазина из shop_directory</p>
+          <p><code className="rounded px-1.5 py-0.5">{'{address}'}</code> — адрес магазина из shop_directory</p>
+          <p><code className="rounded px-1.5 py-0.5">{'{tuFio}'}</code> — ФИО ТУ из tus.fullName</p>
+          <p><code className="rounded px-1.5 py-0.5">{'{tuPhone}'}</code> — телефон ТУ из tus.phone</p>
+          <p><code className="rounded px-1.5 py-0.5">{'{closureDate}'}</code> — дата закрытия для покупателей</p>
+          <p><code className="rounded px-1.5 py-0.5">{'{demolitionDate}'}</code> — дата демонтажа</p>
+          <p><code className="rounded px-1.5 py-0.5">{'{installationDate}'}</code> — дата монтажа</p>
+          <p><code className="rounded px-1.5 py-0.5">{'{techOpenDate}'}</code> — дата технического открытия</p>
         </div>
       </div>
       <div className="mt-5 flex flex-wrap justify-end gap-2">
-        <button onClick={cancel} className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Отмена</button>
+        <button onClick={cancel} className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">Отмена</button>
         <button onClick={()=>void save()} disabled={saving || Boolean(editingId && !canEdit) || (!editingId && !canCreate)} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">{saving?<Loader2 className="animate-spin" size={16}/>:<Save size={16}/>}Сохранить</button>
       </div>
     </section>}
@@ -250,16 +259,16 @@ export default function NotificationsPage() {
       rules.map(rule=><article key={rule.id} className={`rounded-xl border bg-white p-4 shadow-sm ${rule.enabled?'border-gray-200':'border-gray-200 opacity-70'}`}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-gray-900">{rule.name}</h3><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${rule.enabled?'bg-green-100 text-green-800':'bg-gray-100 text-gray-600'}`}>{rule.enabled?'Включено':'Выключено'}</span></div>
+            <div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-gray-900">{rule.name}</h3>{rule.systemTaskId&&<span className="rounded bg-blue-50 px-2 py-1 text-xs text-blue-700">Системное</span>}<span className={`rounded-full px-2.5 py-1 text-xs font-medium ${rule.enabled?'bg-green-100 text-green-800':'bg-gray-100 text-gray-600'}`}>{rule.enabled?'Включено':'Выключено'}</span></div>
             <p className="mt-1.5 text-sm text-gray-600">{eventLabel(rule)}</p>
-            <p className="mt-1 text-sm text-gray-500">Канал: {{intradesk:'IntraDesk',pachca:'Pachca',smtp:'SMTP'}[rule.channel] || rule.channel} · Время отправки: {rule.sendTime}</p>
+            <p className="mt-1 text-sm text-gray-500">Канал: {{intradesk:'IntraDesk',pachca:'Pachca',smtp:'SMTP',telegram:'Telegram'}[rule.channel] || rule.channel} · Время отправки: {rule.sendTime}</p>
             {rule.channel === 'intradesk' && rule.intradeskSubject && <p className="mt-1 text-sm text-gray-500">Тема заявки: {rule.intradeskSubject}</p>}{rule.channel === 'smtp' && rule.emailSubject && <p className="mt-1 text-sm text-gray-500">Тема письма: {rule.emailSubject} · {rule.emailTo}</p>}
             <p className="mt-3 whitespace-pre-wrap break-words rounded-lg bg-gray-50 p-3 text-sm text-gray-700">{rule.messageTemplate}</p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {canEdit && <button onClick={()=>void toggle(rule)} title={rule.enabled?'Выключить':'Включить'} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100">{rule.enabled?<ToggleRight size={20}/>:<ToggleLeft size={20}/>}</button>}
             {canEdit && <button onClick={()=>startEdit(rule)} title="Редактировать" className="rounded-lg p-2 text-blue-700 hover:bg-blue-50"><Pencil size={17}/></button>}
-            {canDelete && <button onClick={()=>void remove(rule)} title="Удалить из базы" className="rounded-lg p-2 text-red-600 hover:bg-red-50"><Trash2 size={17}/></button>}
+            {canDelete && !rule.systemTaskId && <button onClick={()=>void remove(rule)} title="Удалить из базы" className="rounded-lg p-2 text-red-600 hover:bg-red-50"><Trash2 size={17}/></button>}
           </div>
         </div>
       </article>)}

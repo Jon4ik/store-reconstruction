@@ -1,0 +1,5 @@
+import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { BadRequestException } from '@nestjs/common';
+function key(name: string) { const value=process.env[name] || '';const bytes=/^[a-f0-9]{64}$/i.test(value)?Buffer.from(value,'hex'):Buffer.from(value,'base64');if(bytes.length!==32)throw new BadRequestException(`Не настроен ключ ${name}`);return bytes; }
+export function seal(value:string,name:string) { if(!value)return '';const iv=randomBytes(12),cipher=createCipheriv('aes-256-gcm',key(name),iv);const data=Buffer.concat([cipher.update(value,'utf8'),cipher.final()]);return [iv,cipher.getAuthTag(),data].map(v=>v.toString('hex')).join(':'); }
+export function open(value:string,name:string) { if(!value)return '';const [iv,tag,data]=value.split(':');if(!iv||!tag||!data)throw new BadRequestException('Повреждены зашифрованные данные');const cipher=createDecipheriv('aes-256-gcm',key(name),Buffer.from(iv,'hex'));cipher.setAuthTag(Buffer.from(tag,'hex'));return Buffer.concat([cipher.update(Buffer.from(data,'hex')),cipher.final()]).toString('utf8'); }
