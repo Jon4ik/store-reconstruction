@@ -1,4 +1,3 @@
-import {matchShopTU} from '../utils/shopTU';
 import { storeRight } from '../utils/permissions';
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store/useStore';
@@ -17,8 +16,6 @@ export default function AddStoreModal() {
   });
 
   const [errors, setErrors] = useState<string[]>([]);
-  const [selectedShop,setSelectedShop]=useState<any>(null);
-  useEffect(()=>{if(isAddModalOpen)setForm(current=>({...current,tuId:matchShopTU(selectedShop,tus)}));},[selectedShop,tus,isAddModalOpen]);
   const [shopMatches, setShopMatches] = useState<any[]>([]);
   const [shopSearchLoading, setShopSearchLoading] = useState(false);
 
@@ -39,9 +36,8 @@ export default function AddStoreModal() {
 
   useEffect(() => {
     const number = form.storeNumber.trim();
-    if (!isAddModalOpen || !number) { setSelectedShop(null); setShopMatches([]); setShopSearchLoading(false); setForm(current => ({ ...current, address: '', city: '' })); return; }
+    if (!isAddModalOpen || !number) { setShopMatches([]); setShopSearchLoading(false); setForm(current => ({ ...current, address: '', city: '' })); return; }
     let active = true;
-    setSelectedShop(null);
     setShopSearchLoading(true);
     setForm(current => ({ ...current, address: '', city: '' }));
     apiClient.searchShopByNumber(number).then((items: any[]) => {
@@ -49,7 +45,6 @@ export default function AddStoreModal() {
       setShopMatches(items);
       const normalized = number.padStart(3, '0');
       const match = items.find(item => String(item.shopNumber) === normalized || String(item.shopNumber) === number);
-      setSelectedShop(match||null);
       if (match) setForm(current => ({ ...current, address: match.address || '', city: match.city || '' }));
       else setForm(current => ({ ...current, address: '', city: '' }));
     }).catch(() => { if (active) { setShopMatches([]); setForm(current => ({ ...current, address: '', city: '' })); } })
@@ -146,7 +141,7 @@ export default function AddStoreModal() {
             <label className="block text-xs font-medium text-gray-600 mb-1">Адрес магазина <span className="text-red-500">*</span></label>
             <input type="text" value={form.address} readOnly aria-readonly="true" placeholder={shopSearchLoading ? "Поиск магазина…" : "Адрес заполнится по номеру из справочника"} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-700 cursor-not-allowed" />
             <p className="text-xs text-gray-500 mt-1">{shopSearchLoading ? 'Ищем магазин в справочнике…' : form.address ? 'Город: ' + (form.city || 'не указан') : 'Введите номер магазина, чтобы найти адрес в справочнике.'}</p>
-            {shopMatches.length > 1 && <div className="mt-2 rounded-lg border border-gray-200 divide-y divide-gray-100">{shopMatches.map((shop, index) => <button type="button" key={String(shop.shopNumber) + '-' + index} onClick={() => {setSelectedShop(shop);setForm(current => ({ ...current, storeNumber: String(shop.shopNumber), address: shop.address || '', city: shop.city || '' }));}} className="w-full p-2 text-left text-sm hover:bg-gray-50"><span className="font-medium">№{shop.shopNumber}</span> — {shop.city}, {shop.address}</button>)}</div>}
+            {shopMatches.length > 1 && <div className="mt-2 rounded-lg border border-gray-200 divide-y divide-gray-100">{shopMatches.map((shop, index) => <button type="button" key={String(shop.shopNumber) + '-' + index} onClick={() => setForm(current => ({ ...current, storeNumber: String(shop.shopNumber), address: shop.address || '', city: shop.city || '' }))} className="w-full p-2 text-left text-sm hover:bg-gray-50"><span className="font-medium">№{shop.shopNumber}</span> — {shop.city}, {shop.address}</button>)}</div>}
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">ТУ <span className="text-red-500">*</span></label>

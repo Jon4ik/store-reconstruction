@@ -1,5 +1,4 @@
-export const videoregsPermissions=['view_videoregs','manage_videoregs','view_videoregs_passwords','import_videoregs'];
-export const permissionDependencies: Record<string, string> = {manage_videoregs:'view_videoregs',view_videoregs_passwords:'view_videoregs',import_videoregs:'view_videoregs'};
+export const permissionDependencies: Record<string, string> = {};
 for (const group of ['closures','openings','users','roles','tus','shops','notifications','comments','audit']) {
   const actions = group === 'audit' ? ['clear'] : group === 'comments' ? ['add','delete'] : ['create','edit','delete','manage'];
   actions.forEach(action => { permissionDependencies[`${action}_${group}`] = `view_${group}`; });
@@ -44,7 +43,7 @@ export function toggleRight(input: string[], permission: string): string[] {
 }
 
 export const pagePermissions: Record<string, string> = {
-  videoregs:'view_videoregs', dashboard:'view_dashboard', table:'view', calendar:'view_calendar', users:'view_users', roles:'view_roles',
+  dashboard:'view_dashboard', table:'view', calendar:'view_calendar', users:'view_users', roles:'view_roles',
   tus:'view_tus', shops:'view_shops', scheduler:'manage_scheduler', audit:'view_audit',
   settings:'manage_ldap', integrations:'manage_integrations', notifications:'view_notifications',
 };

@@ -6,7 +6,7 @@ export function getErrorReason(error: any, body?: unknown): string {
   const redact = (value: unknown, depth = 0) => {
     if (!value || typeof value !== 'object' || depth > 5) return;
     for (const [key,item] of Object.entries(value)) {
-      if (/password|secret|token|(?:api|legacy|encryption).?key|authorization|cookie|credential/i.test(key) && typeof item === 'string' && item.length >= 4) reason = reason.split(item).join('[REDACTED]');
+      if (/password|secret|token|api.?key|authorization|cookie|credential/i.test(key) && typeof item === 'string' && item.length >= 4) reason = reason.split(item).join('[REDACTED]');
       else if (item && typeof item === 'object') redact(item, depth + 1);
     }
   };

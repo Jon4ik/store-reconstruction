@@ -15,6 +15,7 @@ type AuditDetails = {
 };
 
 const HIDDEN_ACTIONS = new Set([
+  'reset_password', 'create_user', 'update_user', 'delete_user',
   'update_profile', 'change_password', 'profile_update',
 ]);
 
@@ -35,14 +36,12 @@ function getRequestPath(log: AuditLogEntry): string {
 function isHiddenEvent(log: AuditLogEntry): boolean {
   if (HIDDEN_ACTIONS.has(log.action)) return true;
   const route = getRequestPath(log).toLowerCase();
-  return route.includes('/auth/profile') || route.includes('/auth/password');
+  return route.includes('/users') || route.includes('/auth/profile') || route.includes('/auth/password');
 }
 
 function getModule(log: AuditLogEntry): string {
   const action = String(log.action || '').toLowerCase();
   const route = getRequestPath(log).toLowerCase();
-  if(action.includes('videoreg')||route.includes('/videoregs'))return 'Видеорегистраторы';
-  if(route.includes('/users')||['create_user','update_user','disable_user','delete_user','reset_password'].includes(action))return 'Пользователи';
   if (action.includes('audit') || route.includes('/audit')) return 'Аудит';
   if (action === 'login' || action === 'logout' || route.includes('/auth/logout')) return 'Авторизация';
   if (action === 'scheduler_run' || route.includes('/scheduler')) return 'Планировщик';
@@ -57,8 +56,6 @@ function getModule(log: AuditLogEntry): string {
 }
 
 const ACTION_LABELS: Record<string, string> = {
-  create_user:'Создание пользователя',update_user:'Изменение пользователя',disable_user:'Отключение пользователя',delete_user:'Удаление пользователя',reset_password:'Смена пароля пользователя',
-  create_videoreg:'Создание регистратора',update_videoreg:'Изменение регистратора',delete_videoreg:'Удаление регистратора',view_videoreg_passwords:'Просмотр паролей регистратора',import_videoregs:'Импорт регистраторов',
   login: 'Вход в систему',
   logout: 'Выход из системы',
   clear_audit: 'Очистка журнала аудита',
@@ -229,7 +226,7 @@ export default function AuditPage() {
             <span className="block text-xs font-medium text-gray-600 mb-1">Подсистема</span>
             <select value={filter.module} onChange={e => setFilter({ ...filter, module: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900">
               <option value="">Все подсистемы</option>
-              {['Авторизация', 'Объекты', 'Комментарии', 'Справочник ТУ', 'Справочник магазинов', 'Роли', 'Настройки', 'Уведомления', 'Планировщик', 'Пользователи', 'Видеорегистраторы', 'Система'].map(module => <option key={module} value={module}>{module}</option>)}
+              {['Авторизация', 'Объекты', 'Комментарии', 'Справочник ТУ', 'Справочник магазинов', 'Роли', 'Настройки', 'Уведомления', 'Планировщик', 'Система'].map(module => <option key={module} value={module}>{module}</option>)}
             </select>
           </label>
           <label className="block">
@@ -295,7 +292,7 @@ export default function AuditPage() {
 
                       <td className="px-3 py-3"><span className={`inline-flex rounded px-2 py-1 text-xs audit-action`}>{getActionLabel(log)}</span><p className="audit-event-module">{module}</p>{log.action === 'api_request' && statusCode > 0 && <span className={`ml-1 text-xs ${isError ? 'text-red-600' : 'text-green-700'}`}>{statusCode}</span>}</td>
                       <td className="px-3 py-3 text-xs font-medium text-gray-800">{log.userName || (log.userId ? log.userId : 'Система')}</td>
-                      <td className="px-3 py-3 text-xs text-gray-700 break-words">{(log.action === 'notification_delivery'||log.action==='scheduler_run') ? <><span className="font-medium">{String(details.ruleName || (log.action==='scheduler_run'?'Задача планировщика':'Уведомление'))}</span><p className="mt-1 text-gray-500">{log.action==='notification_delivery'&&<>Магазин №{String(details.shopNumber || '—')} · </>}{String(details.message || (log.action==='scheduler_run'?log.details:'') || '')}</p></> : requestPath ? <><span>{isError ? 'Не удалось выполнить действие' : 'Операция выполнена успешно'}</span>{log.details && <p className="mt-1 text-gray-500 line-clamp-2">{isError ? getAuditErrorReason(details) : 'Запрос выполнен'}</p>}</> : <><span>{log.details || log.field || '—'}</span>{(log.action === 'update' || log.action === 'change_color') && <p className="audit-change-preview"><span>{log.oldValue || 'Не задано'}</span> → <strong>{log.newValue || 'Не задано'}</strong></p>}{project && <p className="audit-object">Магазин №{project.storeNumber}</p>}</>}</td>
+                      <td className="px-3 py-3 text-xs text-gray-700 break-words">{log.action === 'notification_delivery' ? <><span className="font-medium">{String(details.ruleName || 'Уведомление')}</span><p className="mt-1 text-gray-500">Магазин №{String(details.shopNumber || '—')} · {String(details.message || '')}</p></> : requestPath ? <><span>{isError ? 'Не удалось выполнить действие' : 'Операция выполнена успешно'}</span>{log.details && <p className="mt-1 text-gray-500 line-clamp-2">{isError ? getAuditErrorReason(details) : 'Запрос выполнен'}</p>}</> : <><span>{log.details || log.field || '—'}</span>{(log.action === 'update' || log.action === 'change_color') && <p className="audit-change-preview"><span>{log.oldValue || 'Не задано'}</span> → <strong>{log.newValue || 'Не задано'}</strong></p>}{project && <p className="audit-object">Магазин №{project.storeNumber}</p>}</>}</td>
                     </tr>
                     {isExpanded && (
                       <tr className="bg-gray-50 border-b border-gray-200">

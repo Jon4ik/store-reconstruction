@@ -1,4 +1,3 @@
-import SDStageTask,{SD_TASK_IDS} from './SDStageTask';
 import { storeRight } from '../utils/permissions';
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
@@ -14,9 +13,8 @@ export default function StoreCard() {
   const [editData, setEditData] = useState<any>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [newComment, setNewComment] = useState('');
-  const [sdRequests,setSdRequests]=useState<Record<string,any>>({});
-  const closureRequest=sdRequests.sdRequest;
-  const [retryingSD,setRetryingSD]=useState('');
+  const [closureRequest, setClosureRequest] = useState<any>(null);
+  const [retryingClosureRequest, setRetryingClosureRequest] = useState(false);
   const [activeTab, setActiveTab] = useState<'main' | 'stages' | 'comments' | 'delete'>('main');
 
   const project = projects.find(p => p.id === selectedProjectId);
@@ -50,13 +48,13 @@ export default function StoreCard() {
   
   // Reset request data between cards and ignore late responses from a previous object.
   useEffect(() => {
-    setSdRequests({});
+    setClosureRequest(null);
     setActiveTab('main');
     if (!selectedProjectId || !isCardOpen || !canView) return;
     let active = true;
     const refresh = async () => {
-      try { const result = await apiClient.getStageRequests(selectedProjectId); if (active) setSdRequests(result); }
-      catch { if (active) setSdRequests({}); }
+      try { const result = await apiClient.getClosureRequestStatus(selectedProjectId); if (active) setClosureRequest(result); }
+      catch { if (active) setClosureRequest(null); }
     };
     void refresh();
     const timer = window.setInterval(() => void refresh(), 10000);
@@ -69,14 +67,22 @@ export default function StoreCard() {
     void loadComments(selectedProjectId);
     void useStore.getState().loadAuditLog();
   }, [selectedProjectId, isCardOpen, activeTab, loadComments]);
-  const retrySDRequest=async(taskId:string)=>{if(!canEdit||!selectedProjectId)return;setRetryingSD(taskId);try{await apiClient.retryStageRequest(selectedProjectId,taskId);setSdRequests(await apiClient.getStageRequests(selectedProjectId))}catch(error){alert((error as Error).message)}finally{setRetryingSD('')}};
+  const retryClosureRequest = async () => {
+    if (!canEdit || !selectedProjectId) return;
+    setRetryingClosureRequest(true);
+    try {
+      await apiClient.retryClosureRequest(selectedProjectId);
+      const status = await apiClient.getClosureRequestStatus(selectedProjectId);
+      setClosureRequest(status);
+    } catch (error) { alert((error as Error).message || 'Не удалось повторно отправить заявку SD'); }
+    finally { setRetryingClosureRequest(false); }
+  };
   
   useEffect(() => { if (!canEdit && isEditing) setEditing(false); }, [canEdit, isEditing, setEditing]);
 
   if (!project || !isCardOpen || !canView) return null;
 
   const stageTasks = project.stageTasks || {};
-  const sdComplete=(taskId:string)=>sdRequests[taskId]?.status==='sent'||stageTasks[taskId]?.completed===true;
   // Статус карточки и главной таблицы рассчитывается по одним и тем же сохранённым задачам.
   const status = calculateProjectStatus(project);
   const stages = calculateStages(project);
@@ -102,9 +108,10 @@ export default function StoreCard() {
       { id: 'cashDelConfigured', label: 'Конфигурации касс изменены на cash_del' },
     ] },
     { title: 'Демонтаж', tasks: [
-      {id:'sdDemolitionMonitoring',label:'Снятие с мониторинга'},{id:'sdDemolitionPrintstat',label:'Удаление из Printstat и отключение от рассылок'},{id:'sdDemolitionInternet',label:'Расторжение договора/отключение интернет-канала'},
       { id: 'equipmentDismantled', label: 'Оборудование демонтировано' },
+      { id: 'monitoringRemovalRequested', label: 'Отправлена заявка на снятие с мониторинга' },
       { id: 'removedFromMailings', label: 'Магазин убран из рассылок' },
+      { id: 'deletedFromPrintstat', label: 'Магазин удален из printstat' },
     ] },
     { title: 'Оборудование доставлено', tasks: [{ id: 'equipmentDelivered', label: 'Оборудование доставлено' }] },
     { title: 'Работы завершены', tasks: [{ id: 'projectCompleted', label: 'Работы завершены' }] },
@@ -123,8 +130,8 @@ export default function StoreCard() {
     }
   };
   const isStageTaskComplete = (group: { title: string; tasks: { id: string; label: string }[] }) => {
-    if (group.tasks.length > 0) return group.tasks.every(task => SD_TASK_IDS.includes(task.id)
-      ? sdComplete(task.id)
+    if (group.tasks.length > 0) return group.tasks.every(task => task.id === 'sdRequest'
+      ? closureRequest?.status === 'sent' || stageTasks.sdRequest?.completed === true
       : stageTasks[task.id]?.completed === true);
     if (group.title === 'Запланировано') return project.workType === 'Открытие' || (
       (closureRequest?.status === 'sent' || stageTasks.sdRequest?.completed === true) &&
@@ -377,7 +384,7 @@ export default function StoreCard() {
                   const previousTasksComplete = taskGroups.slice(0, index).every(previous => isStageTaskComplete(previous));
                   const milestone = stages.find(stage => stage.name === group.title);
                   const dateField = getStageField(group.title);
-                  const done = group.tasks.filter(task => SD_TASK_IDS.includes(task.id) ? sdComplete(task.id) : stageTasks[task.id]?.completed).length;
+                  const done = group.tasks.filter(task => task.id === 'sdRequest' ? closureRequest?.status === 'sent' || stageTasks.sdRequest?.completed : stageTasks[task.id]?.completed).length;
                   return <details key={`${group.title}-${isEditing}`} className={`workflow-stage ${completed ? 'is-complete' : previousTasksComplete ? 'is-current' : ''}`} open={isEditing || (!completed && previousTasksComplete)}>
                     <summary className="workflow-stage-summary">
                       <span className="workflow-stage-number">{completed ? <Check size={15}/> : index + 1}</span>
@@ -389,7 +396,14 @@ export default function StoreCard() {
                     <div className="workflow-stage-body">
                       {isEditing && dateField && <label className="workflow-date-editor">Дата этапа<input type="date" value={toInputDate(editData?.[dateField] || '')} onChange={e => setEditData({ ...editData, [dateField]: fromInputDate(e.target.value) })} className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm"/></label>}
                     {group.tasks.length === 0 ? <p className="text-sm text-gray-500">Этап определяется датой и завершением задач предыдущего этапа.</p> : <div className="space-y-2">
-                      {group.tasks.map(task => SD_TASK_IDS.includes(task.id) ? <SDStageTask key={task.id} label={task.label} status={sdRequests[task.id]} saved={stageTasks[task.id]} retrying={!!retryingSD} canRetry={canEdit} onRetry={()=>void retrySDRequest(task.id)}/> : <label key={task.id} className="flex items-start gap-3 text-sm text-gray-700">
+                      {group.tasks.map(task => task.id === 'sdRequest' ? <div key={task.id} className="flex flex-col gap-1 rounded-md bg-gray-50 p-2 text-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-medium text-gray-800">{task.label}</span>
+                          <span className={(closureRequest?.status === 'sent' || stageTasks.sdRequest?.completed) ? "rounded-full bg-green-100 px-2 py-1 text-xs text-green-700" : closureRequest?.status === 'error' ? "rounded-full bg-red-100 px-2 py-1 text-xs text-red-700" : "rounded-full bg-gray-200 px-2 py-1 text-xs text-gray-700"}>{(closureRequest?.status === 'sent' || stageTasks.sdRequest?.completed) ? 'Успешно создана' : closureRequest?.status === 'error' ? 'Ошибка создания' : closureRequest?.status === 'retry_requested' || closureRequest?.status === 'sending' ? 'Отправляется' : 'Ожидает отправки по правилу уведомлений'}</span>
+                        </div>
+                        {(closureRequest?.requestNumber || stageTasks.sdRequest?.requestNumber) && <p className="text-gray-600">Номер заявки: <strong>{closureRequest?.requestNumber || stageTasks.sdRequest?.requestNumber}</strong></p>}
+                        {closureRequest?.status === 'error' && canEdit && <><p className="text-red-700">{closureRequest.message}</p><button type="button" disabled={retryingClosureRequest} onClick={() => void retryClosureRequest()} className="self-start rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">{retryingClosureRequest ? 'Отправка…' : 'Повторить отправку'}</button></>}
+                      </div> : <label key={task.id} className="flex items-start gap-3 text-sm text-gray-700">
                         <input type="checkbox" disabled={!canMarkStages || !previousTasksComplete} checked={stageTasks[task.id]?.completed === true} onChange={event => void toggleStageTask(task.id, event.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 disabled:opacity-40" />
                         <span className="flex-1">
                           {task.label}

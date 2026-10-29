@@ -232,7 +232,7 @@ export class StoresService {
       const nextTasks: Record<string, any> = {};
       for (const [taskId, value] of Object.entries(data.stageTasks as Record<string, any>)) {
         if (!value || typeof value !== 'object' || Array.isArray(value)) throw new BadRequestException('Некорректная задача этапа');
-        if (['sdRequest','sdDemolitionMonitoring','sdDemolitionPrintstat','sdDemolitionInternet'].includes(taskId)) continue; // SD data is written only after a successful server-side delivery.
+        if (taskId === 'sdRequest') continue; // SD data is written only after a successful server-side delivery.
         const previous = previousTasks[taskId] || {};
         const next = { ...previous, ...value };
         // Имя всегда вычисляется из таблицы users и не принимается от клиента.
