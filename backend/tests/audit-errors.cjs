@@ -1,0 +1,22 @@
+const assert=require('node:assert/strict');
+const {BadRequestException}=require('@nestjs/common');
+const {of,throwError,firstValueFrom}=require('rxjs');
+const {AuditInterceptor}=require('./dist/modules/audit/audit.interceptor');
+const {getErrorReason}=require('./dist/modules/audit/error-reason');
+(async()=>{
+ let rows=[];const interceptor=new AuditInterceptor({auditLog:{create:async row=>rows.push(row)}});
+ const body={rowColor:'red',apiKey:'secret-value',payload:'x'.repeat(9000)};
+ const context={switchToHttp:()=>({getRequest:()=>({method:'PUT',originalUrl:'/api/stores/p',user:{sub:'u'},body}),getResponse:()=>({statusCode:200})})};
+ const error=new BadRequestException(['ТУ отключён','Неверная дата']);
+ await assert.rejects(()=>firstValueFrom(interceptor.intercept(context,{handle:()=>throwError(()=>error)})),value=>value===error);
+ let details=JSON.parse(rows[0].data.details);
+ assert.equal(details.errorReason,'ТУ отключён; Неверная дата');assert.equal(details.statusCode,400);
+ await firstValueFrom(interceptor.intercept(context,{handle:()=>of('ok')}));assert.equal(rows.length,1);
+ assert.ok(!getErrorReason(new Error('API key secret-value rejected'),body).includes('secret-value'));
+ assert.ok(!getErrorReason(new Error('https://login:password@example.invalid?token=secret')).includes('password@'));
+ assert.equal(getErrorReason({code:'P1001',message:'connection details'}),'Не удалось подключиться к базе данных.');
+ body.rowColor=undefined;delete body.rowColor;body.fields=Array.from({length:20},()=> 'x'.repeat(500));
+ await assert.rejects(()=>firstValueFrom(interceptor.intercept(context,{handle:()=>throwError(()=>error)})));
+ details=JSON.parse(rows[1].data.details);assert.equal(details.errorReason,'ТУ отключён; Неверная дата');assert.equal(details.payload,'[TRUNCATED]');
+ console.log('PASS: validation reasons, secret redaction, original HTTP error preserved, row-color errors, valid JSON for large payloads');
+})().catch(error=>{console.error(error);process.exitCode=1});

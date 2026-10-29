@@ -94,6 +94,8 @@ services:
       PORT: 4000
       DOMAIN: ${DOMAIN:-http://localhost:5001}
       LDAP_ENCRYPTION_KEY: ${LDAP_ENCRYPTION_KEY:-}
+      VIDEOREGS_ENCRYPTION_KEY: ${VIDEOREGS_ENCRYPTION_KEY:-}
+      DB_BACKUP_PASSWORD: ${DB_BACKUP_PASSWORD:-}
       UKM_SQL_SERVER: ${UKM_SQL_SERVER:-}
       UKM_SQL_PORT: ${UKM_SQL_PORT:-1433}
       UKM_SQL_DATABASE: ${UKM_SQL_DATABASE:-Ukm_Data}
@@ -104,6 +106,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+    volumes:
+      - ./db_logs:/db_logs
     expose:
       - "4000"
     networks:

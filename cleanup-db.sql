@@ -1,41 +1,11 @@
--- Скрипт полной очистки базы данных
--- ВНИМАНИЕ: Это удалит ВСЕ данные из базы!
-
--- Отключение всех внешних ключей
-SET session_replication_role = replica;
-
--- Удаление всех таблиц
-DROP TABLE IF EXISTS "audit_logs" CASCADE;
-DROP TABLE IF EXISTS "comments" CASCADE;
-DROP TABLE IF EXISTS "store_projects" CASCADE;
-DROP TABLE IF EXISTS "tus" CASCADE;
-DROP TABLE IF EXISTS "users" CASCADE;
-DROP TABLE IF EXISTS "roles" CASCADE;
-
--- Удаление таблицы миграций Prisma
-DROP TABLE IF EXISTS "_prisma_migrations" CASCADE;
-
--- Удаление пользовательских типов
-DROP TYPE IF EXISTS "WorkType" CASCADE;
-
--- Включение внешних ключей обратно
-SET session_replication_role = DEFAULT;
-
--- Очистка схемы public
-DROP SCHEMA public CASCADE;
-CREATE SCHEMA public;
-
--- Восстановление прав
-GRANT ALL ON SCHEMA public TO current_user;
-
--- Сообщение об успешном выполнении
-DO $$
-BEGIN
-    RAISE NOTICE '✅ База данных полностью очищена';
-    RAISE NOTICE '🗑  Все таблицы удалены';
-    RAISE NOTICE '';
-    RAISE NOTICE 'Теперь выполните:';
-    RAISE NOTICE '  docker compose restart backend';
-    RAISE NOTICE '';
-    RAISE NOTICE 'Prisma автоматически создаст новую схему и применит миграции';
-END $$;
+-- Full reset of this application's tables. Does not touch unrelated public tables.
+-- Run via cleanup-db.sh; all application data and migration history will be removed.
+BEGIN;
+DROP TABLE IF EXISTS public.notification_deliveries, public.notification_rules,
+  public.store_stage_tasks, public.audit_logs, public.comments, public.store_projects,
+  public.video_recorders, public.scheduler_tasks, public.shop_directory, public.integration_settings,
+  public.ldap_settings, public.tus, public.users, public.roles,
+  public._prisma_migrations CASCADE;
+DROP FUNCTION IF EXISTS public.reject_audit_log_mutation() CASCADE;
+DROP TYPE IF EXISTS public."WorkType" CASCADE;
+COMMIT;

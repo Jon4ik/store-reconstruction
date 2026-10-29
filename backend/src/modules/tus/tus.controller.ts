@@ -16,6 +16,10 @@ export class TUsController {
     return this.tusService.findAll();
   }
 
+  @Get('lookup')
+  @RequirePermissions('lookup_tus')
+  lookup() { return this.tusService.findAll(); }
+
   @Get(':id')
   @RequirePermissions('view_tus')
   findOne(@Param('id') id: string) {

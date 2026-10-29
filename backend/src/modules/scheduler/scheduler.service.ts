@@ -1,8 +1,11 @@
+import {backupName} from './backup-name';
+import {DatabaseBackupService} from './database-backup.service';
 import { BadRequestException, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { ShopsService } from '../shops/shops.service';
 
 const SHOP_TASK_ID = 'shops-sync';
+const BACKUP_TASK_ID = 'postgresql-export';
 const SCHEDULER_INTERVAL_MS = 10_000;
 const SCHEDULER_TIMEZONE = process.env.SCHEDULER_TIMEZONE || 'Europe/Moscow';
 
@@ -10,10 +13,10 @@ const SCHEDULER_TIMEZONE = process.env.SCHEDULER_TIMEZONE || 'Europe/Moscow';
 export class SchedulerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SchedulerService.name);
   private timer?: NodeJS.Timeout;
-  private running = false;
+  private running = new Set<string>();
   private checking = false;
 
-  constructor(private readonly prisma: PrismaService, private readonly shops: ShopsService) {}
+  constructor(private readonly prisma: PrismaService, private readonly shops: ShopsService, private readonly backups: DatabaseBackupService) {}
 
   async onModuleInit() {
     this.logger.log(`Scheduler started; schedule timezone=${SCHEDULER_TIMEZONE}; server timezone=${Intl.DateTimeFormat().resolvedOptions().timeZone || 'system'}; polling every ${SCHEDULER_INTERVAL_MS / 1000}s`);
@@ -29,10 +32,11 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
 
   async getTasks() {
     await this.ensureTask();
-    return this.prisma.schedulerTask.findMany({ orderBy: { name: 'asc' } });
+    const tasks=await this.prisma.schedulerTask.findMany({ orderBy: { name: 'asc' } });return tasks.map(task=>({...task,...(task.id===BACKUP_TASK_ID?{passwordConfigured:(process.env.DB_BACKUP_PASSWORD||'').length>=12}:{})}));
   }
 
-  private ensureTask() {
+  private async ensureTask() {
+    await this.prisma.schedulerTask.upsert({ where:{id:BACKUP_TASK_ID},create:{id:BACKUP_TASK_ID,name:'Экспорт PostgreSQL',cronExpression:'0 2 * * *',enabled:false,exportDirectory:'/db_logs'},update:{} });
     return this.prisma.schedulerTask.upsert({
       where: { id: SHOP_TASK_ID },
       create: { id: SHOP_TASK_ID, name: 'Синхронизация справочника магазинов', cronExpression: '0 0 * * *', enabled: true },
@@ -40,12 +44,16 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async updateTask(id: string, input: { enabled?: boolean; cronExpression?: string }) {
-    if (id !== SHOP_TASK_ID) throw new BadRequestException('Неизвестная задача планировщика');
-    const current = await this.ensureTask();
-    const data: { enabled?: boolean; cronExpression?: string } = {};
+  async updateTask(id: string, input: { enabled?: boolean; cronExpression?: string; exportDirectory?:string; backupFileName?:string }) {
+    if (![SHOP_TASK_ID,BACKUP_TASK_ID].includes(id)) throw new BadRequestException('Неизвестная задача планировщика');
+    await this.ensureTask();
+    const current = await this.prisma.schedulerTask.findUniqueOrThrow({where:{id}});
+    const data: { enabled?: boolean; cronExpression?: string; exportDirectory?:string; backupFileName?:string } = {};
     if (input.enabled !== undefined) data.enabled = input.enabled;
+    if(input.backupFileName!==undefined){if(id!==BACKUP_TASK_ID)throw new BadRequestException('Имя файла доступно только для экспорта');backupName(input.backupFileName);data.backupFileName=input.backupFileName.trim().replace(/\.(zip|sql)$/i,'');}
+    if(input.exportDirectory!==undefined){if(id!==BACKUP_TASK_ID||typeof input.exportDirectory!=='string'||!input.exportDirectory.startsWith('/')||input.exportDirectory.includes('\0')||input.exportDirectory.length>500)throw new BadRequestException('Укажите абсолютную папку экспорта');data.exportDirectory=input.exportDirectory.trim();}
     if (input.cronExpression !== undefined) {
+      if(typeof input.cronExpression!=='string')throw new BadRequestException('Проверьте cron-выражение');
       const expression = input.cronExpression.trim();
       if (expression.length > 100 || !this.validCron(expression)) {
         throw new BadRequestException('Укажите корректное crontab-выражение из пяти полей, например */5 * * * *');
@@ -55,26 +63,29 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
     return this.prisma.schedulerTask.update({ where: { id: current.id }, data });
   }
 
-  async runTask(id: string, actor?: { id: string; name: string }) {
-    if (id !== SHOP_TASK_ID) throw new BadRequestException('Неизвестная задача планировщика');
-    if (this.running) throw new BadRequestException('Задача уже выполняется');
+  startTask(id:string,actor?:{id:string;name:string}){if(![SHOP_TASK_ID,BACKUP_TASK_ID].includes(id))throw new BadRequestException('Неизвестная задача');if(this.running.has(id))throw new BadRequestException('Задача уже выполняется');void this.runTask(id,actor).catch(error=>this.logger.error('Task failed: '+error.message));return {taskId:id,status:'running',message:'Экспорт запущен. Результат появится в планировщике.'};}
 
-    this.running = true;
+  async runTask(id: string, actor?: { id: string; name: string }) {
+    if (![SHOP_TASK_ID,BACKUP_TASK_ID].includes(id)) throw new BadRequestException('Неизвестная задача планировщика');
+    if (this.running.has(id)) throw new BadRequestException('Задача уже выполняется');
+
+    this.running.add(id);
     try {
       await this.ensureTask();
       await this.prisma.schedulerTask.update({
         where: { id },
-        data: { lastRunAt: new Date(), lastStatus: 'running', lastMessage: 'Синхронизация выполняется' },
+        data: { lastRunAt: new Date(), lastStatus: 'running', lastMessage: 'Задача выполняется' },
       });
       this.logger.log(`Starting scheduled task ${id}`);
 
-      const result = await this.shops.syncShops(actor);
-      const message = `Получено: ${result.sourceCount}; добавлено: ${result.created}; обновлено: ${result.updated}; без изменений: ${result.unchanged}`;
+      const task = await this.prisma.schedulerTask.findUniqueOrThrow({where:{id}});
+      const result:any = id===BACKUP_TASK_ID ? await this.backups.export(task.exportDirectory,task.backupFileName) : await this.shops.syncShops(actor);
+      const message = id===BACKUP_TASK_ID ? result.message : `Получено: ${result.sourceCount}; добавлено: ${result.created}; обновлено: ${result.updated}; без изменений: ${result.unchanged}`;
       await this.prisma.schedulerTask.update({
         where: { id },
         data: { lastStatus: 'success', lastMessage: message },
       });
-      await this.writeTaskAudit(actor, 'success', message);
+      await this.writeTaskAudit(actor, 'success', message,id);
       this.logger.log(`Scheduled task ${id} completed: ${message}`);
       return { ...result, taskId: id };
     } catch (error: any) {
@@ -88,24 +99,23 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
       } catch (statusError: any) {
         this.logger.error(`Could not persist failure status for ${id}: ${statusError?.message || statusError}`);
       }
-      await this.writeTaskAudit(actor, 'error', message);
+      await this.writeTaskAudit(actor, 'error', message,id);
       throw error;
     } finally {
-      this.running = false;
+      this.running.delete(id);
     }
   }
 
-  private async writeTaskAudit(actor: { id: string; name: string } | undefined, status: 'success' | 'error', message: string) {
+  private async writeTaskAudit(actor: { id: string; name: string } | undefined, status: 'success' | 'error', message: string,id=SHOP_TASK_ID) {
     try {
       await this.prisma.auditLog.create({
         data: {
           userId: actor?.id ?? null,
-          userName: actor?.name ?? 'Система',
           action: 'scheduler_run',
-          field: SHOP_TASK_ID,
+          field: id,
           oldValue: '',
           newValue: status,
-          details: message.slice(0, 3000),
+          details: JSON.stringify({outcome:status,message:message.slice(0,2500),taskId:id}),
         },
       });
     } catch (error: any) {
@@ -117,15 +127,15 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
     if (this.checking) return;
     this.checking = true;
     try {
-      const task = await this.ensureTask();
+      await this.ensureTask();
+      const tasks=await this.prisma.schedulerTask.findMany({where:{enabled:true}});
       const now = new Date();
-      if (!task.enabled) return;
-      // A configured cron expression is the only trigger. Startup and retrying a
-      // failed task must not execute it at an unrelated time.
-      if (!this.cronMatches(task.cronExpression, now)) return;
-      if (task.lastRunAt && this.sameScheduleMinute(task.lastRunAt, now)) return;
-      this.logger.log(`Cron matched for task ${task.id} at ${this.formatScheduleDate(now)} (${SCHEDULER_TIMEZONE})`);
-      await this.runTask(task.id);
+      for(const task of tasks){
+        if(![SHOP_TASK_ID,BACKUP_TASK_ID].includes(task.id)||this.running.has(task.id))continue;
+        if(!this.cronMatches(task.cronExpression,now))continue;
+        if(task.lastRunAt&&this.sameScheduleMinute(task.lastRunAt,now))continue;
+        void this.runTask(task.id).catch(error=>this.logger.error('Scheduled task failed: '+error.message));
+      }
     } catch (error: any) {
       this.logger.error(`Scheduler poll failed: ${error?.message || error}`);
     } finally {

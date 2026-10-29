@@ -1,62 +1,28 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { CalendarClock, Play, Save, Clock3 } from 'lucide-react';
-import SettingsNotice from '../components/SettingsNotice';
-import { apiClient } from '../api/client';
-import { useStore } from '../store/useStore';
-
-type Task = { id: string; name: string; cronExpression: string; enabled: boolean; lastRunAt: string | null; lastStatus: string; lastMessage: string };
-
-export default function SchedulerPage() {
-  const { hasPermission } = useStore();
-  const [task, setTask] = useState<Task | null>(null);
-  const [cronExpression, setCronExpression] = useState('0 0 * * *');
-  const [enabled, setEnabled] = useState(true);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [running, setRunning] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const tasks = await apiClient.getSchedulerTasks();
-      const current = tasks.find((item: Task) => item.id === 'shops-sync') || tasks[0];
-      if (current) { setTask(current); setCronExpression(current.cronExpression); setEnabled(current.enabled); }
-    } catch (e) { setMessage('Не удалось загрузить планировщик: ' + (e as Error).message); setError(true); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { void load(); }, [load]);
-
-  if (!hasPermission('manage_scheduler')) return <div className="py-12 text-center text-gray-500">Нет доступа к планировщику</div>;
-
-  const save = async () => {
-    if (!task) return;
-    setSaving(true); setMessage(''); setError(false);
-    try { const updated = await apiClient.updateSchedulerTask(task.id, { enabled, cronExpression: cronExpression.trim() }); setTask(updated); setMessage('Параметры задачи сохранены.'); }
-    catch (e) { setMessage('Ошибка сохранения: ' + (e as Error).message); setError(true); }
-    finally { setSaving(false); }
-  };
-
-  const run = async () => {
-    if (!task) return;
-    setRunning(true); setMessage(''); setError(false);
-    try { const result = await apiClient.runSchedulerTask(task.id); setMessage('Синхронизация завершена: добавлено ' + result.created + ', обновлено ' + result.updated + ', без изменений ' + result.unchanged + '.'); await load(); }
-    catch (e) { setMessage('Ошибка запуска задачи: ' + (e as Error).message); setError(true); await load(); }
-    finally { setRunning(false); }
-  };
-
-  return <div className="w-full space-y-6">
-    {message && <SettingsNotice message={message} variant={error ? 'error' : 'success'} onDismiss={() => setMessage('')} />}
-    <div><h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900"><CalendarClock size={24}/>Планировщик (crontab)</h1><p className="mt-1 text-sm text-gray-500 dark-readable-muted">Автоматический запуск фоновых задач по расписанию сервера.</p></div>
-    {loading ? <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500">Загрузка задач…</div> : task ? <div className="grid w-full grid-cols-1 items-start gap-6 lg:grid-cols-2">
-      <section className="rounded-xl border border-gray-200 bg-white p-6 space-y-5">
-        <div><h2 className="text-lg font-semibold text-gray-900">{task.name}</h2><p className="mt-1 text-sm text-gray-500">Синхронизирует источник SQL Server с таблицей магазинов PostgreSQL. Новые записи добавляются, изменённые обновляются; отсутствующие в источнике не удаляются.</p></div>
-        <label className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 p-4"><span><span className="block text-sm font-medium text-gray-900">Автоматическая синхронизация</span><span className="mt-1 block text-xs text-gray-500">Задача выполняется по расписанию, если переключатель включён.</span></span><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)} className="h-5 w-5"/></label>
-        <div><label className="mb-1 block text-sm font-medium text-gray-800">Crontab-выражение</label><input value={cronExpression} onChange={e=>setCronExpression(e.target.value)} placeholder="0 0 * * *" className="w-full rounded-lg border border-gray-200 px-3 py-2 font-mono text-sm"/><p className="mt-1 text-xs text-gray-500">По умолчанию: 0 0 * * * — ежедневно в 00:00 по локальному времени сервера. Формат: минута час день месяц день-недели. Примеры: <code>0 0 * * *</code> — каждый день в 00:00; <code>30 8 * * 1-5</code> — по будням в 08:30; <code>*/15 * * * *</code> — каждые 15 минут. Символы: <code>*</code> — любое значение, <code>*/N</code> — каждый N-й интервал, <code>1-5</code> — диапазон, <code>1,3,5</code> — перечисление. Время берётся из часового пояса сервера.</p></div>
-        <div className="flex flex-wrap gap-2"><button onClick={save} disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"><Save size={16}/>{saving ? 'Сохранение…' : 'Сохранить настройки'}</button><button onClick={run} disabled={running} className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"><Play size={16}/>{running ? 'Выполнение…' : 'Запустить сейчас'}</button></div>
-      </section>
-      <aside className="rounded-xl border border-blue-100 bg-blue-50 p-6 space-y-4 dark-readable-panel"><h3 className="font-semibold text-blue-950 dark-readable-heading">Как работает планировщик</h3><ul className="list-disc space-y-2 pl-5 text-sm text-blue-900 dark-readable-copy"><li>Проверка расписания выполняется сервером API каждые 10 секунд.</li><li>При первой настройке задача запускается сразу после старта API; после ошибки выполняется повторная попытка через 5 минут.</li><li>Для расписания используется часовой пояс сервера, а не браузера.</li><li>Статус, время последнего запуска и результат сохраняются в PostgreSQL.</li><li>Подключение к SQL Server задаётся через переменные UKM_SQL_* в окружении backend.</li><li>Для ручного запуска используйте кнопку здесь или синхронизацию на странице справочника магазинов.</li></ul><div className="border-t border-blue-200 pt-4 text-sm"><p className="font-medium text-blue-950 dark-readable-heading">Последний запуск</p><p className="mt-1 flex items-center gap-2 text-blue-900 dark-readable-copy"><Clock3 size={15}/>{task.lastRunAt ? new Date(task.lastRunAt).toLocaleString() : 'Ещё не запускалась'}</p><p className="mt-2 text-blue-900 dark-readable-copy">Статус: {task.lastStatus === 'success' ? 'Успешно' : task.lastStatus === 'error' ? 'Ошибка' : task.lastStatus === 'running' ? 'Выполняется' : 'Нет запусков'}</p>{task.lastMessage && <p className="mt-1 break-words text-xs text-blue-800 dark-readable-copy">{task.lastMessage}</p>}</div></aside>
-    </div> : <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500">Нет настроенных задач.</div>}
-  </div>;
+import React,{useCallback,useEffect,useState} from 'react';
+import {CalendarClock,Database,RefreshCw,Save,Play,Clock3,Loader2} from 'lucide-react';
+import {apiClient} from '../api/client';
+import {useStore} from '../store/useStore';
+function describeCron(expression:string){const parts=expression.trim().split(/\s+/);if(parts.length!==5)return 'Укажите расписание из пяти полей';const [minute,hour,day,month,week]=parts;if(/^\d+$/.test(minute)&&/^\d+$/.test(hour)&&day==='*'&&month==='*'){const time=hour.padStart(2,'0')+':'+minute.padStart(2,'0');if(week==='*')return 'Каждый день в '+time;if(week==='1-5')return 'По будням в '+time;}if(minute==='0'&&hour==='*'&&day==='*'&&month==='*'&&week==='*')return 'Каждый час, в начале часа';return 'По расписанию: '+expression;}
+type Task={id:string;name:string;cronExpression:string;enabled:boolean;exportDirectory:string;backupFileName:string;passwordConfigured?:boolean;lastRunAt?:string;lastStatus:string;lastMessage:string};
+export default function SchedulerPage(){
+ const {hasPermission}=useStore();const [tasks,setTasks]=useState<Task[]>([]),[selected,setSelected]=useState('shops-sync');
+ const [cron,setCron]=useState(''),[enabled,setEnabled]=useState(false),[directory,setDirectory]=useState('/db_logs'),[fileName,setFileName]=useState('db-copy{dd}.{MM}.{yyyy}');
+ const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
+ const task=tasks.find(item=>item.id===selected);const backup=selected==='postgresql-export';
+ const choose=(item:Task)=>{setSelected(item.id);setCron(item.cronExpression);setEnabled(item.enabled);setDirectory(item.exportDirectory||'/db_logs');setFileName(item.backupFileName||'db-copy{dd}.{MM}.{yyyy}');setError('');setMessage('')};
+ const load=useCallback(async()=>{try{setTasks(await apiClient.getSchedulerTasks())}catch(e){setError((e as Error).message)}},[]);
+ useEffect(()=>{void apiClient.getSchedulerTasks().then((items:Task[])=>{setTasks(items);if(items[0])choose(items.find(item=>item.id==='shops-sync')||items[0])}).catch(e=>setError(e.message))},[]);
+ const running=tasks.some(item=>item.lastStatus==='running');
+ useEffect(()=>{if(!running)return;const timer=setInterval(()=>void load(),3000);return()=>clearInterval(timer)},[running,load]);
+ if(!hasPermission('manage_scheduler'))return <div className="roles-empty">Нет доступа к планировщику</div>;
+ async function save(){if(!task)return;setBusy(true);setError('');try{const updated=await apiClient.updateSchedulerTask(task.id,{enabled,cronExpression:cron.trim(),...(backup?{exportDirectory:directory.trim(),backupFileName:fileName.trim()}:{})});setTasks(items=>items.map(item=>item.id===updated.id?{...item,...updated}:item));setMessage('Настройки сохранены.')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+ async function run(){if(!task)return;setBusy(true);setError('');try{const result=await apiClient.runSchedulerTask(task.id);setMessage(result.message || 'Задача выполнена.');await load()}catch(e){setError((e as Error).message);await load()}finally{setBusy(false)}}
+ return <div className="roles-page"><header className="roles-page-heading"><div><h1>Планировщик задач</h1><p>Расписание, ручной запуск и результаты фоновых задач.</p></div><button className="roles-secondary" onClick={()=>void load()}><RefreshCw size={16}/>Обновить</button></header>
+ {error&&<div role="alert" className="roles-notice error">{error}</div>}{message&&<div role="status" className="roles-notice success">{message}</div>}
+ <div className="roles-workspace"><aside className="roles-directory"><div className="roles-directory-heading"><h2>Задачи</h2><span>{tasks.length}</span></div><div className="roles-list">{tasks.map(item=><button key={item.id} className={`role-list-item ${selected===item.id?'selected':''}`} onClick={()=>choose(item)}><span className="role-list-icon">{item.id==='postgresql-export'?<Database size={18}/>:<CalendarClock size={18}/>}</span><span className="role-list-text"><strong>{item.name}</strong><small>{item.enabled?'По расписанию':'Автозапуск выключен'} · {item.cronExpression}</small></span></button>)}</div></aside>
+ <section className="roles-detail">{task?<><header className="role-detail-heading"><span className="role-detail-icon">{backup?<Database size={23}/>:<CalendarClock size={23}/>}</span><div><span className="roles-eyebrow">Фоновая задача</span><h2>{task.name}</h2><p>{backup?'Экспорт PostgreSQL в зашифрованный архив ZIP.':'Синхронизация справочника магазинов из SQL Server.'}</p></div></header>
+ <div className="scheduler-settings"><section className="scheduler-setting-card"><div className="scheduler-section-heading"><span className="role-list-icon"><CalendarClock size={19}/></span><div><h3>Расписание запуска</h3><p>Выберите готовый вариант или задайте своё расписание.</p></div></div><label className="scheduler-toggle"><span><strong>Автоматический запуск</strong><small>{enabled?'Задача будет запускаться по расписанию':'Доступен только ручной запуск'}</small></span><input type="checkbox" role="switch" aria-label="Автоматический запуск" checked={enabled} disabled={busy} onChange={e=>setEnabled(e.target.checked)}/></label><fieldset disabled={busy} className="scheduler-fields"><label>Частота запуска<select value={['0 2 * * *','0 0 * * *','0 9 * * 1-5','0 * * * *'].includes(cron)?cron:'custom'} onChange={e=>{setCron(e.target.value==='custom'?'':e.target.value)}}><option value="0 2 * * *">Ежедневно в 02:00</option><option value="0 0 * * *">Ежедневно в 00:00</option><option value="0 9 * * 1-5">По будням в 09:00</option><option value="0 * * * *">Каждый час</option><option value="custom">Своё расписание</option></select></label><label>Cron-выражение<input value={cron} onChange={e=>setCron(e.target.value)} placeholder="0 2 * * *" spellCheck={false}/><small>Минута · час · день месяца · месяц · день недели</small></label></fieldset><div className="scheduler-schedule-summary"><Clock3 size={17}/><span>{describeCron(cron)}<small>По умолчанию время московское.</small></span></div></section>
+ {backup&&<section className="scheduler-setting-card"><div className="scheduler-section-heading"><span className="role-list-icon"><Database size={19}/></span><div><h3>Хранение резервных копий</h3><p>Дамп базы данных в защищённом архиве ZIP.</p></div></div><label className="scheduler-path">Папка экспорта внутри контейнера<input disabled={busy} value={directory} onChange={e=>setDirectory(e.target.value)} placeholder="/db_logs"/><small>По умолчанию /db_logs. Для сохранения на сервере подключите папку через Docker volume.</small></label><label className="scheduler-path mt-4">Имя файла бэкапа<input disabled={busy} value={fileName} onChange={e=>setFileName(e.target.value)} placeholder="db-copy{dd}.{MM}.{yyyy}"/><small>Без расширения. Можно использовать {'{dd}'}, {'{MM}'}, {'{yyyy}'} для даты. В ZIP будет файл .sql.</small></label><div className="scheduler-backup-facts"><div><span>Имя архива</span><strong>{fileName}.zip</strong></div><div><span>Защита паролем</span><strong className={task.passwordConfigured?'text-green-700':'text-red-600'}>{task.passwordConfigured?'Пароль настроен':'Пароль не задан'}</strong></div></div><p className="scheduler-password-help">Пароль находится в файле .env на сервере: переменная <code>DB_BACKUP_PASSWORD</code>. Для старого архива нужен пароль, который действовал в день его создания.</p></section>}
+ <section className="scheduler-setting-card"><div className="scheduler-section-heading"><span className="role-list-icon"><Clock3 size={19}/></span><div><h3>Последний запуск</h3><p>{task.lastRunAt?new Date(task.lastRunAt).toLocaleString('ru-RU'):'Задача ещё не запускалась'}</p></div><span className={`scheduler-result ${task.lastStatus}`}>{({success:'Успешно',error:'Ошибка',running:'Выполняется',never:'Нет запусков'} as Record<string,string>)[task.lastStatus]||'Нет запусков'}</span></div>{task.lastMessage&&<p className="scheduler-last-message">{task.lastMessage}</p>}{backup&&task.passwordConfigured===false&&<p className="text-red-600">Задайте DB_BACKUP_PASSWORD в .env перед запуском.</p>}</section></div>
+ <footer className="role-editor-footer"><p>Проверка расписания каждые 10 секунд.<span>Выключение автозапуска не мешает ручному запуску.</span></p><div><button className="roles-secondary" disabled={busy||task.lastStatus==='running'||(backup&&task.passwordConfigured===false)} onClick={()=>void run()}>{task.lastStatus==='running'?<Loader2 size={16} className="animate-spin"/>:<Play size={16}/>}Запустить сейчас</button><button className="roles-primary" disabled={busy} onClick={()=>void save()}><Save size={16}/>Сохранить</button></div></footer></>:<div className="roles-empty">Загрузка задач…</div>}</section></div></div>;
 }

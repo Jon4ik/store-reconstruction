@@ -1,3 +1,5 @@
+import {TelegramModule} from './modules/telegram/telegram.module';
+import {VideoregsModule} from './modules/videoregs/videoregs.module';
 import { Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { PrismaService } from './prisma.service';
@@ -16,6 +18,8 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
 
 @Module({
   imports: [
+    TelegramModule,
+    VideoregsModule,
     AuthModule,
     StoresModule,
     TUsModule,

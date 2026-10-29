@@ -1,0 +1,38 @@
+const assert=require('node:assert/strict'),Module=require('node:module');
+process.env.LDAP_ENCRYPTION_KEY='11'.repeat(32);process.env.VIDEOREGS_ENCRYPTION_KEY='22'.repeat(32);
+let telegramRequest,proxyOptions,closed=0;
+const load=Module._load;Module._load=function(name,parent,isMain){if(name==='undici')return {fetch:async(url,options)=>{telegramRequest={url,options};return {ok:true,json:async()=>({ok:true,result:{message_id:42}})}},ProxyAgent:class{constructor(options){proxyOptions=options}async close(){closed++}}};return load.apply(this,arguments)};
+const {seal,open}=require('./dist/utils/secret-box');
+const {TelegramService}=require('./dist/modules/telegram/telegram.service');
+const {NotificationsService}=require('./dist/modules/notifications/notifications.service');
+const {VideoregsService}=require('./dist/modules/videoregs/videoregs.service');
+const {SYSTEM_TASKS}=require('./dist/modules/notifications/system-rules');
+const {hasRight}=require('./dist/modules/auth/permission-model');
+(async()=>{
+ assert.ok(!hasRight(['view_videoregs'],'view_videoregs_passwords'));
+ assert.ok(hasRight(['view_videoregs','view_videoregs_passwords'],'view_videoregs_passwords'));
+ assert.ok(!hasRight(['manage_videoregs'],'manage_videoregs'));
+ const secret=seal('recorder-password','VIDEOREGS_ENCRYPTION_KEY');assert.equal(open(secret,'VIDEOREGS_ENCRYPTION_KEY'),'recorder-password');assert.throws(()=>open(secret,'LDAP_ENCRYPTION_KEY'));
+ const telegram=new TelegramService({integrationSettings:{findUnique:async()=>({telegramEnabled:true,telegramTokenEncrypted:seal('123:'+ 'x'.repeat(24),'LDAP_ENCRYPTION_KEY'),telegramProxyEnabled:true,telegramProxyUrlEncrypted:seal('http://user:pass@proxy.invalid:8080/','LDAP_ENCRYPTION_KEY')})}});
+ const config=await telegram.settings();assert.ok(config.tokenConfigured);assert.ok(!JSON.stringify(config).includes('pass@'));assert.ok(!JSON.stringify(config).includes('x'.repeat(24)));
+ const id=await telegram.send({telegramTargetType:'channel',telegramChatId:'-100123',telegramThreadId:'12'},'text',await telegram.prisma.integrationSettings.findUnique());assert.equal(id,'42');const body=JSON.parse(telegramRequest.options.body);assert.equal(body.message_thread_id,12);assert.equal(body.chat_id,'-100123');assert.equal(proxyOptions.uri,'http://proxy.invalid:8080');assert.equal(proxyOptions.token,'Basic '+Buffer.from('user:pass').toString('base64'));assert.equal(closed,1);
+ const locked=new NotificationsService({notificationRule:{findUnique:async()=>({id:'system',systemTaskId:'sdDemolitionMonitoring'})}},telegram);
+ await assert.rejects(()=>locked.remove('system'),error=>error.getStatus()===400);
+ const editable=new NotificationsService({notificationRule:{findUnique:async()=>({id:'system',systemTaskId:'sdDemolitionMonitoring',channel:'intradesk',offsetType:'on_event',eventType:'demolitionDate',days:0,enabled:false}),update:async({data})=>data},integrationSettings:{findUnique:async()=>({})}},telegram);
+ await assert.rejects(()=>editable.update('system',{channel:'pachca',enabled:false}),error=>error.getStatus()===400);
+ const sameChannel=await editable.update('system',{channel:'intradesk',enabled:false});assert.equal(sameChannel.channel,'intradesk');
+ const changed=await editable.update('system',{offsetType:'calendar_days',eventType:'installationDate',days:3,enabled:false});assert.equal(changed.days,3);assert.equal(changed.eventType,'installationDate');assert.equal(changed.offsetType,'calendar_days');
+ await assert.rejects(()=>editable.update('system',{systemTaskId:'sdRequest'}),error=>error.getStatus()===400);
+ const onEvent=locked.validate({name:'test',offsetType:'on_event',eventType:'closureDate',days:100,channel:'telegram',enabled:false,sendTime:'09:00',messageTemplate:'test',telegramChatId:'123',telegramTargetType:'direct'});assert.equal(onEvent.days,0);assert.equal(onEvent.eventType,'closureDate');
+ let transactions=0;const videos=new VideoregsService({$transaction:()=>{transactions++;throw Error('unexpected')}});
+ await assert.rejects(()=>videos.importRows([{store_number:'a'}],'user'));assert.equal(transactions,0);
+ await assert.rejects(()=>videos.importRows([{store_number:'123'},{store_number:'123'}],'user'));assert.equal(transactions,0);
+ let passwordAudit;const reader=new VideoregsService({$transaction:async fn=>fn({videoRecorder:{findUnique:async()=>({storeNumber:'123',loginHall:'login',passwordHallEncrypted:secret})},auditLog:{create:async data=>passwordAudit=data}})});
+ assert.equal((await reader.passwords('id','user')).passwordHall,'recorder-password');assert.ok(!JSON.stringify(passwordAudit).includes('recorder-password'));assert.equal(passwordAudit.data.action,'view_videoreg_passwords');
+ const rows=SYSTEM_TASKS.map(task=>({id:task,systemTaskId:task,name:task,channel:'intradesk',eventType:task==='sdRequest'?'closureDate':'demolitionDate',offsetType:task==='sdRequest'?'business_days':'on_event',days:task==='sdRequest'?1:0,sendTime:'09:00',intradeskGroup:'1',intradeskTaskType:'2',intradeskService:'s',intradeskTags:'',intradeskSubject:'test',messageTemplate:'test'}));
+ let saved=[],sent=0;const prisma={notificationRule:{findMany:async()=>rows},integrationSettings:{findUnique:async()=>({intraDeskEnabled:true,intraDeskApiGateway:'https://sd.invalid',intraDeskApiKeyEncrypted:'mock'})},storeProject:{findMany:async()=>[{id:'p',storeNumber:'123',closureDate:new Date('2026-11-02T00:00:00Z'),demolitionDate:new Date('2026-11-03T00:00:00Z')}]},notificationDelivery:{findUnique:async()=>null,create:async()=>({id:'delivery'})},auditLog:{create:async()=>{}},$transaction:async fn=>fn({notificationDelivery:{update:async()=>{}},storeStageTask:{upsert:async args=>saved.push(args)}})};
+ const notifications=new NotificationsService(prisma,telegram);notifications.decryptApiKey=()=> 'mock';let clock=0;notifications.getMoscowDateTime=date=>({dateKey:clock++===0?'2026-11-03':date.toISOString().slice(0,10),time:'09:00'});notifications.logger={log(){},warn(){},error(message){throw Error(message)}};
+ const fetch=global.fetch;global.fetch=async()=>({ok:true,status:200,text:async()=>JSON.stringify({TaskNumber:'SD-'+ ++sent})});try{await notifications.runDueNotifications()}finally{global.fetch=fetch}
+ assert.equal(sent,3);assert.deepEqual(saved.map(row=>row.create.taskId).sort(),SYSTEM_TASKS.filter(task=>task!=='sdRequest').sort());assert.equal(new Set(saved.map(row=>row.create.requestNumber)).size,3);
+ console.log('PASS: Telegram/proxy/topic, secret encryption, recorder permissions/import/reveal audit, protected system rules, demolition date and three independent SD requests; no external requests or production writes');
+})().catch(error=>{console.error(error);process.exitCode=1});

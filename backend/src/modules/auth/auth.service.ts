@@ -1,3 +1,4 @@
+import { normalizePermissions } from './permission-model';
 import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -65,7 +66,6 @@ export class AuthService {
     await this.prisma.auditLog.create({
       data: {
         userId: user.id,
-        userName: user.fullName || user.username,
         action: 'login',
         field: 'auth',
         newValue: user.username,
@@ -88,7 +88,7 @@ export class AuthService {
         fullName: user.fullName,
         role: user.roleId,
         roleName: user.role.name,
-        permissions: user.role.permissions,
+        permissions: normalizePermissions(user.role.permissions),
         theme: user.theme,
       },
     };
@@ -120,7 +120,7 @@ export class AuthService {
       if (!['light', 'dark', 'system'].includes(data.theme)) throw new BadRequestException('Некорректная тема оформления');
       updateData.theme = data.theme;
     }
-    if (Object.keys(updateData).length === 0) return { ...existing, role: existing.role.id, roleName: existing.role.name, permissions: existing.role.permissions };
+    if (Object.keys(updateData).length === 0) return { ...existing, role: existing.role.id, roleName: existing.role.name, permissions: normalizePermissions(existing.role.permissions) };
 
     try {
       const user = await this.prisma.user.update({
@@ -128,7 +128,7 @@ export class AuthService {
         data: updateData,
         select: { id: true, username: true, fullName: true, theme: true, role: { select: { id: true, name: true, permissions: true } } },
       });
-      return { ...user, role: user.role.id, roleName: user.role.name, permissions: user.role.permissions };
+      return { ...user, role: user.role.id, roleName: user.role.name, permissions: normalizePermissions(user.role.permissions) };
     } catch (error: any) {
       if (error?.code === 'P2002') throw new ConflictException('Этот логин уже используется');
       throw error;
@@ -154,7 +154,7 @@ export class AuthService {
     const access_token = this.jwtService.sign({ sub: updated.id, username: updated.username, role: updated.roleId, ver: updated.tokenVersion });
     return {
       access_token,
-      user: { id: updated.id, username: updated.username, fullName: updated.fullName, role: updated.roleId, roleName: updated.role.name, permissions: updated.role.permissions, theme: updated.theme },
+      user: { id: updated.id, username: updated.username, fullName: updated.fullName, role: updated.roleId, roleName: updated.role.name, permissions: normalizePermissions(updated.role.permissions), theme: updated.theme },
     };
   }
 
@@ -164,6 +164,6 @@ export class AuthService {
       select: { id: true, username: true, fullName: true, isActive: true, theme: true, role: { select: { id: true, name: true, permissions: true } } },
     });
     if (!user || !user.isActive) throw new UnauthorizedException();
-    return { id: user.id, username: user.username, fullName: user.fullName, role: user.role.id, roleName: user.role.name, permissions: user.role.permissions, theme: user.theme };
+    return { id: user.id, username: user.username, fullName: user.fullName, role: user.role.id, roleName: user.role.name, permissions: normalizePermissions(user.role.permissions), theme: user.theme };
   }
 }

@@ -14,13 +14,14 @@ export class SchedulerController {
   getTasks() { return this.schedulerService.getTasks(); }
 
   @Put('tasks/:id')
-  updateTask(@Param('id') id: string, @Body() body: { enabled?: boolean; cronExpression?: string }) {
+  updateTask(@Param('id') id: string, @Body() body: { enabled?: boolean; cronExpression?: string; exportDirectory?:string; backupFileName?:string }) {
     if (body.enabled !== undefined && typeof body.enabled !== 'boolean') throw new BadRequestException('enabled должен быть boolean');
     return this.schedulerService.updateTask(id, body);
   }
 
   @Post('tasks/:id/run')
   runTask(@Param('id') id: string, @Request() req) {
+    if(id==='postgresql-export')return this.schedulerService.startTask(id,{id:req.user.sub,name:req.user.username});
     return this.schedulerService.runTask(id, { id: req.user.sub, name: req.user.username });
   }
 }

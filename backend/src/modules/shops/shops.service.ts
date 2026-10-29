@@ -94,7 +94,7 @@ export class ShopsService {
     const summary = { success: true, sourceCount: source.length, created, updated, unchanged, deleted: 0 };
     if (actor) {
       await this.prisma.auditLog.create({
-        data: { userId: actor.id, userName: actor.name, action: 'sync_shops', field: 'shop_directory', newValue: JSON.stringify(summary), details: 'Синхронизация справочника магазинов из SQL Server' },
+        data: { userId: actor.id, action: 'sync_shops', field: 'shop_directory', newValue: JSON.stringify(summary), details: 'Синхронизация справочника магазинов из SQL Server' },
       });
     }
     return summary;

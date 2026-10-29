@@ -13,6 +13,12 @@ RUN npm run build && test -f dist/main.js
 
 FROM node:20-bookworm-slim AS production
 ENV NODE_ENV=production
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg python3-cryptography p7zip-full \
+ && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/postgresql.gpg \
+ && echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+ && apt-get update && apt-get install -y --no-install-recommends postgresql-client-17 \
+ && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends openssl curl gnupg ca-certificates python3 python3-pyodbc unixodbc \
  && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \

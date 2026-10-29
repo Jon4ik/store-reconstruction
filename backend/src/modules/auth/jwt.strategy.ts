@@ -1,3 +1,4 @@
+import { normalizePermissions } from './permission-model';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -27,7 +28,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       sub: user.id,
       username: user.username,
       role: user.roleId,
-      permissions: user.role.permissions,
+      permissions: normalizePermissions(user.role.permissions),
     };
   }
 }

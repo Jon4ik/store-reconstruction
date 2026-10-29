@@ -1,0 +1,11 @@
+const fs=require('node:fs'),assert=require('node:assert/strict'),ts=require('typescript');
+require.extensions['.ts']=require.extensions['.tsx']=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.React,esModuleInterop:true,target:ts.ScriptTarget.ES2020}}).outputText,file);
+const {getAuditErrorReason}=require('../src/utils/auditError');
+assert.equal(getAuditErrorReason({errorReason:'ТУ отключён'}),'ТУ отключён');
+assert.equal(getAuditErrorReason({message:['Неверная дата','Нет ТУ']}),'Неверная дата; Нет ТУ');
+assert.ok(getAuditErrorReason({statusCode:400}).includes('не сохранена'));
+const React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
+const Component=require('../src/components/AuditEventDetails').default;
+const html=renderToStaticMarkup(React.createElement(Component,{log:{id:'e',action:'api_request',field:'http_request',newValue:'PUT /api/stores/p',timestamp:new Date().toISOString(),userName:'User',details:JSON.stringify({outcome:'error',statusCode:400,errorReason:'ТУ отключён'})},title:'Изменение объекта',module:'Объекты',projects:[],tus:[]}));
+assert.ok(html.includes('Причина ошибки'));assert.ok(html.includes('ТУ отключён'));
+console.log('PASS: explicit error reason and legacy fallback rendered');

@@ -70,6 +70,10 @@ model IntegrationSettings {
   pachcaEnabled          Boolean  @default(false)
   pachcaApiGateway       String   @default("https://api.pachca.com/api/shared/v1")
   pachcaApiKeyEncrypted  String   @default("")
+  telegramEnabled        Boolean @default(false)
+  telegramTokenEncrypted String @default("")
+  telegramProxyEnabled   Boolean @default(false)
+  telegramProxyUrlEncrypted String @default("")
   smtpEnabled            Boolean  @default(false)
   smtpHost               String   @default("")
   smtpPort               Int      @default(587)
@@ -104,6 +108,8 @@ model SchedulerTask {
   name           String
   cronExpression String   @default("0 0 * * *")
   enabled        Boolean  @default(true)
+  exportDirectory String @default("/db_logs")
+  backupFileName String @default("db-copy{dd}.{MM}.{yyyy}")
   lastRunAt      DateTime?
   lastStatus     String   @default("never")
   lastMessage    String   @default("")
@@ -173,7 +179,6 @@ model AuditLog {
   store     StoreProject? @relation(fields: [storeId], references: [id])
   userId    String?
   user      User?    @relation(fields: [userId], references: [id])
-  userName  String
   timestamp DateTime @default(now())
   action    String
   field     String
@@ -189,6 +194,10 @@ model AuditLog {
 
 model NotificationRule {
   id               String   @id @default(uuid())
+  systemTaskId     String? @unique
+  telegramTargetType String @default("direct")
+  telegramChatId String @default("")
+  telegramThreadId String @default("")
   name             String
   offsetType       String
   eventType        String
@@ -227,4 +236,16 @@ model NotificationDelivery {
   @@unique([ruleId, projectId, eventDate])
   @@index([sentAt])
   @@map("notification_deliveries")
+}
+
+model VideoRecorder {
+  id String @id @default(uuid())
+  storeNumber String @unique
+  ipHall String @default("")
+  softwareHall String @default("")
+  loginHall String @default("")
+  passwordHallEncrypted String @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("video_recorders")
 }

@@ -1,17 +1,20 @@
+import {TelegramService} from '../telegram/telegram.service';
+import {SYSTEM_TASKS} from './system-rules';
+import { extractSDRequestNumber } from './sd-request-number';
 import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { createDecipheriv } from 'node:crypto';
 import { PrismaService } from '../../prisma.service';
 
-const OFFSET_TYPES = ['calendar_days', 'business_days'];
+const OFFSET_TYPES = ['calendar_days', 'business_days', 'on_event'];
 const EVENT_TYPES = ['closureDate', 'demolitionDate', 'installationDate', 'techOpenDate'];
-const CHANNELS = ['intradesk', 'pachca', 'smtp'];
+const CHANNELS = ['intradesk', 'pachca', 'smtp', 'telegram'];
 
 @Injectable()
 export class NotificationsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(NotificationsService.name);
   private checking = false;
   private timer?: NodeJS.Timeout;
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly telegram: TelegramService) {}
 
   onModuleInit() { this.logger.log('Планировщик уведомлений запущен; проверка каждые 10 секунд, часовой пояс Europe/Moscow'); this.timer = setInterval(() => void this.runDueNotifications(), 10_000); }
   onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
@@ -72,7 +75,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.prisma.auditLog.create({
         data: {
-          userId: null, userName: 'Система', action: 'notification_delivery', field: input.eventType, oldValue: '', newValue: input.outcome,
+          userId: null, action: 'notification_delivery', field: input.eventType, oldValue: '', newValue: input.outcome,
           details: JSON.stringify({ outcome: input.outcome, ruleId: input.ruleId, ruleName: input.ruleName, projectId: input.projectId, shopNumber: input.shopNumber, eventType: input.eventType, eventDate: input.eventDate.toISOString(), statusCode: input.statusCode, message: input.message.slice(0, 2000) }).slice(0, 4000),
         },
       });
@@ -92,7 +95,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       const nowMoscow = this.getMoscowDateTime(new Date());
       const projects = await this.prisma.storeProject.findMany({ where: { isDeleted: false }, include: { shop: true, tu: true } });
       for (const rule of rules) {
-        const enabled = rule.channel === 'intradesk' ? integrations.intraDeskEnabled : rule.channel === 'pachca' ? integrations.pachcaEnabled : integrations.smtpEnabled;
+        const enabled = rule.channel === 'intradesk' ? integrations.intraDeskEnabled : rule.channel === 'pachca' ? integrations.pachcaEnabled : rule.channel === 'telegram' ? integrations.telegramEnabled : integrations.smtpEnabled;
         if (!enabled) {
           this.logger.warn(`Пропуск уведомления «${rule.name}»: интеграция ${rule.channel} выключена`);
           continue;
@@ -133,28 +136,11 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
               };
               if (tags.length) blocks.tags = JSON.stringify({ value: tags });
               const response = await fetch(baseUrl + '/changes/v3/tasks?ApiKey=' + encodeURIComponent(apiKey), { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ blocks, Channel: 'web' }) });
-              const responseText = (await response.text()).slice(0, 4000);
+              const responseText = await response.text();
               let data: any = null; try { data = responseText ? JSON.parse(responseText) : null; } catch {}
               const apiError = data && typeof data === 'object' ? (data.ErrorMessage || data.errorMessage || data.error || data.Error) : null;
-              if (!response.ok || apiError) throw new Error('IntraDesk HTTP ' + response.status + (apiError ? ': ' + String(apiError) : '') + (responseText ? ' — ' + responseText : ''));
-              const findRequestNumber = (value: any, depth = 0): unknown => {
-                if (!value || typeof value !== 'object' || depth > 5) return undefined;
-                for (const key of ['RequestNumber', 'requestNumber', 'TaskNumber', 'taskNumber', 'Number', 'number', 'TaskID', 'task_id']) {
-                  const candidate = value[key];
-                  if (candidate !== undefined && candidate !== null && (typeof candidate === 'string' || typeof candidate === 'number') && String(candidate).trim()) return candidate;
-                }
-                for (const nested of Object.values(value)) {
-                  const found = findRequestNumber(nested, depth + 1);
-                  if (found !== undefined) return found;
-                }
-                for (const key of ['Id', 'ID', 'id']) {
-                  const candidate = value[key];
-                  if (candidate !== undefined && candidate !== null && (typeof candidate === 'string' || typeof candidate === 'number') && String(candidate).trim()) return candidate;
-                }
-                return undefined;
-              };
-              const number = findRequestNumber(data);
-              requestNumber = number == null ? '' : String(number);
+              if (!response.ok || apiError) throw new Error('IntraDesk HTTP ' + response.status + (apiError ? ': ' + String(apiError) : '') + (responseText ? ' — ' + responseText.slice(0, 4000) : ''));
+              requestNumber = extractSDRequestNumber(data);
             } else if (rule.channel === 'pachca') {
               if (!integrations.pachcaApiGateway || !integrations.pachcaApiKeyEncrypted) throw new Error('Интеграция Pachca включена, но API-шлюз или API KEY не настроен');
               const token = this.decryptApiKey(integrations.pachcaApiKeyEncrypted);
@@ -176,6 +162,8 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
               if (!response.ok || data?.error || data?.errors) throw new Error('Pachca HTTP ' + response.status + ': ' + responseText);
               const number = data?.data?.id ?? data?.message?.id ?? data?.id;
               requestNumber = number == null ? '' : String(number);
+            } else if (rule.channel === 'telegram') {
+              requestNumber=await this.telegram.send(rule,message,integrations);
             } else {
               if (!integrations.smtpHost || !integrations.smtpFromEmail || !rule.emailTo || !rule.emailSubject) throw new Error('Для SMTP укажите сервер, адрес отправителя, адрес получателя и тему письма');
               const nodemailer = require('nodemailer');
@@ -189,13 +177,14 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
               });
               requestNumber = String(result.messageId || '');
             }
-            await this.prisma.notificationDelivery.update({ where: { id: delivery.id }, data: { status: 'sent', message, requestNumber, sentAt: new Date() } });
-            if (rule.channel === 'intradesk' && rule.eventType === 'closureDate' && rule.days === 1 && rule.offsetType === 'business_days') {
-              await this.prisma.storeStageTask.upsert({
-                where: { projectId_taskId: { projectId: project.id, taskId: 'sdRequest' } },
+            await this.prisma.$transaction(async tx => {
+            await tx.notificationDelivery.update({ where: { id: delivery.id }, data: { status: 'sent', message, requestNumber, sentAt: new Date() } });
+            if (rule.channel === 'intradesk' && rule.systemTaskId && SYSTEM_TASKS.includes(rule.systemTaskId)) {
+              await tx.storeStageTask.upsert({
+                where: { projectId_taskId: { projectId: project.id, taskId: rule.systemTaskId } },
                 create: {
                   projectId: project.id,
-                  taskId: 'sdRequest',
+                  taskId: rule.systemTaskId,
                   completed: true,
                   requestNumber,
                   status: 'sent',
@@ -208,6 +197,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
                 },
               });
             }
+            });
             this.logger.log(`Уведомление отправлено: ruleId=${rule.id}, channel=${rule.channel}, projectId=${project.id}, shop=${shopNumber}${requestNumber ? ', номер/ID=' + requestNumber : ''}`);
             await this.auditDelivery({ ruleId: rule.id, ruleName: rule.name, projectId: project.id, shopNumber, eventType: rule.eventType, eventDate, outcome: 'success', message: rule.channel + ' принял уведомление' + (requestNumber ? ' №/ID ' + requestNumber : '') });
           } catch (error: any) {
@@ -234,11 +224,26 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getClosureRequestStatus(projectId: string) {
-    return this.prisma.notificationDelivery.findFirst({
-      where: { projectId, rule: { channel: 'intradesk', eventType: 'closureDate', days: 1, offsetType: 'business_days' } },
-      orderBy: { sentAt: 'desc' },
-      select: { id: true, status: true, message: true, requestNumber: true, sentAt: true, ruleId: true, rule: { select: { name: true } } },
-    });
+    const [savedTask, delivery] = await Promise.all([
+      this.prisma.storeStageTask.findUnique({ where: { projectId_taskId: { projectId, taskId: 'sdRequest' } } }),
+      this.prisma.notificationDelivery.findFirst({
+        where: { projectId, rule: { channel: 'intradesk', eventType: 'closureDate', days: 1, offsetType: 'business_days' } },
+        orderBy: { sentAt: 'desc' },
+        select: { id: true, status: true, message: true, requestNumber: true, sentAt: true, ruleId: true, rule: { select: { name: true } } },
+      }),
+    ]);
+    // A saved SD task survives deletion of its notification rule/delivery history.
+    if (savedTask?.completed && savedTask.requestNumber) return { ...delivery, status: 'sent', requestNumber: savedTask.requestNumber, sentAt: delivery?.sentAt || savedTask.updatedAt };
+    if (delivery?.status === 'sent') {
+      await this.prisma.storeStageTask.upsert({
+        where: { projectId_taskId: { projectId, taskId: 'sdRequest' } },
+        create: { projectId, taskId: 'sdRequest', completed: true, status: 'sent', requestNumber: delivery.requestNumber },
+        update: { completed: true, status: 'sent', ...(delivery.requestNumber ? { requestNumber: delivery.requestNumber } : {}) },
+      });
+      return { ...delivery, requestNumber: delivery.requestNumber || savedTask?.requestNumber || '' };
+    }
+    if (savedTask?.completed) return { ...delivery, status: 'sent', requestNumber: savedTask.requestNumber, sentAt: savedTask.updatedAt };
+    return delivery;
   }
 
   async retryClosureRequest(projectId: string) {
@@ -252,8 +257,10 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
 
   private validate(input: any, partial = false) {
     const data: any = {};
-    const fields = ['name', 'offsetType', 'eventType', 'days', 'channel', 'enabled', 'sendTime', 'messageTemplate', 'intradeskGroup', 'intradeskService', 'intradeskSubject', 'intradeskTaskType', 'intradeskTags', 'pachcaTargetType', 'pachcaEntityId', 'pachcaRecipientId', 'emailTo', 'emailSubject'];
+    if(input.systemTaskId!==undefined)throw new BadRequestException('Системный идентификатор нельзя изменять');
+    const fields = ['name', 'offsetType', 'eventType', 'days', 'channel', 'enabled', 'sendTime', 'messageTemplate', 'intradeskGroup', 'intradeskService', 'intradeskSubject', 'intradeskTaskType', 'intradeskTags', 'pachcaTargetType', 'pachcaEntityId', 'pachcaRecipientId', 'emailTo', 'emailSubject', 'telegramTargetType', 'telegramChatId', 'telegramThreadId'];
     for (const field of fields) if (input[field] !== undefined) data[field] = input[field];
+    if(input.offsetType==='on_event'){data.days=0;}
     if (!partial || data.name !== undefined) {
       if (typeof data.name !== 'string' || !data.name.trim() || data.name.trim().length > 120) throw new BadRequestException('Название уведомления обязательно (до 120 символов)');
       data.name = data.name.trim();
@@ -275,7 +282,10 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     if (data.intradeskTags !== undefined) data.intradeskTags = data.intradeskTags.trim();
     if (data.pachcaTargetType !== undefined && !['channel', 'direct'].includes(data.pachcaTargetType)) throw new BadRequestException('Выберите отправку в канал или личное сообщение Pachca');
     for (const field of ['pachcaEntityId', 'pachcaRecipientId', 'emailTo', 'emailSubject']) if (data[field] !== undefined && (typeof data[field] !== 'string' || data[field].length > 1000)) throw new BadRequestException('Проверьте поля Pachca и SMTP (до 1000 символов)');
+    if(data.telegramTargetType!==undefined&&!['direct','channel'].includes(data.telegramTargetType))throw new BadRequestException('Выберите тип получателя Telegram');
+    for(const field of ['telegramChatId','telegramThreadId'])if(data[field]!==undefined&&(typeof data[field]!=='string'||data[field].length>100))throw new BadRequestException('Проверьте ID Telegram');
     const channel = data.channel;
+    if(channel==='telegram'&&!partial)this.validateTelegram(data);
     if (channel === 'intradesk' && !partial) {
       for (const field of ['intradeskGroup', 'intradeskService', 'intradeskSubject', 'intradeskTaskType']) {
         if (typeof data[field] !== 'string' || !data[field].trim()) throw new BadRequestException('Для IntraDesk заполните группу исполнителей, сервис, тип и тему заявки');
@@ -294,7 +304,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
   async create(input: any) {
     const data = this.validate(input);
     const integration = await this.prisma.integrationSettings.findUnique({ where: { id: 'default' } });
-    const enabled = data.channel === 'intradesk' ? integration?.intraDeskEnabled : data.channel === 'pachca' ? integration?.pachcaEnabled : integration?.smtpEnabled;
+    const enabled = data.channel === 'intradesk' ? integration?.intraDeskEnabled : data.channel === 'pachca' ? integration?.pachcaEnabled : data.channel === 'telegram' ? integration?.telegramEnabled : integration?.smtpEnabled;
     if (!enabled) throw new BadRequestException('Сначала включите интеграцию ' + data.channel + ' в разделе «Настройки → Интеграции»');
     if (data.channel === 'pachca' && !integration?.pachcaApiKeyEncrypted) throw new BadRequestException('Сначала настройте API KEY Pachca');
     if (data.channel === 'smtp' && (!integration?.smtpHost || !integration.smtpFromEmail)) throw new BadRequestException('Сначала настройте SMTP');
@@ -305,14 +315,17 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     const existing = await this.prisma.notificationRule.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Уведомление не найдено');
     const data = this.validate(input, true);
+    if(existing.systemTaskId && data.channel!==undefined && data.channel!==existing.channel)throw new BadRequestException('Канал связи системного уведомления нельзя изменять');
     const channel = data.channel ?? existing.channel;
+    if(channel==='telegram')this.validateTelegram({...existing,...data});
+    if((data.offsetType ?? existing.offsetType)==='on_event'){data.days=0;}
     const integration = await this.prisma.integrationSettings.findUnique({ where: { id: 'default' } });
-    const enabled = channel === 'intradesk' ? integration?.intraDeskEnabled : channel === 'pachca' ? integration?.pachcaEnabled : integration?.smtpEnabled;
+    const enabled = channel === 'intradesk' ? integration?.intraDeskEnabled : channel === 'pachca' ? integration?.pachcaEnabled : channel === 'telegram' ? integration?.telegramEnabled : integration?.smtpEnabled;
     // Turning a rule off must remain possible even after its integration has been disabled.
     if (data.enabled !== false && !enabled) throw new BadRequestException('Сначала включите интеграцию ' + channel + ' в разделе «Настройки → Интеграции»');
     if (data.enabled !== false && channel === 'pachca' && !integration?.pachcaApiKeyEncrypted) throw new BadRequestException('Сначала настройте API KEY Pachca');
     if (data.enabled !== false && channel === 'smtp' && (!integration?.smtpHost || !integration.smtpFromEmail)) throw new BadRequestException('Сначала настройте SMTP');
-    if (channel === 'intradesk') {
+    if (channel === 'intradesk' && data.enabled !== false) {
       for (const field of ['intradeskGroup', 'intradeskService', 'intradeskSubject', 'intradeskTaskType']) {
         const value = data[field] ?? (existing as any)[field];
         if (typeof value !== 'string' || !value.trim()) throw new BadRequestException('Для IntraDesk заполните группу исполнителей, сервис, тип и тему заявки');
@@ -334,9 +347,15 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async remove(id: string) {
-    const existing = await this.prisma.notificationRule.findUnique({ where: { id }, select: { id: true } });
+    const existing = await this.prisma.notificationRule.findUnique({ where: { id }, select: { id: true,systemTaskId:true } });
     if (!existing) throw new NotFoundException('Уведомление не найдено');
+    if(existing.systemTaskId)throw new BadRequestException('Системное уведомление нельзя удалить. Его можно отключить.');
     await this.prisma.notificationRule.delete({ where: { id } });
     return { success: true };
   }
+  private validateTelegram(data:any){if(!/^-?\d{1,20}$/.test(data.telegramChatId || ''))throw new BadRequestException('Укажите числовой ID чата Telegram');if(data.telegramTargetType==='direct'&&Number(data.telegramChatId)<=0)throw new BadRequestException('ID пользователя должен быть положительным');if(data.telegramThreadId&&!/^[1-9]\d{0,9}$/.test(data.telegramThreadId))throw new BadRequestException('ID темы должен быть положительным числом');}
+  async getChannels(){const row=await this.prisma.integrationSettings.findUnique({where:{id:'default'}});return {intradesk:!!row?.intraDeskEnabled,pachca:!!row?.pachcaEnabled,smtp:!!row?.smtpEnabled,telegram:!!row?.telegramEnabled};}
+  async getStageRequests(projectId:string){const [tasks,deliveries]=await Promise.all([this.prisma.storeStageTask.findMany({where:{projectId,taskId:{in:SYSTEM_TASKS}}}),this.prisma.notificationDelivery.findMany({where:{projectId,rule:{systemTaskId:{in:SYSTEM_TASKS}}},include:{rule:{select:{systemTaskId:true}}},orderBy:{sentAt:'desc'}})]);return Object.fromEntries(SYSTEM_TASKS.map(taskId=>{const task=tasks.find(t=>t.taskId===taskId);const delivery=deliveries.find(d=>d.rule.systemTaskId===taskId);return [taskId,task?.completed?{status:'sent',requestNumber:task.requestNumber,message:task.message,sentAt:task.updatedAt}:delivery?{status:delivery.status,requestNumber:delivery.requestNumber,message:delivery.message,sentAt:delivery.sentAt}:null]}));}
+  async retryStageRequest(projectId:string,taskId:string){if(!SYSTEM_TASKS.includes(taskId))throw new BadRequestException('Неизвестная системная задача');const row=await this.prisma.notificationDelivery.findFirst({where:{projectId,rule:{systemTaskId:taskId},status:'error'},orderBy:{sentAt:'desc'}});if(!row)throw new NotFoundException('Нет ошибочной отправки этой задачи');return this.prisma.notificationDelivery.update({where:{id:row.id},data:{status:'retry_requested',sentAt:new Date()}});}
+
 }

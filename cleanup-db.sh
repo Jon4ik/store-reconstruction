@@ -1,54 +1,20 @@
-#!/bin/bash
-
-# Скрипт полной очистки базы данных
-# ВНИМАНИЕ: Это удалит ВСЕ данные из базы!
-
-set -e
-
-echo "⚠️  ВНИМАНИЕ: Это удалит ВСЕ данные из базы данных!"
-echo ""
-read -p "Вы уверены? (yes/no): " CONFIRM
-
-if [ "$CONFIRM" != "yes" ]; then
-    echo "❌ Операция отменена"
-    exit 0
+#!/usr/bin/env bash
+# Full application reset. This script is never invoked during a normal deployment.
+set -euo pipefail
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd -- "$SCRIPT_DIR"
+command -v docker >/dev/null || { printf '%s\n' 'Docker is required.' >&2; exit 1; }
+[[ -f .env ]] || { printf '%s\n' '.env not found in the project directory.' >&2; exit 1; }
+[[ -f cleanup-db.sql ]] || { printf '%s\n' 'cleanup-db.sql not found.' >&2; exit 1; }
+if [[ "${1:-}" == '--check' ]]; then
+  docker compose config --quiet
+  printf '%s\n' 'Configuration valid. No database changes were made.'
+  exit 0
 fi
-
-echo ""
-echo "🗑  Очистка базы данных..."
-
-# Загрузка переменных из .env
-if [ -f .env ]; then
-    echo "📄 Загрузка переменных из .env..."
-    while IFS='=' read -r key value; do
-        [[ "$key" =~ ^#.*$ ]] && continue
-        [[ -z "$key" ]] && continue
-        key=$(echo "$key" | xargs)
-        value=$(echo "$value" | xargs)
-        export "$key"="$value"
-    done < .env
-else
-    echo "❌ Файл .env не найден"
-    exit 1
-fi
-
-DB_PORT=${DB_PORT:-5432}
-export PGPASSWORD=$DB_PASSWORD
-
-echo "📦 Подключение к PostgreSQL: $DB_HOST:$DB_PORT/$DB_NAME"
-echo ""
-
-# Выполнение SQL скрипта очистки
-psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f cleanup-db.sql
-
-echo ""
-echo "✅ База данных очищена"
-echo ""
-echo "📋 Теперь перезапустите backend для применения миграций:"
-echo "   docker compose restart backend"
-echo ""
-echo "Или для полной пересборки:"
-echo "   docker compose down"
-echo "   docker compose build --no-cache backend"
-echo "   docker compose up -d"
-echo ""
+printf '%s\n' 'This will permanently delete all application data and migration history.' 'Other public-schema tables are kept.'
+read -r -p 'Type DELETE to reset the application database: ' CONFIRM
+[[ "$CONFIRM" == 'DELETE' ]] || { printf '%s\n' 'Cancelled.'; exit 0; }
+# Compose reads .env itself; secrets are neither sourced as shell code nor printed.
+docker compose stop frontend backend
+docker compose run --rm --no-deps -T migrate npx prisma db execute --stdin --schema prisma/schema.prisma < cleanup-db.sql
+printf '%s\n' 'Application tables removed.' 'Recreate the schema and initial account with:' '  docker compose up -d --force-recreate migrate backend frontend'
